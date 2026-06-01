@@ -12,7 +12,7 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 | Alembic-Head | `c31556efa8b2` (`phase1 initial schema`) |
 | DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
 | Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (4 Tests) |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (10 Tests) |
 
 ## Was bereits gebaut wurde
 
@@ -43,6 +43,14 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - `tests/conftest.py` — separate Test-DB `netbuddy_test`, `create_all`/`drop_all` per Test
 - `tests/db/test_models.py` — 3 Tests: Device+Credential-Link, EncryptedString-Roundtrip, Soft-Delete
 
+### Session 4 — Erstes DB-Endpoint + Git
+- **Git-Sicherung:** 5 thematische Commits, gepusht auf `origin` (`github.com/swissgiant/Netbuddy`, HTTPS via `gh`)
+- `api/deps.py` — wiederverwendbare `SessionDep` (`Annotated[AsyncSession, Depends(get_session)]`, vermeidet B008)
+- `api/routes/devices.py` — `GET /devices` (paginiert via `limit`/`offset`, nach Hostname sortiert, Soft-Deleted ausgeblendet) + `GET /devices/{id}` (404 bei fehlend/gelöscht); `DeviceRead`-Schema (`from_attributes`, `mgmt_ip` als `IPvAnyAddress`)
+- `tests/conftest.py` — `api_client`-Fixture: httpx-Client mit `get_session`-Override gegen die Test-DB
+- `tests/api/test_devices.py` — 6 Endpoint-Tests
+- `pyproject.toml` — mypy-Override für `asyncpg` (keine Stubs), damit die Gate auch `tests/` abdeckt
+
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults
 - Explizite `DROP TYPE`-Schleife im `downgrade()` (Alembic vergisst Enums)
@@ -57,10 +65,11 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 
 ## Naheliegende nächste Schritte (nichts angefangen)
 
-1. **Erstes DB-gestütztes API-Endpoint** (`GET /devices` etc.) mit `get_session` als Dependency, Pydantic-Schemas
-2. **SwitchAdapter-Protocol** + erster Cisco-IOS-Skeleton-Adapter (read-only gegen Mock)
-3. **Discovery-Service-Skelett** (LLDP/CDP/SNMP)
-4. **ARQ-Worker** für Background-Jobs
+1. **SwitchAdapter-Protocol** + erster Cisco-IOS-Skeleton-Adapter (read-only gegen Mock)
+2. **Discovery-Service-Skelett** (LLDP/CDP/SNMP)
+3. **ARQ-Worker** für Background-Jobs
+4. **Weitere Device-Endpoints** (POST/PATCH/DELETE) — erst wenn über Read-Only hinaus gewünscht
+5. **Endpoints für übrige Aggregate** (Interfaces, LLDP-Neighbors, Discovery-Runs)
 
 ## Quick-Reference
 
