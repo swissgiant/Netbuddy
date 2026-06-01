@@ -1,6 +1,6 @@
 # NetBuddy — Aktueller Stand
 
-**Stand:** Anfang Juni 2026, Phase 1 — Schema/Migration fertig, noch nichts committed.
+**Stand:** Anfang Juni 2026, Phase 1 — Schema/Migration fertig, alles committed & gepusht.
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht.
 
@@ -53,15 +53,14 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 
 ## Kritische offene Punkte
 
-**🔴 0 Git-Commits.** `git init` ist gelaufen, Branch `main` existiert, aber alles ist `??`. Kein Remote definiert. Drei volle Sessions Arbeit ungesichert.
+**✅ Git-Commits erledigt.** 4 thematisch geschnittene Commits (Scaffolding / FastAPI-Skelett / Docker-Stack / DB-Schema), auf `origin` (`github.com/swissgiant/Netbuddy`, HTTPS via `gh`) gepusht. `main` trackt `origin/main`. Commit-Mail: GitHub-noreply (`6225583+swissgiant@users.noreply.github.com`, lokal im Repo gesetzt). Keine offenen Blocker.
 
 ## Naheliegende nächste Schritte (nichts angefangen)
 
-1. **Initial-Commit(s)** — thematisch geschnitten (Skelett / Docker / Schema), idealerweise mit Remote
-2. **Erstes DB-gestütztes API-Endpoint** (`GET /devices` etc.) mit `get_session` als Dependency, Pydantic-Schemas
-3. **SwitchAdapter-Protocol** + erster Cisco-IOS-Skeleton-Adapter (read-only gegen Mock)
-4. **Discovery-Service-Skelett** (LLDP/CDP/SNMP)
-5. **ARQ-Worker** für Background-Jobs
+1. **Erstes DB-gestütztes API-Endpoint** (`GET /devices` etc.) mit `get_session` als Dependency, Pydantic-Schemas
+2. **SwitchAdapter-Protocol** + erster Cisco-IOS-Skeleton-Adapter (read-only gegen Mock)
+3. **Discovery-Service-Skelett** (LLDP/CDP/SNMP)
+4. **ARQ-Worker** für Background-Jobs
 
 ## Quick-Reference
 
