@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from loguru import logger
 
-from netbuddy.api.routes import health
+from netbuddy.api.routes import devices, health
 from netbuddy.core.config import get_settings
 from netbuddy.core.logging import setup_logging
 
@@ -26,6 +26,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(health.router)
+    app.include_router(devices.router)
     return app
 
 
