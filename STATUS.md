@@ -12,7 +12,8 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 | Alembic-Head | `c31556efa8b2` (`phase1 initial schema`) |
 | DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
 | Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (10 Tests) |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (18 Tests) |
+| Vendor-Abstraction-Layer | `SwitchAdapter`-Protocol + Capability-Registry + Cisco-IOS-Adapter (read-only, gegen Mock-Transport) |
 
 ## Was bereits gebaut wurde
 
@@ -51,6 +52,17 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - `tests/api/test_devices.py` — 6 Endpoint-Tests
 - `pyproject.toml` — mypy-Override für `asyncpg` (keine Stubs), damit die Gate auch `tests/` abdeckt
 
+### Session 5 — Vendor-Abstraction-Layer + Cisco-IOS-Adapter
+- `adapters/capabilities.py` — `Capability(StrEnum)`: `READ_SYSTEM_INFO` / `READ_INTERFACES` / `READ_LLDP` / `READ_MAC_TABLE`
+- `adapters/dto.py` — vendor-neutrale Pydantic-DTOs (`SystemInfo`, `InterfaceData`, `LldpNeighborData`, `MacEntryData`); Enums aus `db/models` wiederverwendet (Single Source of Truth)
+- `adapters/transport.py` — `CommandTransport`-Protocol (`async send_command`) + `MockTransport` (Canned-Output); echter SSH-Transport bewusst noch nicht
+- `adapters/base.py` — `SwitchAdapter`-Protocol (alle 4 Read-Methoden) + `AdapterError`/`CapabilityNotSupportedError`
+- `adapters/registry.py` — `@register_adapter`, `get_adapter_class`, `available_adapters`, `UnknownAdapterError`
+- `adapters/cisco_ios.py` — `CiscoIosAdapter`, read-only, parst `show version`/`interfaces`/`lldp neighbors detail`/`mac address-table` via **ntc-templates** → DTOs; defensive Enum-Mappings (Fallback `UNKNOWN`/`DYNAMIC`)
+- `pyproject.toml` — `ntc-templates`-Dependency + mypy-Override für `ntc_templates.*`/`textfsm.*`
+- Tests: `tests/adapters/` mit Fixture-Dateien (`fixtures/cisco_ios/*.txt`); 8 neue Tests (Registry + 4 Read-Methoden + Leer-Output)
+- **Read-only-first gewahrt:** kein echter Geräte-Zugriff im Code — Transport wird injiziert, getestet gegen Mock
+
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults
 - Explizite `DROP TYPE`-Schleife im `downgrade()` (Alembic vergisst Enums)
@@ -65,9 +77,9 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 
 ## Naheliegende nächste Schritte (nichts angefangen)
 
-1. **SwitchAdapter-Protocol** + erster Cisco-IOS-Skeleton-Adapter (read-only gegen Mock)
-2. **Discovery-Service-Skelett** (LLDP/CDP/SNMP)
-3. **ARQ-Worker** für Background-Jobs
+1. **Echter `CommandTransport`** (Scrapli/Netmiko) + `ConnectionParams`-Aufbau aus `Credential` — erster echter, read-only Geräte-Zugriff (mit Alex' OK)
+2. **Discovery-Service-Skelett** — mappt Adapter-DTOs auf die ORM-Aggregate, schreibt `DiscoveryRun`
+3. **ARQ-Worker** für Background-Jobs (Discovery async)
 4. **Weitere Device-Endpoints** (POST/PATCH/DELETE) — erst wenn über Read-Only hinaus gewünscht
 5. **Endpoints für übrige Aggregate** (Interfaces, LLDP-Neighbors, Discovery-Runs)
 
