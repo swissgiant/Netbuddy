@@ -1,4 +1,4 @@
-from typing import ClassVar, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from netbuddy.adapters.capabilities import Capability
 from netbuddy.adapters.dto import (
@@ -26,16 +26,15 @@ class CapabilityNotSupportedError(AdapterError):
 class SwitchAdapter(Protocol):
     """Einheitliche, vendor-unabhängige Read-Schnittstelle zu einem Switch.
 
-    Konkrete Adapter (z.B. Cisco IOS) implementieren dieses Protocol strukturell
-    und werden über :func:`netbuddy.adapters.registry.register_adapter` registriert.
-    Welche Methoden wirklich nutzbar sind, meldet :meth:`capabilities`; ein Aufruf
-    einer nicht gemeldeten Methode darf :class:`CapabilityNotSupportedError` werfen.
+    Standard-Implementierung ist :class:`~netbuddy.adapters.declarative.DeclarativeAdapter`,
+    der ein YAML-Vendor-Profil interpretiert. Welche Methoden wirklich nutzbar sind, meldet
+    :meth:`capabilities`; ein Aufruf einer nicht gemeldeten Methode wirft
+    :class:`CapabilityNotSupportedError`.
     """
 
-    adapter_id: ClassVar[str]
+    adapter_id: str
 
-    @classmethod
-    def capabilities(cls) -> frozenset[Capability]: ...
+    def capabilities(self) -> frozenset[Capability]: ...
 
     async def get_system_info(self) -> SystemInfo: ...
 

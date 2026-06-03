@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from netbuddy.adapters import CiscoIosAdapter, MockTransport
+from netbuddy.adapters import MockTransport, SwitchAdapter, build_adapter
 from netbuddy.db.models import AdminStatus, DeviceType, MacEntryType, OperStatus
 
 _FIXTURES = Path(__file__).parent / "fixtures" / "cisco_ios"
@@ -14,11 +14,11 @@ _COMMAND_FILES = {
 }
 
 
-def _adapter() -> CiscoIosAdapter:
+def _adapter() -> SwitchAdapter:
     responses = {
         command: (_FIXTURES / filename).read_text() for command, filename in _COMMAND_FILES.items()
     }
-    return CiscoIosAdapter(MockTransport(responses))
+    return build_adapter("cisco_ios", MockTransport(responses))
 
 
 async def test_get_system_info() -> None:
@@ -89,14 +89,15 @@ async def test_get_mac_table_skips_cpu_and_maps_types() -> None:
 
 
 async def test_empty_output_yields_empty_lists() -> None:
-    adapter = CiscoIosAdapter(
+    adapter = build_adapter(
+        "cisco_ios",
         MockTransport(
             {
                 "show interfaces": "",
                 "show lldp neighbors detail": "",
                 "show mac address-table": "",
             }
-        )
+        ),
     )
     assert await adapter.get_interfaces() == []
     assert await adapter.get_lldp_neighbors() == []

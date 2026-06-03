@@ -1,0 +1,64 @@
+# Cisco IOS / IOS-XE — read-only. Erstes deklaratives Profil (ersetzt den früheren
+# handgeschriebenen CiscoIosAdapter). Geparst via ntc-templates (platform cisco_ios).
+adapter_id: cisco_ios
+ntc_platform: cisco_ios
+
+capabilities:
+  read_system_info:
+    command: "show version"
+    parser: ntc
+    fields:
+      hostname: { from: hostname, via: [strip_or_none], default: "" }
+      vendor: { const: cisco }
+      model: { from: hardware, via: [first] }
+      os_version: { from: version, via: [strip_or_none] }
+      serial_number: { from: serial, via: [first] }
+      device_type: { const: switch }
+
+  read_interfaces:
+    command: "show interfaces"
+    parser: ntc
+    fields:
+      name: interface
+      description: { from: description, via: [strip_or_none] }
+      admin_status:
+        from: link_status
+        via:
+          - lookup:
+              table: { up: up, "administratively down": down, down: down }
+              default: unknown
+      oper_status:
+        from: protocol_status
+        via:
+          - first_word
+          - lookup:
+              table: { up: up, down: down, testing: testing }
+              default: unknown
+      mac_address: { from: mac_address, via: [strip_or_none] }
+      speed_mbps: { from: bandwidth, via: [kbit_to_mbps] }
+      mtu: { from: mtu, via: [int_or_none] }
+      interface_type: { from: hardware_type, via: [strip_or_none] }
+
+  read_lldp:
+    command: "show lldp neighbors detail"
+    parser: ntc
+    fields:
+      local_interface: local_interface
+      remote_chassis_id: chassis_id
+      remote_port_id: neighbor_port_id
+      remote_port_description: { from: neighbor_interface, via: [strip_or_none] }
+      remote_system_name: { from: neighbor_name, via: [strip_or_none] }
+      remote_system_description: { from: neighbor_description, via: [strip_or_none] }
+
+  read_mac_table:
+    command: "show mac address-table"
+    parser: ntc
+    drop_when_empty: [interface]
+    fields:
+      mac_address: destination_address
+      interface: { from: destination_port, via: [first] }
+      vlan_id: { from: vlan_id, via: [int_or_none] }
+      entry_type:
+        from: type
+        via:
+          - enum_value: { values_of: MacEntryType, default: dynamic }

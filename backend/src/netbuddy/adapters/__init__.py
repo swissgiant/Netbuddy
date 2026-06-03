@@ -4,36 +4,44 @@ from netbuddy.adapters.base import (
     SwitchAdapter,
 )
 from netbuddy.adapters.capabilities import Capability
-from netbuddy.adapters.cisco_ios import CiscoIosAdapter
+from netbuddy.adapters.connection import ConnectionParams, params_from_credential
+from netbuddy.adapters.declarative import DeclarativeAdapter
 from netbuddy.adapters.dto import (
     InterfaceData,
     LldpNeighborData,
     MacEntryData,
     SystemInfo,
 )
+from netbuddy.adapters.profile import VendorProfile, load_profile
 from netbuddy.adapters.registry import (
     UnknownAdapterError,
     available_adapters,
-    get_adapter_class,
-    register_adapter,
+    build_adapter,
+    get_profile,
 )
+from netbuddy.adapters.scrapli_transport import ScrapliTransport
 from netbuddy.adapters.transport import CommandTransport, MockTransport, TransportError
 
 __all__ = [
     "AdapterError",
     "Capability",
     "CapabilityNotSupportedError",
-    "CiscoIosAdapter",
     "CommandTransport",
+    "ConnectionParams",
+    "DeclarativeAdapter",
     "InterfaceData",
     "LldpNeighborData",
     "MacEntryData",
     "MockTransport",
+    "ScrapliTransport",
     "SwitchAdapter",
     "SystemInfo",
     "TransportError",
     "UnknownAdapterError",
+    "VendorProfile",
     "available_adapters",
-    "get_adapter_class",
-    "register_adapter",
+    "build_adapter",
+    "get_profile",
+    "load_profile",
+    "params_from_credential",
 ]
