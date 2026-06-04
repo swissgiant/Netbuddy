@@ -12,6 +12,9 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
   const [error, setError] = useState<string | null>(null);
   const [nodeLayers, setNodeLayers] = useState<Set<string>>(new Set(NODE_LAYERS));
   const [edgeLayers, setEdgeLayers] = useState<Set<string>>(new Set(EDGE_LAYERS));
+  const [fontSize, setFontSize] = useState(10);
+  const [edgeWidth, setEdgeWidth] = useState(2);
+  const [edgeColor, setEdgeColor] = useState("#94a3b8");
 
   const reload = () => {
     fetchTopology().then(setTopology).catch((e) => setError(String(e)));
@@ -54,6 +57,22 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
           </label>
         ))}
 
+        <h3>Darstellung</h3>
+        <label style={{ display: "block", fontSize: 12 }}>
+          Schriftgröße: {fontSize}px
+          <input type="range" min={6} max={28} value={fontSize}
+            onChange={(e) => setFontSize(Number(e.target.value))} style={{ width: "100%" }} />
+        </label>
+        <label style={{ display: "block", fontSize: 12 }}>
+          Linien-Breite: {edgeWidth}px
+          <input type="range" min={1} max={10} value={edgeWidth}
+            onChange={(e) => setEdgeWidth(Number(e.target.value))} style={{ width: "100%" }} />
+        </label>
+        <label style={{ display: "block", fontSize: 12 }}>
+          Linien-Farbe{" "}
+          <input type="color" value={edgeColor} onChange={(e) => setEdgeColor(e.target.value)} />
+        </label>
+
         <h3>Adapter-Status</h3>
         {adapters.map((a) => (
           <div key={a.adapter_id} style={{ fontSize: 12, marginBottom: 6 }}>
@@ -70,7 +89,15 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
 
       <div className="graph">
         {topology ? (
-          <TopologyGraph topology={topology} visibleNodeTypes={nodeLayers} visibleEdgeTypes={edgeLayers} theme={theme} />
+          <TopologyGraph
+            topology={topology}
+            visibleNodeTypes={nodeLayers}
+            visibleEdgeTypes={edgeLayers}
+            theme={theme}
+            fontSize={fontSize}
+            edgeWidth={edgeWidth}
+            edgeColor={edgeColor}
+          />
         ) : (
           <p style={{ padding: 16 }}>Lade Topologie…</p>
         )}

@@ -118,3 +118,20 @@ export const createSite = (body: { name: string; code?: string }) =>
   http<Site>("/sites", { method: "POST", body: JSON.stringify(body) });
 
 export const fetchSuggestions = () => http<SuggestedDevice[]>("/discovery/suggestions");
+
+export interface DeviceCredentialRow {
+  device_id: string;
+  credential_id: string;
+  protocol: string;
+  credential_name: string;
+}
+export const fetchDeviceCredentials = () => http<DeviceCredentialRow[]>("/device-credentials");
+export const linkCredential = (deviceId: string, credentialId: string, protocol = "ssh") =>
+  http<unknown>(`/devices/${deviceId}/credentials`, {
+    method: "POST",
+    body: JSON.stringify({ credential_id: credentialId, protocol }),
+  });
+export const unlinkCredential = (deviceId: string, credentialId: string, protocol = "ssh") =>
+  http<void>(`/devices/${deviceId}/credentials/${credentialId}?protocol=${protocol}`, {
+    method: "DELETE",
+  });

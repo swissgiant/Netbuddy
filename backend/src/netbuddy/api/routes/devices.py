@@ -149,6 +149,45 @@ async def delete_device(device_id: uuid.UUID, session: SessionDep) -> None:
     device.deleted_at = datetime.now(UTC)
 
 
+class DeviceCredentialLink(BaseModel):
+    credential_id: uuid.UUID
+    protocol: CredentialProtocol = CredentialProtocol.SSH
+
+
+@router.post("/{device_id}/credentials", status_code=status.HTTP_201_CREATED)
+async def link_credential(
+    device_id: uuid.UUID, body: DeviceCredentialLink, session: SessionDep
+) -> DeviceCredentialLink:
+    """Verknüpft eine Credential (Protokoll) mit einem Gerät (idempotent)."""
+    await get_device(device_id, session)
+    existing = await session.get(DeviceCredential, (device_id, body.credential_id, body.protocol))
+    if existing is None:
+        session.add(
+            DeviceCredential(
+                device_id=device_id, credential_id=body.credential_id, protocol=body.protocol
+            )
+        )
+        await session.flush()
+    return body
+
+
+@router.delete("/{device_id}/credentials/{credential_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unlink_credential(
+    device_id: uuid.UUID,
+    credential_id: uuid.UUID,
+    session: SessionDep,
+    protocol: CredentialProtocol = CredentialProtocol.SSH,
+) -> None:
+    """Löst eine Credential-Verknüpfung eines Geräts."""
+    await session.execute(
+        delete(DeviceCredential).where(
+            DeviceCredential.device_id == device_id,
+            DeviceCredential.credential_id == credential_id,
+            DeviceCredential.protocol == protocol,
+        )
+    )
+
+
 class DeviceImportResult(BaseModel):
     created: int
     device_ids: list[uuid.UUID]

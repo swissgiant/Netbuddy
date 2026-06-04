@@ -7,6 +7,7 @@ from loguru import logger
 from netbuddy.api.routes import (
     adapters,
     credentials,
+    device_credentials,
     devices,
     discovery,
     health,
@@ -40,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(sites.router)
     app.include_router(topology.router)
     app.include_router(discovery.router)
+    app.include_router(device_credentials.router)
     return app
 
 

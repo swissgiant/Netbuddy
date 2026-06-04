@@ -18,12 +18,23 @@ interface Props {
   visibleNodeTypes: Set<string>;
   visibleEdgeTypes: Set<string>;
   theme: "dark" | "light";
+  fontSize: number;
+  edgeWidth: number;
+  edgeColor: string;
 }
 
 const labelColor = (theme: "dark" | "light") => (theme === "dark" ? "#e2e8f0" : "#0f172a");
 
 /** Zoom-/pan-barer Cytoscape-Graph; Layer werden per Sichtbarkeit gefiltert. */
-export function TopologyGraph({ topology, visibleNodeTypes, visibleEdgeTypes, theme }: Props) {
+export function TopologyGraph({
+  topology,
+  visibleNodeTypes,
+  visibleEdgeTypes,
+  theme,
+  fontSize,
+  edgeWidth,
+  edgeColor,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
 
@@ -47,7 +58,7 @@ export function TopologyGraph({ topology, visibleNodeTypes, visibleEdgeTypes, th
             "background-color": NODE_COLOR.other,
             label: "data(label)",
             color: labelColor(theme),
-            "font-size": 10,
+            "font-size": fontSize,
             "text-valign": "bottom",
             "text-margin-y": 4,
             width: 26,
@@ -94,6 +105,14 @@ export function TopologyGraph({ topology, visibleNodeTypes, visibleEdgeTypes, th
   useEffect(() => {
     cyRef.current?.nodes().style("color", labelColor(theme));
   }, [theme]);
+
+  // Anzeige-Einstellungen (Schriftgröße, Linien-Breite/-Farbe) live anwenden.
+  useEffect(() => {
+    cyRef.current?.nodes().style("font-size", fontSize);
+  }, [fontSize]);
+  useEffect(() => {
+    cyRef.current?.edges().style({ width: edgeWidth, "line-color": edgeColor });
+  }, [edgeWidth, edgeColor]);
 
   return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
 }

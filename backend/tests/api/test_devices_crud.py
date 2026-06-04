@@ -75,3 +75,41 @@ async def test_lldp_suggestions(api_client: AsyncClient, db_session: AsyncSessio
     assert "core-sw" not in names  # bereits im Inventar
     sug = next(s for s in suggestions if s["system_name"] == "new-access-sw")
     assert sug["seen_on"] == ["core-sw / Eth1/1/1"]
+
+
+async def test_device_credential_link_unlink(api_client: AsyncClient) -> None:
+    cred = await api_client.post("/credentials", json={"name": "lab", "username": "u"})
+    cid = cred.json()["id"]
+    dev = await api_client.post(
+        "/devices",
+        json={
+            "hostname": "sw-link",
+            "mgmt_ip": "10.0.0.8",
+            "vendor": "dell",
+            "adapter_id": "dell_os10",
+        },
+    )
+    did = dev.json()["id"]
+
+    link = await api_client.post(
+        f"/devices/{did}/credentials", json={"credential_id": cid, "protocol": "ssh"}
+    )
+    assert link.status_code == 201
+    # idempotent
+    assert (
+        await api_client.post(f"/devices/{did}/credentials", json={"credential_id": cid})
+    ).status_code == 201
+
+    rows = (await api_client.get("/device-credentials")).json()
+    mine = [r for r in rows if r["device_id"] == did]
+    assert len(mine) == 1
+    assert mine[0]["credential_name"] == "lab"
+    assert mine[0]["protocol"] == "ssh"
+
+    assert (
+        await api_client.delete(f"/devices/{did}/credentials/{cid}?protocol=ssh")
+    ).status_code == 204
+    rows2 = [
+        r for r in (await api_client.get("/device-credentials")).json() if r["device_id"] == did
+    ]
+    assert rows2 == []
