@@ -4,8 +4,9 @@ React + Vite + TypeScript + **Cytoscape.js**. Zeigt die Netz-Topologie als zoom-
 (Standorte, Switches, Firewalls) mit ein-/ausblendbaren Layern. Daten kommen vom Backend
 (`GET /topology`, `GET /adapters`).
 
-> ⚠️ **Status: unverifiziert.** Dieses Frontend wurde autonom gerüstet, aber **nicht** im Browser
-> getestet (in der Build-Umgebung gibt es keinen Browser/kein npm-Run). Bitte einmal lokal prüfen.
+> **Status:** `npm install` + `npm run build` (tsc-Typecheck **und** Vite-Bundle) laufen sauber durch.
+> Der **visuelle Browser-Render** wurde noch nicht geprüft (keine Browser-Umgebung im Build) — bitte
+> einmal `npm run dev` öffnen und draufschauen.
 
 ## Starten
 

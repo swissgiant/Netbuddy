@@ -15,7 +15,7 @@ Session-Fortschritt: `STATUS.md`. Fleet-Fakten: `docs/fleet-and-adapters.md`.
 | A3 — Assistiertes Onboarding | Geräte-Hilfe → Kandidaten-Befehle → Profil-Entwurf | ✅ (S12) |
 | D — Aruba CX (CLI) + Meraki (API) | weitere Vendor | ✅ (S13) |
 | E — Fortigate (Firewall, API, read-only) | Firewall-Geräteklasse | ✅ (S14) |
-| G — GUI / Topologie-Graph | Topologie-API ✅ + React/Cytoscape-Frontend (⚠️ unverifiziert) | 🟡 (S15) Backend fertig, Frontend ungetestet |
+| G — GUI / Topologie-Graph | Topologie-API ✅ + React/Cytoscape-Frontend (build/typecheck ✅, Browser-Render offen) | 🟢 (S15) |
 | F — Schreibzugriff/VLAN/VPN (Nordstern) | NICHT autonom — braucht Alex' Go + Backup/Rollback | ⛔ gesperrt |
 
 ### Phase G — GUI / Topologie (Zusatzanforderung Alex)
@@ -41,8 +41,8 @@ nur Listen; verschiedene Infos als Layer **ein-/ausblendbar**. Plan:
 
 ## Offene Fragen an Alex
 
-- **Frontend live verifizieren:** `cd frontend && npm install && npm run dev` (Backend muss laufen) —
-  ich konnte es ohne Browser/npm hier nicht testen. Cytoscape-Style/Layout bei Bedarf justieren.
+- **Frontend im Browser anschauen:** `cd frontend && npm run dev` (Backend muss laufen). Build +
+  TypeScript-Check laufen bereits sauber; nur der visuelle Render/Bedienung steht noch aus.
 - API-Auth-Details für UniFi/Meraki/Forti (Header/Token-Format) gegen echte Systeme bestätigen.
 
 ## Bekannte Schwächen / Normalisierung nötig
