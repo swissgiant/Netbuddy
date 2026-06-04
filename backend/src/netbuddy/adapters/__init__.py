@@ -13,6 +13,7 @@ from netbuddy.adapters.dto import (
     SystemInfo,
 )
 from netbuddy.adapters.factory import connect
+from netbuddy.adapters.fortigate import FortigateAdapter
 from netbuddy.adapters.meraki import MerakiAdapter
 from netbuddy.adapters.profile import VendorProfile, load_profile
 from netbuddy.adapters.registry import (
@@ -39,6 +40,7 @@ __all__ = [
     "CommandTransport",
     "ConnectionParams",
     "DeclarativeAdapter",
+    "FortigateAdapter",
     "InterfaceData",
     "LldpNeighborData",
     "MacEntryData",

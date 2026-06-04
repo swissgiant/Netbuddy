@@ -14,8 +14,8 @@ Session-Fortschritt: `STATUS.md`. Fleet-Fakten: `docs/fleet-and-adapters.md`.
 | B — API-Adapter-Klasse + UniFi | zweite Integrationsart, Credential-API-Felder, Site/Controller | ✅ (S11) |
 | A3 — Assistiertes Onboarding | Geräte-Hilfe → Kandidaten-Befehle → Profil-Entwurf | ✅ (S12) |
 | D — Aruba CX (CLI) + Meraki (API) | weitere Vendor | ✅ (S13) |
-| **E — Fortigate (Firewall, API, read-only)** | Firewall-Geräteklasse | 🔨 als Nächstes |
-| **G — GUI / Topologie-Graph** | grafisch, zoombar; Standorte→Switches→Firewalls; Layer ein/ausblendbar; nicht nur Listen | ⏳ geplant (Frontend) |
+| E — Fortigate (Firewall, API, read-only) | Firewall-Geräteklasse | ✅ (S14) |
+| **G — GUI / Topologie-Graph** | grafisch, zoombar; Standorte→Switches→Firewalls; Layer ein/ausblendbar; nicht nur Listen | 🔨 als Nächstes |
 | F — Schreibzugriff/VLAN/VPN (Nordstern) | NICHT autonom — braucht Alex' Go + Backup/Rollback | ⛔ gesperrt |
 
 ### Phase G — GUI / Topologie (Zusatzanforderung Alex)

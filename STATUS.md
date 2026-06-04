@@ -12,9 +12,9 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 | Alembic-Head | `2523e7a92c2a` (`sites, device.site_id, credential api fields`) |
 | DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
 | Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (97 Tests) |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (101 Tests) |
 | CLI-Profile | cisco_ios, dell_os10, dell_os6, fs_ruijie, fs_centec, aruba_cx (sysinfo dell/fs live-validiert, Rest unvalidiert) |
-| API-Adapter | unifi, meraki (JSON-Controller-API, unvalidiert) |
+| API-Adapter | unifi, meraki, fortigate (Firewall) — JSON-API, unvalidiert |
 | Vendor-Abstraction-Layer | Deklarative YAML-Profile + `DeclarativeAdapter`; Cisco IOS als erstes Profil (read-only, gegen Mock-Transport) |
 | Echter Transport | `ScrapliTransport` (async, read-only-Guard) + `ConnectionParams` aus `Credential`; noch kein Live-Zugriff |
 | Neuer Vendor | = Profil-YAML + Fixtures + bestandener Conformance-Test, **kein Code** |
