@@ -1,9 +1,9 @@
 import uuid
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
@@ -66,3 +66,15 @@ async def list_credentials(session: SessionDep) -> Sequence[Credential]:
     stmt = select(Credential).where(Credential.deleted_at.is_(None)).order_by(Credential.name)
     result = await session.execute(stmt)
     return result.scalars().all()
+
+
+@router.delete("/{credential_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_credential(credential_id: uuid.UUID, session: SessionDep) -> None:
+    """Entfernt eine Credential (Soft-Delete)."""
+    stmt = select(Credential).where(Credential.id == credential_id, Credential.deleted_at.is_(None))
+    credential = (await session.execute(stmt)).scalar_one_or_none()
+    if credential is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Credential nicht gefunden"
+        )
+    credential.deleted_at = datetime.now(UTC)

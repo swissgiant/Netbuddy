@@ -12,7 +12,7 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 | Alembic-Head | `2523e7a92c2a` (`sites, device.site_id, credential api fields`) |
 | DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
 | Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (103 Tests) |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (106 Tests) |
 | CLI-Profile | cisco_ios, dell_os10, dell_os6, fs_ruijie, fs_centec, aruba_cx (sysinfo dell/fs live-validiert, Rest unvalidiert) |
 | API-Adapter | unifi, meraki, fortigate (Firewall) — JSON-API, unvalidiert |
 | Vendor-Abstraction-Layer | Deklarative YAML-Profile + `DeclarativeAdapter`; Cisco IOS als erstes Profil (read-only, gegen Mock-Transport) |
@@ -138,6 +138,11 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - **Topologie-API (G, Backend):** `POST /sites` + `GET /sites`; `Device.site_id` im Create/Import; **`GET /topology`** → Knoten (Sites + Devices, `type` als Layer) + Kanten (`member` Gerät→Standort, `lldp` Gerät↔Gerät via `remote_system_name==hostname`). Tests: `test_topology_api`, `test_fortigate`. **103 Tests grün.**
 - **Frontend-Gerüst (`frontend/`):** React + Vite + TS + **Cytoscape.js** — zoom/pan-barer Topologie-Graph, Layer-Toggles (Geräte-Typen + member/lldp), Adapter-Status-Panel, Vite-Proxy ans Backend. ⚠️ **Unverifiziert** (kein Browser/npm in der Build-Umgebung) — Alex: `cd frontend && npm install && npm run dev`.
 - **Hinweis:** laufender Backend-Server (vor S15 gestartet) kennt `/topology`/`/sites` noch nicht → neu starten.
+
+### Session 16 — GUI-App-Ausbau (G2) + Geräte-/Credential-CRUD + LLDP-Vorschläge
+- **Backend:** `DELETE /devices/{id}` + `DELETE /credentials/{id}` (Soft-Delete); `site_id` in `DeviceRead`; **`GET /discovery/suggestions`** (LLDP-Nachbarn, die noch nicht im Inventar sind → Add-Vorschläge). 106 Tests grün.
+- **Frontend zur App ausgebaut:** Navigations-**Menü** (Topologie / Geräte / Credentials / [Benutzer—Phase H]); **Dark Mode als Default + Toggle** (CSS-Variablen, in localStorage). Views: **Geräte** (Liste + Hinzufügen-Formular + Entfernen + LLDP-Vorschläge „ins Formular"), **Credentials** (SSH/API anlegen + entfernen), **Topologie** (Graph + Layer + Adapter-Status). `npm run build` (tsc + vite) sauber.
+- Server laufen: Backend `0.0.0.0:8000`, Vite-GUI `0.0.0.0:5173` (HMR).
 
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults

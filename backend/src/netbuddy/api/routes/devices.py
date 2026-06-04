@@ -1,6 +1,6 @@
 import uuid
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -51,6 +51,7 @@ class DeviceRead(BaseModel):
     serial_number: str | None
     device_type: DeviceType
     adapter_id: str
+    site_id: uuid.UUID | None
     capabilities: list[str]
     enabled: bool
     first_seen: datetime
@@ -139,6 +140,13 @@ async def _create_device(body: DeviceCreate, session: SessionDep) -> Device:
 async def create_device(body: DeviceCreate, session: SessionDep) -> Device:
     """Legt ein Gerät an (+ optionale SSH-Credential-Verknüpfung)."""
     return await _create_device(body, session)
+
+
+@router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_device(device_id: uuid.UUID, session: SessionDep) -> None:
+    """Entfernt ein Gerät (Soft-Delete)."""
+    device = await get_device(device_id, session)
+    device.deleted_at = datetime.now(UTC)
 
 
 class DeviceImportResult(BaseModel):

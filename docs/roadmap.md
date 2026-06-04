@@ -16,7 +16,17 @@ Session-Fortschritt: `STATUS.md`. Fleet-Fakten: `docs/fleet-and-adapters.md`.
 | D — Aruba CX (CLI) + Meraki (API) | weitere Vendor | ✅ (S13) |
 | E — Fortigate (Firewall, API, read-only) | Firewall-Geräteklasse | ✅ (S14) |
 | G — GUI / Topologie-Graph | Topologie-API ✅ + React/Cytoscape-Frontend (build/typecheck ✅, Browser-Render offen) | 🟢 (S15) |
+| G2 — GUI-App-Ausbau | Menü, Geräte-Liste + Add/Remove, Credentials-Verwaltung, LLDP-Vorschläge, Dark Mode (default) + Toggle | 🟢 (S16) build ✅, Browser-Feincheck offen |
+| **H — User/Login + RBAC** | Login, Userverwaltung, Rollen/Berechtigungen (wer darf suchen/lesen/ändern) | 🔨 als Nächstes |
 | F — Schreibzugriff/VLAN/VPN (Nordstern) | NICHT autonom — braucht Alex' Go + Backup/Rollback | ⛔ gesperrt |
+
+### Backlog aus Alex' Wünschen (live gesammelt)
+- **G2 (jetzt):** Navigations-**Menü**; **Listenansicht** Switches/FW (zusätzlich zum Graph);
+  Geräte **hinzufügen/entfernen** im GUI; **Credentials** sauber verwalten (SSH + API); **naheliegende
+  Switches automatisch erkennen + vorschlagen** (aus LLDP-Nachbarn, die noch nicht im Inventar sind);
+  **Dark Mode als Default, umschaltbar**.
+- **H (danach):** Login + Userverwaltung + RBAC (Rollen: wer darf suchen/lesen/ändern). CLAUDE.md
+  hatte RBAC zurückgestellt — wird jetzt nachgezogen. Enforcement auf allen Endpoints + Login im GUI.
 
 ### Phase G — GUI / Topologie (Zusatzanforderung Alex)
 
