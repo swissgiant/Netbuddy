@@ -9,10 +9,10 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 | Komponente | Status |
 |---|---|
 | Docker-Dev-Stack (postgres + redis + adminer) | Seit ~2 Wochen ununterbrochen `healthy`; Endpoints lt. README |
-| Alembic-Head | `c31556efa8b2` (`phase1 initial schema`) |
+| Alembic-Head | `843563cc7225` (`validation_check table`) |
 | DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
 | Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (62 Tests) |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (72 Tests) |
 | CLI-Profile | cisco_ios, dell_os10, dell_os6, fs_ruijie, fs_centec (sysinfo live-validiert, Rest unvalidiert) |
 | Vendor-Abstraction-Layer | Deklarative YAML-Profile + `DeclarativeAdapter`; Cisco IOS als erstes Profil (read-only, gegen Mock-Transport) |
 | Echter Transport | `ScrapliTransport` (async, read-only-Guard) + `ConnectionParams` aus `Credential`; noch kein Live-Zugriff |
@@ -98,6 +98,14 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - Tests: `test_vendor_profiles` (gezielte Feld-Assertions je Vendor), `test_profile` (Kurzform↔sources, list-arity-Guard), `test_conformance` deckt jetzt 5 Profile × Capabilities. **62 Tests grün.**
 - Adapter-Registry meldet jetzt 5 `adapter_id`s: cisco_ios, dell_os10, dell_os6, fs_centec, fs_ruijie.
 
+### Session 9 — Live-Read-only Foundation + Validierungs-Tool (Phase A2)
+- **U1/U2 Live-Transport**: `connection.py` mappt Dell/FS → `"generic"`; `ScrapliTransport` baut für unbekannte Plattformen `AsyncGenericDriver` (read-only `show`, keine Privilege-Logik), sonst Core-Treiber. `adapters/factory.py` `connect(device, credential)` (entkoppelt vom Transport).
+- **Validierungs-Kern** `services/validation.py`: `validate_adapter(adapter)` fährt jede Capability, Status `ok`/`empty`/`error` + Zeilenzahl + **Feld-Abdeckung** + Meldung; bricht nicht ab. `validate_device(device, credential)` = Live-Pfad über `RecordingTransport` (liefert Report + rohen Output als Referenz-Capture).
+- **`ValidationCheck`-Modell** + Migration `843563cc7225` (device_id, adapter_id, capability, command, status, row_count, detail JSONB, raw_excerpt, checked_at; unique (device_id, capability)).
+- **Endpoints (das Tool, ohne Code):** `POST /credentials` + `GET /credentials`; `POST /devices`, `POST /devices/import` (Bulk für 30+); **`POST /devices/{id}/validate`** (read-only live, persistiert Status); `GET /devices/{id}/validation`; **`GET /adapters`** (Capability-Katalog + `provenance` + Validierungs-Status je Profil/Capability). Validierung als injizierbare Dependency (`get_device_validator`) → Tests ohne echtes Gerät.
+- **Tests:** `services/test_validation` (ok/empty/error), `test_generic_transport` (Treiber-Wahl + Dell/FS→generic), `api/test_validation_api` (Eintrag, Validate persistiert, /adapters-Status, Bulk-Import). **72 Tests grün.**
+- **Folge-Phase A3 (vorgemerkt):** assistiertes Onboarding — neuer Switch → Geräte-Hilfe (`show ?`) → Kandidaten-Befehle → live probieren + validieren → Profil-Vorschlag (Brücke zu Phase-5 KI-Generierung). Validierungs-Kern dafür schon parametrierbar gehalten.
+
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults
 - Explizite `DROP TYPE`-Schleife im `downgrade()` (Alembic vergisst Enums)
@@ -131,12 +139,12 @@ Statt aus Doku zu raten, hat Alex das echte Fleet per `show version` / UniFi-Con
 
 ## Naheliegende nächste Schritte
 
-1. **CLI-Profile aus echten Captures** — `dell_os10`, `dell_os6`, `fs_centec`, `fs_ruijie`. `show version`-Captures liegen vor (validiert); für interfaces/lldp/mac noch echte Captures einsammeln, sonst doku-abgeleitet/unvalidiert. Multi-source-Capability-Erweiterung (Dell-Sysinfo) nötig. Gate = `test_conformance`.
-2. **`unifi` API-Adapter** — neuer Adapter-Typ (Controller-JSON statt CommandTransport), erfüllt `SwitchAdapter`; multi-site. Erweitert das Framework um die API-Klasse.
-3. **Live-Smoke-Test** des `ScrapliTransport` gegen einen Lab-Switch — read-only Service-User + IP via `secrets.yaml`. ⚠️ Erster echter Geräte-Zugriff, braucht Alex' OK + Creds.
-4. **Discovery-Service-Skelett** — mappt Adapter-DTOs auf die ORM-Aggregate, schreibt `DiscoveryRun`
-5. **ARQ-Worker** + **`GET /adapters`** + Endpoints für übrige Aggregate
-6. **Weitere Vendor:** Cisco Catalyst (Profil da), HP Aruba (CLI-Profil[e]), Cisco Meraki (API-Adapter)
+1. **Echte Live-Validierung** — Alex trägt die Switches ein (`POST /devices` + Credentials bzw. `POST /devices/import`) und fährt `POST /devices/{id}/validate` gegen die realen Geräte → bestätigt/korrigiert die noch `unvalidated` interfaces/lldp/mac. (Code + Tests stehen, Session 9.)
+2. **Phase A3 — assistiertes Onboarding** (Befehls-Discovery via Geräte-Hilfe → Kandidaten → validieren → Profil-Vorschlag).
+3. **`unifi` API-Adapter** — zweite Adapter-Klasse (Controller-JSON), multi-site; Credential-Modell um API-Felder + Site/Controller-Entity (U6/U7).
+4. **Discovery-Service-Skelett** — mappt Adapter-DTOs auf die ORM-Aggregate, schreibt `DiscoveryRun`; ARQ-Worker.
+5. **Weitere Vendor:** Cisco Catalyst (Profil da), HP Aruba (CLI-Profil[e]), Cisco Meraki (API-Adapter).
+6. **Firewalls** (Fortigate API zuerst) + Nordstern: site-übergreifende VLANs/VPN.
 6. **KI-gestützte Profil-Generierung** (Phase 5) — baut direkt auf dem Profil-Schema + Conformance-Gate auf
 
 ## Quick-Reference

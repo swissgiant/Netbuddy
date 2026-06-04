@@ -16,6 +16,23 @@ class CommandTransport(Protocol):
     async def send_command(self, command: str) -> str: ...
 
 
+class RecordingTransport:
+    """Dekoriert einen Transport und merkt sich jeden Befehl + dessen Roh-Output.
+
+    Nützlich für die Validierung: das geparste Ergebnis kommt vom Adapter, der rohe
+    CLI-Output (als Referenz-Capture) steht danach in :attr:`calls`.
+    """
+
+    def __init__(self, inner: "CommandTransport") -> None:
+        self._inner = inner
+        self.calls: dict[str, str] = {}
+
+    async def send_command(self, command: str) -> str:
+        output = await self._inner.send_command(command)
+        self.calls[command] = output
+        return output
+
+
 class MockTransport:
     """Transport mit fest hinterlegten Antworten — für Tests und lokale Demos.
 

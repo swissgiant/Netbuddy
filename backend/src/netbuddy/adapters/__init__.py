@@ -12,6 +12,7 @@ from netbuddy.adapters.dto import (
     MacEntryData,
     SystemInfo,
 )
+from netbuddy.adapters.factory import connect
 from netbuddy.adapters.profile import VendorProfile, load_profile
 from netbuddy.adapters.registry import (
     UnknownAdapterError,
@@ -20,7 +21,12 @@ from netbuddy.adapters.registry import (
     get_profile,
 )
 from netbuddy.adapters.scrapli_transport import ScrapliTransport
-from netbuddy.adapters.transport import CommandTransport, MockTransport, TransportError
+from netbuddy.adapters.transport import (
+    CommandTransport,
+    MockTransport,
+    RecordingTransport,
+    TransportError,
+)
 
 __all__ = [
     "AdapterError",
@@ -33,6 +39,7 @@ __all__ = [
     "LldpNeighborData",
     "MacEntryData",
     "MockTransport",
+    "RecordingTransport",
     "ScrapliTransport",
     "SwitchAdapter",
     "SystemInfo",
@@ -41,6 +48,7 @@ __all__ = [
     "VendorProfile",
     "available_adapters",
     "build_adapter",
+    "connect",
     "get_profile",
     "load_profile",
     "params_from_credential",

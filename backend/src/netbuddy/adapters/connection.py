@@ -2,9 +2,14 @@ from pydantic import BaseModel, SecretStr
 
 from netbuddy.db.models import Credential, Device
 
-# adapter_id → Scrapli-Plattform. Wächst mit jedem neuen Vendor-Adapter.
+# adapter_id → Scrapli-Plattform. ``"generic"`` = kein Core-Treiber → AsyncGenericDriver
+# (read-only `show` braucht keine Vendor-Privilege-Logik). Wächst mit jedem Vendor.
 _SCRAPLI_PLATFORM = {
     "cisco_ios": "cisco_iosxe",
+    "dell_os10": "generic",
+    "dell_os6": "generic",
+    "fs_centec": "generic",
+    "fs_ruijie": "generic",
 }
 
 

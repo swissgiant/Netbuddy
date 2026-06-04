@@ -1,0 +1,61 @@
+from collections import defaultdict
+from datetime import datetime
+
+from fastapi import APIRouter
+from pydantic import BaseModel
+from sqlalchemy import select
+
+from netbuddy.adapters import available_adapters, get_profile
+from netbuddy.api.deps import SessionDep
+from netbuddy.db.models import ValidationCheck
+
+router = APIRouter(prefix="/adapters", tags=["adapters"])
+
+
+class CapabilityStatusInfo(BaseModel):
+    capability: str
+    validated: bool  # mind. ein Gerät mit Status "ok"
+    last_status: str | None = None
+    last_checked_at: datetime | None = None
+    devices_checked: int = 0
+
+
+class AdapterInfo(BaseModel):
+    adapter_id: str
+    provenance: str | None
+    capabilities: list[CapabilityStatusInfo]
+
+
+@router.get("", response_model=list[AdapterInfo])
+async def list_adapters(session: SessionDep) -> list[AdapterInfo]:
+    """Capability-Katalog je Profil + Live-Validierungs-Status (was funktioniert schon)."""
+    result = await session.execute(select(ValidationCheck))
+    checks = result.scalars().all()
+
+    # (adapter_id, capability) → Liste der Checks
+    by_key: dict[tuple[str, str], list[ValidationCheck]] = defaultdict(list)
+    for check in checks:
+        by_key[(check.adapter_id, check.capability)].append(check)
+
+    adapters: list[AdapterInfo] = []
+    for adapter_id, caps in sorted(available_adapters().items()):
+        profile = get_profile(adapter_id)
+        cap_infos: list[CapabilityStatusInfo] = []
+        for capability in sorted(c.value for c in caps):
+            rows = by_key.get((adapter_id, capability), [])
+            latest = max(rows, key=lambda r: r.checked_at, default=None)
+            cap_infos.append(
+                CapabilityStatusInfo(
+                    capability=capability,
+                    validated=any(r.status == "ok" for r in rows),
+                    last_status=latest.status if latest else None,
+                    last_checked_at=latest.checked_at if latest else None,
+                    devices_checked=len(rows),
+                )
+            )
+        adapters.append(
+            AdapterInfo(
+                adapter_id=adapter_id, provenance=profile.provenance, capabilities=cap_infos
+            )
+        )
+    return adapters

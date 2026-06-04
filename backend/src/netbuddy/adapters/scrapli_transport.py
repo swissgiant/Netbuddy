@@ -3,9 +3,13 @@ from types import TracebackType
 from typing import Protocol
 
 from scrapli import AsyncScrapli
+from scrapli.driver.generic import AsyncGenericDriver
 
 from netbuddy.adapters.connection import ConnectionParams
 from netbuddy.adapters.transport import TransportError
+
+# Sentinel-Plattform für Vendor ohne scrapli-Core-Treiber → AsyncGenericDriver.
+_GENERIC = "generic"
 
 # Nur lesende Befehle dürfen über diesen Transport laufen (read-only first).
 _READ_ONLY_PREFIXES = ("show", "display")
@@ -27,12 +31,24 @@ DriverFactory = Callable[[ConnectionParams], _AsyncDriver]
 
 
 def _build_async_scrapli(params: ConnectionParams) -> _AsyncDriver:
+    password = params.password.get_secret_value() if params.password else ""
+    if params.platform == _GENERIC:
+        # Kein Vendor-Treiber: GenericDriver kennt keine Privilege-Escalation (auth_secondary),
+        # reicht aber für read-only `show`/`display`.
+        return AsyncGenericDriver(
+            host=params.host,
+            port=params.port,
+            auth_username=params.username,
+            auth_password=password,
+            transport="asyncssh",
+            auth_strict_key=False,
+        )
     return AsyncScrapli(
         host=params.host,
         port=params.port,
         platform=params.platform,
         auth_username=params.username,
-        auth_password=params.password.get_secret_value() if params.password else "",
+        auth_password=password,
         auth_secondary=(
             params.enable_password.get_secret_value() if params.enable_password else ""
         ),
