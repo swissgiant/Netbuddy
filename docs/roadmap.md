@@ -59,6 +59,12 @@ nur Listen; verschiedene Infos als Layer **ein-/ausblendbar**. Plan:
 - **Site-Modell existiert**, ist aber noch nicht in Geräte-Eintrag/Topologie verdrahtet (kommt mit G).
 - UniFi-Auth: `X-API-KEY`-Header angenommen (neue UniFi-API). Cookie-Login-Variante ggf. nötig — live klären.
 
+## Testlücke (notiert)
+
+- Endpoint-Tests überschreiben `get_session` mit einer pro-Test zurückgerollten Session → die
+  echte Commit-Logik wird nicht getestet (hat den fehlenden Commit in `get_session` nicht gefangen,
+  Fix in `d3cd2f4`). Später: ein Integrationstest gegen den echten Session-Pfad.
+
 ## Muss später live validiert werden (gegen echte Hardware)
 
 - interfaces/lldp/mac aller CLI-Profile (dell_os10/os6, fs_centec/ruijie) — `provenance: unvalidated`.
