@@ -1,0 +1,12 @@
+Value PORT (eth-\S+)
+Value STATUS (admin down|up|down)
+Value DUPLEX (\S+)
+Value SPEED (\S+)
+Value MODE (\S+)
+Value TYPE (\S+)
+Value DESCRIPTION (.*?)
+
+Start
+  ^Port\s+Status -> Next
+  ^-+ -> Next
+  ^${PORT}\s+${STATUS}\s+${DUPLEX}\s+${SPEED}\s+${MODE}\s+${TYPE}\s*${DESCRIPTION}\s*$$ -> Record

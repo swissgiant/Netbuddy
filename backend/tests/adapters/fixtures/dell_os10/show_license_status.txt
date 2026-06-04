@@ -1,0 +1,21 @@
+
+System Information
+---------------------------------------------------------
+Vendor Name          :   Dell EMC
+Product Name         :   S5248F-ON
+Hardware Version     :   A05
+Platform Name        :   X86_64-dellemc_s5248f_c3538-r0
+PPID                 :   TH0TFD6TCET0015B00K6
+Service Tag          :   9GTP363
+Product Base         :
+Product Serial Number:
+Product Part Number  :
+License Details
+----------------
+Software        :        OS10-Enterprise
+Version         :        10.5.2.6
+License Type    :        PERPETUAL
+License Duration:        Unlimited
+License Status  :        Active
+License location:        /mnt/license/9GTP363.lic
+---------------------------------------------------------

@@ -1,0 +1,10 @@
+Mac Address Table
+-------------------------------------------
+(*) - Security Entry
+
+Vlan     Mac Address      Type        Ports
+----     -----------      --------    -----
+1        0000.0000.0001   static      eth-0-2
+2        26fc.72e5.0100   dynamic     eth-0-9
+1        0000.0001.0003   static      eth-0-1
+10       34a8.4e22.9c01   dynamic     eth-0-49

@@ -1,0 +1,21 @@
+Remote Chassis ID Subtype: Mac address (4)
+Remote Chassis ID: 00:13:21:57:ca:40
+Remote Port Subtype: Interface name (5)
+Remote Port ID: ethernet1/1/10
+Remote Port Description: Uplink to core
+Local Port ID: ethernet1/1/1
+Locally assigned remote Neighbor Index: 3
+Remote TTL: 120
+Remote System Name: core-sw-01
+Remote System Desc: Dell EMC Networking OS10
+
+Remote Chassis ID Subtype: Mac address (4)
+Remote Chassis ID: 00:13:21:99:aa:bb
+Remote Port Subtype: Interface name (5)
+Remote Port ID: ethernet1/1/5
+Remote Port Description: server nic
+Local Port ID: ethernet1/1/2
+Locally assigned remote Neighbor Index: 4
+Remote TTL: 120
+Remote System Name: esx01
+Remote System Desc: VMware ESXi 8.0

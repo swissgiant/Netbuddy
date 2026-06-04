@@ -1,0 +1,15 @@
+LLDP Neighbor
+  Local Interface    : eth-0-1
+  Chassis ID         : 4816.bea4.d709
+  Port ID            : eth-0-9
+  Port Description   : uplink-from-core
+  System Name        : core-sw-01
+  System Description : Centec Networks OS
+
+LLDP Neighbor
+  Local Interface    : eth-0-2
+  Chassis ID         : b4fb.e411.2233
+  Port ID            : swp3
+  Port Description   : server-nic
+  System Name        : srv-host-09
+  System Description : Linux

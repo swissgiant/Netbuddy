@@ -1,0 +1,15 @@
+Value Required CHASSIS_ID (\S+)
+Value LOCAL_INTERFACE (\S+)
+Value PORT_ID (\S+)
+Value PORT_DESC (.+?)
+Value SYSTEM_NAME (.+?)
+Value SYSTEM_DESC (.+?)
+
+Start
+  ^Remote Chassis ID Subtype -> Continue.Record
+  ^Remote Chassis ID:\s+${CHASSIS_ID}\s*$$
+  ^Remote Port ID:\s+${PORT_ID}\s*$$
+  ^Remote Port Description:\s+${PORT_DESC}\s*$$
+  ^Local Port ID:\s+${LOCAL_INTERFACE}\s*$$
+  ^Remote System Name:\s+${SYSTEM_NAME}\s*$$
+  ^Remote System Desc:\s+${SYSTEM_DESC}\s*$$

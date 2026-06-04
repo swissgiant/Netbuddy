@@ -1,0 +1,10 @@
+Value PORT (\S+\s\S+)
+Value DESCRIPTION (\S+)
+Value STATUS (up|down|admin-down)
+Value SPEED (\S+)
+
+Start
+  ^Port\s+Description -> Next
+  ^-+ -> Next
+  ^${PORT}\s+${DESCRIPTION}\s+${STATUS}\s+${SPEED} -> Record
+  ^${PORT}\s+${STATUS}\s+${SPEED} -> Record

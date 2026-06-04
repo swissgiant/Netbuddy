@@ -1,0 +1,54 @@
+# FS.com FSOS — Centec-Familie (z.B. S5800/48MBQ, Interfaces "eth-0-x").
+# System-Info gegen ECHTEN Capture validiert (BLS-SW-56 / S5800 / FSOS 7.0.4.21);
+# interfaces/lldp/mac sind doku-/research-abgeleitet und werden per Live-Probe bestätigt.
+adapter_id: fs_centec
+provenance: "FS.com Centec/FSOS — sysinfo lab-validated (S5800 7.0.4.21); interfaces/lldp/mac unvalidated"
+
+capabilities:
+  read_system_info:
+    command: "show version"
+    parser: "textfsm:fs_centec_show_version.textfsm"
+    fields:
+      vendor: { const: fs }
+      model: model
+      os_version: os_version
+      serial_number: serial
+      device_type: { const: switch }
+
+  read_interfaces:
+    command: "show interface status"
+    parser: "textfsm:fs_centec_show_interface_status.textfsm"
+    fields:
+      name: port
+      description: { from: description, via: [strip_or_none] }
+      oper_status:
+        from: status
+        via:
+          - lookup:
+              table: { up: up, down: down, "admin down": down }
+              default: unknown
+      interface_type: { from: type, via: [strip_or_none] }
+
+  read_lldp:
+    command: "show lldp neighbor"
+    parser: "textfsm:fs_centec_show_lldp_neighbor.textfsm"
+    fields:
+      local_interface: local_interface
+      remote_chassis_id: chassis_id
+      remote_port_id: port_id
+      remote_port_description: { from: port_desc, via: [strip_or_none] }
+      remote_system_name: { from: system_name, via: [strip_or_none] }
+      remote_system_description: { from: system_desc, via: [strip_or_none] }
+
+  read_mac_table:
+    command: "show mac address-table"
+    parser: "textfsm:fs_centec_show_mac_address-table.textfsm"
+    drop_when_empty: [interface]
+    fields:
+      mac_address: mac
+      interface: { from: port, via: [strip_or_none] }
+      vlan_id: { from: vlan, via: [int_or_none] }
+      entry_type:
+        from: type
+        via:
+          - enum_value: { values_of: MacEntryType, default: dynamic }

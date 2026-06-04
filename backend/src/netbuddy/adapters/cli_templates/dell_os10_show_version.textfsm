@@ -1,0 +1,6 @@
+Value OS_VERSION (\S+)
+Value SYSTEM_TYPE (\S+)
+
+Start
+  ^OS Version:\s+${OS_VERSION}\s*$$
+  ^System Type:\s+${SYSTEM_TYPE}\s*$$ -> Record

@@ -1,0 +1,5 @@
+VlanId  Mac Address             Type            Interface
+1       00:00:15:c6:ca:49       dynamic         ethernet1/1/21
+1       90:b1:1c:f4:aa:ce       dynamic         ethernet1/1/21
+10      34:17:eb:02:8c:33       static          ethernet1/1/1
+20      e4:f0:04:3e:2d:86       dynamic         ethernet1/1/3

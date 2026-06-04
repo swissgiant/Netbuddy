@@ -1,0 +1,15 @@
+Value Required LOCAL_INTERFACE (eth-\S+)
+Value CHASSIS_ID (\S+)
+Value PORT_ID (\S+)
+Value PORT_DESC (.*?)
+Value SYSTEM_NAME (.*?)
+Value SYSTEM_DESC (.*?)
+
+Start
+  ^LLDP Neighbor\s*$$ -> Continue.Record
+  ^\s+Local Interface\s+:\s+${LOCAL_INTERFACE}\s*$$
+  ^\s+Chassis ID\s+:\s+${CHASSIS_ID}\s*$$
+  ^\s+Port ID\s+:\s+${PORT_ID}\s*$$
+  ^\s+Port Description\s+:\s+${PORT_DESC}\s*$$
+  ^\s+System Name\s+:\s+${SYSTEM_NAME}\s*$$
+  ^\s+System Description\s+:\s+${SYSTEM_DESC}\s*$$

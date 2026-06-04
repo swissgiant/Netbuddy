@@ -1,0 +1,12 @@
+Fiberstore Software, S5800, Version 7.0.4.21
+Copyright (C) Fiberstore.  All Rights Reserved.
+The current running image is flash:/boot/FSOS-S5800-48MBQ_uImage_v7.0.4.21.bin
+
+BLS-SW-56 uptime is 226 days, 22 hours, 17 minutes
+Hardware Type is 48MBQ
+Hardware Version is 2.0
+SDRAM size 2048M
+Flash size 8192M
+BootRom Version is A.2.18
+System serial number is CG2202218416N00012
+Current Web Version is 7.3.0.2

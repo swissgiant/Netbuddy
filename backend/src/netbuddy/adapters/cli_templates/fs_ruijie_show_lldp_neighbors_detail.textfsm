@@ -1,0 +1,15 @@
+Value LOCAL_INTERFACE (.+?)
+Value CHASSIS_ID (\S+)
+Value PORT_ID (.+?)
+Value PORT_DESC (.*?)
+Value SYSTEM_NAME (.*?)
+Value SYSTEM_DESC (.*?)
+
+Start
+  ^Lldp neighbor-information of port \[${LOCAL_INTERFACE}\]
+  ^\s+Chassis id\s+:\s+${CHASSIS_ID}\s*$$
+  ^\s+System name\s+:\s+${SYSTEM_NAME}\s*$$
+  ^\s+System description\s+:\s+${SYSTEM_DESC}\s*$$
+  ^\s+Port id\s+:\s+${PORT_ID}\s*$$
+  ^\s+Port description\s+:\s+${PORT_DESC}\s*$$
+  ^\s+Maximum frame Size\s+:\s+\S+ -> Record

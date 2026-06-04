@@ -1,0 +1,15 @@
+Value Required LOCAL_INTERFACE (\S+)
+Value CHASSIS_ID (\S+)
+Value PORT_ID (\S+)
+Value SYSTEM_NAME (.*?)
+Value SYSTEM_DESC (.*?)
+Value PORT_DESC (.*?)
+
+Start
+  ^LLDP Remote Device Detail\s*$$ -> Continue.Record
+  ^Local Interface:\s+${LOCAL_INTERFACE}\s*$$
+  ^Chassis ID:\s+${CHASSIS_ID}\s*$$
+  ^Port ID:\s+${PORT_ID}\s*$$
+  ^System Name:\s+${SYSTEM_NAME}\s*$$
+  ^System Description:\s+${SYSTEM_DESC}\s*$$
+  ^Port Description:\s+${PORT_DESC}\s*$$

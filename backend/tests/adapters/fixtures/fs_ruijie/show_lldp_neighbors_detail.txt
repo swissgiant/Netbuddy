@@ -1,0 +1,23 @@
+Lldp neighbor-information of port [GigabitEthernet 0/1]
+  Neighbor index             : 1
+  Device type                : LLDP Device
+  Chassis ID type            : MAC address
+  Chassis id                 : 00d0.f822.33cd
+  System name                : core-sw-01
+  System description         : FS Data Center Switch
+  Port ID type               : Interface name
+  Port id                    : GigabitEthernet 0/24
+  Port description           : uplink-from-core
+  Maximum frame Size         : 1500
+
+Lldp neighbor-information of port [GigabitEthernet 0/2]
+  Neighbor index             : 2
+  Device type                : LLDP Device
+  Chassis ID type            : MAC address
+  Chassis id                 : b4fb.e411.2233
+  System name                : esx-host-02
+  System description         : VMware ESXi 8.0
+  Port ID type               : Interface name
+  Port id                    : vmnic0
+  Port description           : server-uplink
+  Maximum frame Size         : 1500

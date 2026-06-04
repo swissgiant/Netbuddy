@@ -1,0 +1,10 @@
+Value PORT ((?:Gi|Te|Fo|Tw|Po|Oob)\S*)
+Value DESCRIPTION (\S+)
+Value DUPLEX (\S+)
+Value SPEED (\S+)
+Value NEG (\S+)
+Value LINK (Up|Down)
+
+Start
+  ^${PORT}\s+${DESCRIPTION}\s+${DUPLEX}\s+${SPEED}\s+${NEG}\s+${LINK} -> Record
+  ^${PORT}\s+${DUPLEX}\s+${SPEED}\s+${NEG}\s+${LINK} -> Record

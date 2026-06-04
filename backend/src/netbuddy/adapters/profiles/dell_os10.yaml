@@ -1,0 +1,53 @@
+# Dell EMC SmartFabric OS10 — read-only.
+# System-Info gegen ECHTEN Capture validiert (SW2 / S5248F-ON / 10.5.2.6);
+# interfaces/lldp/mac sind doku-/research-abgeleitet und werden per Live-Probe bestätigt.
+adapter_id: dell_os10
+provenance: "Dell OS10 — sysinfo lab-validated (S5248F-ON 10.5.2.6); interfaces/lldp/mac unvalidated"
+
+capabilities:
+  read_system_info:
+    sources:
+      - { command: "show version", parser: "textfsm:dell_os10_show_version.textfsm" }
+      - { command: "show license status", parser: "textfsm:dell_os10_show_license_status.textfsm" }
+    fields:
+      vendor: { const: dell }
+      model: system_type
+      os_version: os_version
+      serial_number: service_tag
+      device_type: { const: switch }
+
+  read_interfaces:
+    command: "show interface status"
+    parser: "textfsm:dell_os10_show_interface_status.textfsm"
+    fields:
+      name: port
+      description: { from: description, via: [strip_or_none] }
+      oper_status:
+        from: status
+        via:
+          - lookup:
+              table: { up: up, down: down, "admin-down": down }
+              default: unknown
+
+  read_lldp:
+    command: "show lldp neighbors detail"
+    parser: "textfsm:dell_os10_show_lldp_neighbors_detail.textfsm"
+    fields:
+      local_interface: local_interface
+      remote_chassis_id: chassis_id
+      remote_port_id: port_id
+      remote_port_description: { from: port_desc, via: [strip_or_none] }
+      remote_system_name: { from: system_name, via: [strip_or_none] }
+      remote_system_description: { from: system_desc, via: [strip_or_none] }
+
+  read_mac_table:
+    command: "show mac address-table"
+    parser: "textfsm:dell_os10_show_mac_address-table.textfsm"
+    fields:
+      mac_address: mac
+      interface: interface
+      vlan_id: { from: vlan, via: [int_or_none] }
+      entry_type:
+        from: type
+        via:
+          - enum_value: { values_of: MacEntryType, default: dynamic }

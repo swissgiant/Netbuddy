@@ -4,9 +4,13 @@ from netbuddy.db.models import AdminStatus, DeviceType, MacEntryType, OperStatus
 
 
 class SystemInfo(BaseModel):
-    """Vendor-neutrale Geräte-Stammdaten (entspricht `show version` o.ä.)."""
+    """Vendor-neutrale Geräte-Stammdaten (entspricht `show version` o.ä.).
 
-    hostname: str
+    ``hostname`` ist optional (Default ``""``): manche Vendor zeigen ihn nur im
+    Prompt, nicht im `show`-Output — er kommt dann aus dem Inventar (`Device`).
+    """
+
+    hostname: str = ""
     vendor: str
     model: str | None = None
     os_version: str | None = None

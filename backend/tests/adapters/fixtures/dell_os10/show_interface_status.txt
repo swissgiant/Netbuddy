@@ -1,0 +1,6 @@
+------------------------------------------------------------------
+Port       Description  Status Speed Duplex Mode Vlan Tagged-Vlans
+------------------------------------------------------------------
+Eth 1/1/1  uplink-core  up     100G  full   T    1    1,10,20
+Eth 1/1/2               down   0     auto   A    10   -
+Eth 1/1/3  esx01-nic0   up     25G   full   A    20   -

@@ -1,0 +1,54 @@
+# FS.com FSOS — Ruijie-Familie (z.B. N8560-48BC, Prompt FS#, Interfaces "GigabitEthernet 0/x").
+# System-Info gegen ECHTEN Capture validiert (FS# / N8560-48BC / FSOS 11.0(5)B9P66S2);
+# interfaces/lldp/mac sind doku-/research-abgeleitet und werden per Live-Probe bestätigt.
+adapter_id: fs_ruijie
+provenance: "FS.com Ruijie/FSOS — sysinfo lab-validated (N8560-48BC 11.0(5)); interfaces/lldp/mac unvalidated"
+
+capabilities:
+  read_system_info:
+    command: "show version"
+    parser: "textfsm:fs_ruijie_show_version.textfsm"
+    fields:
+      vendor: { const: fs }
+      model: model
+      os_version: os_version
+      serial_number: serial
+      device_type: { const: switch }
+
+  read_interfaces:
+    command: "show interfaces status"
+    parser: "textfsm:fs_ruijie_show_interfaces_status.textfsm"
+    fields:
+      name: interface
+      oper_status:
+        from: status
+        via:
+          - lookup:
+              table: { up: up, down: down, "admin-down": down }
+              default: unknown
+      speed_mbps: { from: speed, via: [leading_int] }
+      interface_type: { from: type, via: [strip_or_none] }
+
+  read_lldp:
+    command: "show lldp neighbors detail"
+    parser: "textfsm:fs_ruijie_show_lldp_neighbors_detail.textfsm"
+    fields:
+      local_interface: local_interface
+      remote_chassis_id: chassis_id
+      remote_port_id: port_id
+      remote_port_description: { from: port_desc, via: [strip_or_none] }
+      remote_system_name: { from: system_name, via: [strip_or_none] }
+      remote_system_description: { from: system_desc, via: [strip_or_none] }
+
+  read_mac_table:
+    command: "show mac-address-table"
+    parser: "textfsm:fs_ruijie_show_mac-address-table.textfsm"
+    drop_when_empty: [interface]
+    fields:
+      mac_address: mac
+      interface: { from: interface, via: [strip_or_none] }
+      vlan_id: { from: vlan, via: [int_or_none] }
+      entry_type:
+        from: type
+        via:
+          - enum_value: { values_of: MacEntryType, default: dynamic }

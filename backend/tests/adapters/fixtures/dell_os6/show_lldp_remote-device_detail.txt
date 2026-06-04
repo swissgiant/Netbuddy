@@ -1,0 +1,27 @@
+LLDP Remote Device Detail
+Local Interface: Gi1/0/2
+Remote Identifier: 1
+Chassis ID Subtype: MAC Address
+Chassis ID: F8:B1:56:2B:A4:FA
+Port ID Subtype: Interface Name
+Port ID: ethernet1/1/1
+System Name: core-sw-01
+System Description: Dell EMC Networking OS10
+Port Description: downlink-to-access
+System Capabilities Supported: bridge router
+System Capabilities Enabled: bridge router
+Time to Live: 113 seconds
+
+LLDP Remote Device Detail
+Local Interface: Gi1/0/3
+Remote Identifier: 2
+Chassis ID Subtype: MAC Address
+Chassis ID: B4:FB:E4:11:22:33
+Port ID Subtype: MAC Address
+Port ID: B4:FB:E4:11:22:33
+System Name: BLS-AP-CU-07
+System Description: U7 Pro
+Port Description: eth0
+System Capabilities Supported: bridge wlan-access-point
+System Capabilities Enabled: bridge wlan-access-point
+Time to Live: 113 seconds

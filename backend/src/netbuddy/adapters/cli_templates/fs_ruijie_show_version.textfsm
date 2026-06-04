@@ -1,0 +1,8 @@
+Value MODEL ([^)]+)
+Value OS_VERSION (.+)
+Value SERIAL (\S+)
+
+Start
+  ^System description\s+:.*\(${MODEL}\)
+  ^System software version\s+:\s+${OS_VERSION}\s*$$
+  ^System serial number\s+:\s+${SERIAL}\s*$$ -> Record

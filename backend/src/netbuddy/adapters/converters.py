@@ -60,6 +60,15 @@ def _lower(value: Any) -> str | None:
     return text.lower() if text is not None else None
 
 
+def _leading_int(value: Any) -> int | None:
+    """Führende Ziffern → int; z.B. ``"1000M"`` → 1000, ``"1000Mb/s"`` → 1000, ``"auto"`` → None."""
+    text = _strip_or_none(value)
+    if text is None:
+        return None
+    match = re.match(r"(\d+)", text)
+    return int(match.group(1)) if match else None
+
+
 # Converter ohne Argumente.
 _SIMPLE: dict[str, Converter] = {
     "strip_or_none": _strip_or_none,
@@ -67,6 +76,7 @@ _SIMPLE: dict[str, Converter] = {
     "first_word": _first_word,
     "int_or_none": _int_or_none,
     "kbit_to_mbps": _kbit_to_mbps,
+    "leading_int": _leading_int,
     "lower": _lower,
 }
 

@@ -1,0 +1,8 @@
+Value Required MODEL (\S+)
+Value Required SERIAL (\S+)
+Value OS_VERSION (\S+)
+
+Start
+  ^System Model ID\.+\s*${MODEL}\s*$$
+  ^Serial Number\.+\s*${SERIAL}\s*$$
+  ^\d+\s+${OS_VERSION}\s+\S+\s+\S+\s+\S+\s*$$ -> Record

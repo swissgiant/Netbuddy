@@ -1,0 +1,8 @@
+Aging time is 300 Sec
+Vlan Mac Address      Type       Port
+---- ---------------- ---------- -----------
+1    001E.C9AA.AC19   Dynamic    Gi1/0/2
+12   B4FB.E411.2233   Dynamic    Gi1/0/3
+1    001E.C9AA.AE1B   Management  Vl1
+10   34A8.4E22.9C01   Static     Gi1/0/2
+Total MAC Addresses in use: 4

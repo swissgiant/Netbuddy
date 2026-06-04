@@ -43,15 +43,45 @@ class FieldSpec(BaseModel):
         return self
 
 
-class CapabilitySpec(BaseModel):
-    """Eine Read-Capability: welcher Befehl, welcher Parser, welches Feld-Mapping."""
+class SourceSpec(BaseModel):
+    """Eine Befehl-/Parser-Quelle innerhalb einer Capability."""
 
     model_config = ConfigDict(extra="forbid")
 
     command: str
     parser: str = "ntc"  # "ntc" | "textfsm:<datei>"
+
+
+class CapabilitySpec(BaseModel):
+    """Eine Read-Capability: eine oder mehrere Quellen + Feld-Mapping.
+
+    Kurzform (eine Quelle) per ``command:``/``parser:`` bleibt gültig und wird zu
+    ``sources=[{command, parser}]`` normalisiert. Mehrere Quellen via ``sources:`` —
+    bei single-arity Capabilities (system_info) werden die geparsten ersten Zeilen
+    gemergt, bei list-arity ist genau eine Quelle erlaubt (Prüfung im Adapter).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    sources: list[SourceSpec]
     drop_when_empty: list[str] = Field(default_factory=list)
     fields: dict[str, FieldSpec]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_sources(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "sources" not in data:
+            command = data.pop("command", None)
+            parser = data.pop("parser", "ntc")
+            if command is not None:
+                data = {**data, "sources": [{"command": command, "parser": parser}]}
+        return data
+
+    @model_validator(mode="after")
+    def _check_sources(self) -> "CapabilitySpec":
+        if not self.sources:
+            raise ValueError("CapabilitySpec braucht mindestens eine Quelle")
+        return self
 
 
 class VendorProfile(BaseModel):
@@ -61,6 +91,7 @@ class VendorProfile(BaseModel):
 
     adapter_id: str
     ntc_platform: str | None = None
+    provenance: str | None = None  # z.B. "vendor docs, unvalidated" / "lab-validated"
     capabilities: dict[Capability, CapabilitySpec]
 
 

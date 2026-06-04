@@ -1,0 +1,17 @@
+Machine Description............... Dell EMC Networking Switch
+System Model ID................... N2248PX-ON
+Machine Type...................... Dell EMC Networking N2248PX-ON
+Serial Number..................... TH08571NCET00183004S
+Manufacturer...................... 0xbc00
+Burned In MAC Address............. B04F.1339.0EC0
+System Object ID.................. 1.3.6.1.4.1.674.10895.3100
+CPU Version....................... C3338
+SOC Version....................... BCM56170_B0
+HW Version........................ 2
+CPLD Versions..................... System 01.04  CPU 00.05  LED 00.05
+Image File........................ N2200v6.6.3.15
+Software Capability............... Stack Limit = 12, VLAN Limit = 4093
+
+unit active      backup      current-active next-active
+---- ----------- ----------- -------------- --------------
+1    6.6.3.15    6.6.3.15    6.6.3.15       6.6.3.15

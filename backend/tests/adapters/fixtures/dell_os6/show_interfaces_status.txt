@@ -1,0 +1,7 @@
+Port      Description     Duplex Speed   Neg  Link   Flow  M VLAN
+                                              State  Ctrl
+--------- --------------- ------ ------- ---- ------ ----- - ---------------
+Gi1/0/1                   N/A    Unknown Auto Down   Off   A 1
+Gi1/0/2   uplink-core     Full   1000    Auto Up     Off   T 1
+Gi1/0/3   ap-cu-07        Full   1000    Auto Up     Off   A 12
+Te1/0/1   stack-uplink    Full   10000   Auto Up     Off   T 1

@@ -12,7 +12,8 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 | Alembic-Head | `c31556efa8b2` (`phase1 initial schema`) |
 | DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
 | Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (38 Tests) |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (62 Tests) |
+| CLI-Profile | cisco_ios, dell_os10, dell_os6, fs_ruijie, fs_centec (sysinfo live-validiert, Rest unvalidiert) |
 | Vendor-Abstraction-Layer | Deklarative YAML-Profile + `DeclarativeAdapter`; Cisco IOS als erstes Profil (read-only, gegen Mock-Transport) |
 | Echter Transport | `ScrapliTransport` (async, read-only-Guard) + `ConnectionParams` aus `Credential`; noch kein Live-Zugriff |
 | Neuer Vendor | = Profil-YAML + Fixtures + bestandener Conformance-Test, **kein Code** |
@@ -86,6 +87,17 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - Tests: Cisco-Assertions **unverändert** gegen den deklarativen Adapter (Äquivalenz-Beweis); neu `test_converters`, `test_parsers`, **`test_conformance`** (parametrisiert über alle Profile × Capabilities, lädt `fixtures/<adapter_id>/<befehl>.txt`, prüft gültige DTOs) — das Qualitätsgate für jedes künftige (auch KI-)Profil
 - **Offen/Deployment-Notiz:** sicherstellen, dass `profiles/*.yaml` + `cli_templates/` beim Docker-Build mit ins Package kommen (im Dev/editable-Lauf funktioniert es bereits)
 
+### Session 8 — Multi-Source-Framework + 4 CLI-Profile aus echtem Fleet (Phase A1)
+- **U3 Multi-Source-Capabilities**: `CapabilitySpec.sources: list[{command,parser}]` (Kurzform `command/parser` bleibt gültig → cisco_ios.yaml unverändert). single-arity (system_info) merged mehrere Befehle; list-arity einquellig (Laufzeit-Guard). Parser jetzt pro Quelle. Plus `leading_int`-Converter, `provenance`-Feld am Profil, `SystemInfo.hostname` Default `""`.
+- **4 neue Vendor-Profile** (custom TextFSM in `cli_templates/`, Fixtures in `tests/adapters/fixtures/<id>/`):
+  - `dell_os10` (S5248F-ON): sysinfo aus `show version` + `show license status`
+  - `dell_os6` (N2248PX-ON): sysinfo aus `show version` (einquellig)
+  - `fs_ruijie` (N8560-48BC, `Gi 0/x`)
+  - `fs_centec` (S5800, `eth-0-x`)
+- **System-Info aller vier gegen ECHTE Captures validiert** (Sammelmodus); interfaces/lldp/mac doku-/research-abgeleitet (`provenance: … unvalidated`), werden per Live-Probe (Phase A2) bestätigt.
+- Tests: `test_vendor_profiles` (gezielte Feld-Assertions je Vendor), `test_profile` (Kurzform↔sources, list-arity-Guard), `test_conformance` deckt jetzt 5 Profile × Capabilities. **62 Tests grün.**
+- Adapter-Registry meldet jetzt 5 `adapter_id`s: cisco_ios, dell_os10, dell_os6, fs_centec, fs_ruijie.
+
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults
 - Explizite `DROP TYPE`-Schleife im `downgrade()` (Alembic vergisst Enums)
@@ -98,13 +110,33 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 
 **✅ Git-Commits erledigt.** 4 thematisch geschnittene Commits (Scaffolding / FastAPI-Skelett / Docker-Stack / DB-Schema), auf `origin` (`github.com/swissgiant/Netbuddy`, HTTPS via `gh`) gepusht. `main` trackt `origin/main`. Commit-Mail: GitHub-noreply (`6225583+swissgiant@users.noreply.github.com`, lokal im Repo gesetzt). Keine offenen Blocker.
 
+## Reales Fleet (Sammelmodus, Anfang Juni 2026)
+
+Statt aus Doku zu raten, hat Alex das echte Fleet per `show version` / UniFi-Controller gezeigt. Details + Captures-Fakten siehe Memory `project_vendor_fleet.md`. Zusammenfassung der nötigen Integrationen:
+
+| Vendor | Modell(e) | Zugriff | Integration |
+|---|---|---|---|
+| Dell | S5248F-ON | OS10 CLI | `dell_os10` (TextFSM-Profil) |
+| Dell | N2248PX-ON (mehrfach) | OS6 CLI | `dell_os6` (TextFSM-Profil) |
+| FS.com | S5800/48MBQ | FSOS **Centec** (`eth-0-x`) | `fs_centec` (TextFSM-Profil) |
+| FS.com | N8560-48BC | FSOS **Ruijie** (`Gi 0/x`) | `fs_ruijie` (TextFSM-Profil) |
+| Ubiquiti | USW/ECS + APs, 3 Sites | UniFi-Controller | **`unifi` API-Adapter** (kein Profil), multi-site |
+| **gewünscht:** Cisco | Catalyst/IOS | CLI | `cisco_ios` (Profil **existiert** seit S5/7) |
+| **gewünscht:** HP Aruba | ArubaOS-CX / ProCurve | CLI (Central = API) | Profil(e), Modelle tbd |
+| **gewünscht:** Cisco Meraki | — | cloud | **API-Adapter** (Dashboard-API) |
+
+**Zwei Integrations-Klassen:** CLI/TextFSM-Profil (Dell, FS, Cisco, Aruba-CX) **vs** JSON-API-Adapter (UniFi, Meraki, ggf. Aruba Central) — das Framework muss beide tragen.
+
+**Firewalls (Standort-Kopplung, eigener Geräte-Bereich):** fast überall **Fortigate/FortiOS** (REST-API), in Italien eine **WatchGuard**, gewünscht **Palo Alto** (PAN-OS-API) und **Cato** (Cloud-SASE/GraphQL). **Produktziel:** VLANs **standortübergreifend** ausrollen inkl. VPN-Orchestrierung über die Firewalls (spätere Phase). Details siehe Memory `project_vendor_fleet.md`.
+
 ## Naheliegende nächste Schritte
 
-1. **Weitere Vendor-Profile** — Dell OS10/OS6 und FS.com/FSOS: CLI-Befehls-Sets recherchieren (Quellen), Profil + Beispiel-Output-Fixtures erstellen, ggf. custom TextFSM-Template in `cli_templates/` (FS.com hat keine ntc-Abdeckung). Gate = `test_conformance`. Für FS.com/Dell ohne echte Captures bleiben Profile „unvalidiert bis Live-Capture".
-2. **Live-Smoke-Test** des `ScrapliTransport` gegen einen echten Lab-Switch — read-only Service-User + IP via `secrets.yaml` (gitignored). ⚠️ Erster echter Geräte-Zugriff, braucht Alex' explizites OK + Creds.
-3. **Discovery-Service-Skelett** — mappt Adapter-DTOs auf die ORM-Aggregate, schreibt `DiscoveryRun`
-4. **ARQ-Worker** für Background-Jobs (Discovery async)
-5. **`GET /adapters` + Endpoints für übrige Aggregate** (Interfaces, LLDP-Neighbors, Discovery-Runs)
+1. **CLI-Profile aus echten Captures** — `dell_os10`, `dell_os6`, `fs_centec`, `fs_ruijie`. `show version`-Captures liegen vor (validiert); für interfaces/lldp/mac noch echte Captures einsammeln, sonst doku-abgeleitet/unvalidiert. Multi-source-Capability-Erweiterung (Dell-Sysinfo) nötig. Gate = `test_conformance`.
+2. **`unifi` API-Adapter** — neuer Adapter-Typ (Controller-JSON statt CommandTransport), erfüllt `SwitchAdapter`; multi-site. Erweitert das Framework um die API-Klasse.
+3. **Live-Smoke-Test** des `ScrapliTransport` gegen einen Lab-Switch — read-only Service-User + IP via `secrets.yaml`. ⚠️ Erster echter Geräte-Zugriff, braucht Alex' OK + Creds.
+4. **Discovery-Service-Skelett** — mappt Adapter-DTOs auf die ORM-Aggregate, schreibt `DiscoveryRun`
+5. **ARQ-Worker** + **`GET /adapters`** + Endpoints für übrige Aggregate
+6. **Weitere Vendor:** Cisco Catalyst (Profil da), HP Aruba (CLI-Profil[e]), Cisco Meraki (API-Adapter)
 6. **KI-gestützte Profil-Generierung** (Phase 5) — baut direkt auf dem Profil-Schema + Conformance-Gate auf
 
 ## Quick-Reference

@@ -1,0 +1,14 @@
+System description      : FS Data Center Switch(N8560-48BC) By FS.COM Inc
+System start time       : 2025-09-09 00:45:42
+System uptime           : 268:13:38:19
+System hardware version : 1.00
+System software version : N8560_FSOS 11.0(5)B9P66S2
+System patch number     : NA
+System serial number    : G1S90KY000796
+System boot version     : 1.3.11
+Module information:
+  Slot 0 : N8560-48BC
+    Hardware version    : 1.00
+    Boot version        : 1.3.11
+    Software version    : N8560_FSOS 11.0(5)B9P66S2
+    Serial number       : G1S90KY000796

@@ -52,10 +52,13 @@ async def test_profile_capability_parses_to_valid_dtos(
     adapter_id: str, capability: Capability
 ) -> None:
     spec = get_profile(adapter_id).capabilities[capability]
-    fixture = _fixture_file(adapter_id, spec.command)
-    assert fixture.exists(), f"Fehlende Fixture für {adapter_id}/{spec.command!r}: {fixture}"
+    responses: dict[str, str] = {}
+    for source in spec.sources:
+        fixture = _fixture_file(adapter_id, source.command)
+        assert fixture.exists(), f"Fehlende Fixture für {adapter_id}/{source.command!r}: {fixture}"
+        responses[source.command] = fixture.read_text()
 
-    adapter = build_adapter(adapter_id, MockTransport({spec.command: fixture.read_text()}))
+    adapter = build_adapter(adapter_id, MockTransport(responses))
     method_name, dto_type, is_list = _METHODS[capability]
     result = await getattr(adapter, method_name)()
 

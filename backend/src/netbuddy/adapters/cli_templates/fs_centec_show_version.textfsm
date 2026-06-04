@@ -1,0 +1,7 @@
+Value MODEL (\S+)
+Value OS_VERSION (\S+)
+Value SERIAL (\S+)
+
+Start
+  ^Fiberstore Software,\s+${MODEL},\s+Version\s+${OS_VERSION}
+  ^System serial number is\s+${SERIAL}\s*$$ -> Record

@@ -1,0 +1,6 @@
+Value PRODUCT_NAME (\S+)
+Value SERVICE_TAG (\S+)
+
+Start
+  ^Product Name\s+:\s+${PRODUCT_NAME}\s*$$
+  ^Service Tag\s+:\s+${SERVICE_TAG}\s*$$ -> Record

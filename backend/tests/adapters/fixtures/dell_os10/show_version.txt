@@ -1,0 +1,8 @@
+Dell EMC Networking OS10 Enterprise
+Copyright (c) 1999-2021 by Dell Inc. All Rights Reserved.
+OS Version: 10.5.2.6
+Build Version: 10.5.2.6.354
+Build Time: 2021-06-15T08:30:09+0000
+System Type: S5248F-ON
+Architecture: x86_64
+Up Time: 140 weeks 3 days 15:09:57
