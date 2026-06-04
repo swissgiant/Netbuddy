@@ -8,15 +8,24 @@ from pydantic import BaseModel, ConfigDict, IPvAnyAddress
 from sqlalchemy import delete, select
 
 from netbuddy.adapters import UnknownAdapterError, get_profile
-from netbuddy.api.deps import SessionDep, ValidatorDep
+from netbuddy.api.deps import LiveAdapterDep, SessionDep, ValidatorDep
 from netbuddy.db.models import (
+    AdminStatus,
     Credential,
     CredentialProtocol,
     Device,
     DeviceCredential,
     DeviceType,
+    DiscoveryRun,
+    DiscoveryStatus,
+    Interface,
+    LldpNeighbor,
+    MacAddressEntry,
+    MacEntryType,
+    OperStatus,
     ValidationCheck,
 )
+from netbuddy.services.discovery import run_discovery
 from netbuddy.services.validation import DeviceValidationReport
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -220,4 +229,104 @@ async def get_device_validation(
         .where(ValidationCheck.device_id == device_id)
         .order_by(ValidationCheck.capability)
     )
+    return (await session.execute(stmt)).scalars().all()
+
+
+# --- Discovery (read-only Geräte-Zugriff → Inventar persistieren) -----------------------------
+
+
+class DiscoveryRunRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    status: DiscoveryStatus
+    triggered_by: str
+    devices_found: int
+    errors: list[dict[str, Any]]
+    started_at: datetime
+    finished_at: datetime | None
+
+
+@router.post("/{device_id}/discover", response_model=DiscoveryRunRead)
+async def discover_device_endpoint(
+    device_id: uuid.UUID, session: SessionDep, live_adapter: LiveAdapterDep
+) -> DiscoveryRun:
+    """Liest read-only live aus und schreibt das Inventar (Interfaces/LLDP/MAC) in die DB."""
+    device = await get_device(device_id, session)
+    credential = await _ssh_credential(device_id, session)
+    if credential is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Keine SSH-Credential für dieses Gerät verknüpft",
+        )
+    async with live_adapter(device, credential) as adapter:
+        return await run_discovery(session, device, adapter, triggered_by="api")
+
+
+# --- Aggregat-Lesesichten ---------------------------------------------------------------------
+
+
+class InterfaceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    if_index: int | None
+    description: str | None
+    admin_status: AdminStatus
+    oper_status: OperStatus
+    mac_address: str | None
+    speed_mbps: int | None
+    mtu: int | None
+    interface_type: str | None
+    last_polled: datetime | None
+
+
+class LldpNeighborRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    local_interface_id: uuid.UUID
+    remote_chassis_id: str
+    remote_port_id: str
+    remote_port_description: str | None
+    remote_system_name: str | None
+    remote_system_description: str | None
+
+
+class MacEntryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    interface_id: uuid.UUID
+    mac_address: str
+    vlan_id: int | None
+    entry_type: MacEntryType
+
+
+@router.get("/{device_id}/interfaces", response_model=list[InterfaceRead])
+async def list_interfaces(device_id: uuid.UUID, session: SessionDep) -> Sequence[Interface]:
+    """Interfaces eines Geräts (aus dem zuletzt discovers persistierten Inventar)."""
+    await get_device(device_id, session)
+    stmt = (
+        select(Interface)
+        .where(Interface.device_id == device_id, Interface.deleted_at.is_(None))
+        .order_by(Interface.name)
+    )
+    return (await session.execute(stmt)).scalars().all()
+
+
+@router.get("/{device_id}/lldp-neighbors", response_model=list[LldpNeighborRead])
+async def list_lldp_neighbors(device_id: uuid.UUID, session: SessionDep) -> Sequence[LldpNeighbor]:
+    """LLDP-Nachbarn eines Geräts."""
+    await get_device(device_id, session)
+    stmt = select(LldpNeighbor).where(LldpNeighbor.local_device_id == device_id)
+    return (await session.execute(stmt)).scalars().all()
+
+
+@router.get("/{device_id}/mac-table", response_model=list[MacEntryRead])
+async def list_mac_table(device_id: uuid.UUID, session: SessionDep) -> Sequence[MacAddressEntry]:
+    """MAC-Address-Table eines Geräts."""
+    await get_device(device_id, session)
+    stmt = select(MacAddressEntry).where(MacAddressEntry.device_id == device_id)
     return (await session.execute(stmt)).scalars().all()
