@@ -8,7 +8,12 @@ from pydantic import BaseModel, ConfigDict, IPvAnyAddress
 from sqlalchemy import delete, select
 
 from netbuddy.adapters import UnknownAdapterError, get_profile
-from netbuddy.api.deps import LiveAdapterDep, SessionDep, ValidatorDep
+from netbuddy.api.deps import (
+    LiveAdapterDep,
+    OnboardingTransportDep,
+    SessionDep,
+    ValidatorDep,
+)
 from netbuddy.db.models import (
     AdminStatus,
     Credential,
@@ -26,6 +31,7 @@ from netbuddy.db.models import (
     ValidationCheck,
 )
 from netbuddy.services.discovery import run_discovery
+from netbuddy.services.onboarding import ProfileDraft, suggest_profile
 from netbuddy.services.validation import DeviceValidationReport
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -330,3 +336,23 @@ async def list_mac_table(device_id: uuid.UUID, session: SessionDep) -> Sequence[
     await get_device(device_id, session)
     stmt = select(MacAddressEntry).where(MacAddressEntry.device_id == device_id)
     return (await session.execute(stmt)).scalars().all()
+
+
+# --- Assistiertes Onboarding (read-only: Geräte-Hilfe → Kandidaten-Befehle) -------------------
+
+
+@router.post("/{device_id}/suggest-profile", response_model=ProfileDraft)
+async def suggest_profile_endpoint(
+    device_id: uuid.UUID, session: SessionDep, transport_factory: OnboardingTransportDep
+) -> ProfileDraft:
+    """Liest read-only die Geräte-Hilfe (`show ?`), findet Kandidaten-Befehle je Capability und
+    holt deren Output → Profil-Entwurf für ein neues/unbekanntes Gerät. ⚠️ echter Geräte-Zugriff."""
+    device = await get_device(device_id, session)
+    credential = await _ssh_credential(device_id, session)
+    if credential is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Keine SSH-Credential für dieses Gerät verknüpft",
+        )
+    async with transport_factory(device, credential) as transport:
+        return await suggest_profile(transport, suggested_adapter_id=device.adapter_id)

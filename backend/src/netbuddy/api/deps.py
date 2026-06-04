@@ -7,6 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from netbuddy.adapters import connect
 from netbuddy.adapters.base import SwitchAdapter
+from netbuddy.adapters.connection import onboarding_params
+from netbuddy.adapters.scrapli_transport import ScrapliTransport
+from netbuddy.adapters.transport import CommandTransport
 from netbuddy.db.models import Credential, Device
 from netbuddy.db.session import get_session
 from netbuddy.services.validation import DeviceValidationReport, validate_device
@@ -46,3 +49,23 @@ def get_live_adapter() -> LiveAdapter:
 
 
 LiveAdapterDep = Annotated[LiveAdapter, Depends(get_live_adapter)]
+
+
+# Generischer Transport fürs assistierte Onboarding (unbekanntes Gerät). Injizierbar für Tests.
+OnboardingTransport = Callable[[Device, Credential], AbstractAsyncContextManager[CommandTransport]]
+
+
+@asynccontextmanager
+async def _default_onboarding_transport(
+    device: Device, credential: Credential
+) -> AsyncIterator[CommandTransport]:
+    transport = ScrapliTransport(onboarding_params(device, credential))
+    async with transport:
+        yield transport
+
+
+def get_onboarding_transport() -> OnboardingTransport:
+    return _default_onboarding_transport
+
+
+OnboardingTransportDep = Annotated[OnboardingTransport, Depends(get_onboarding_transport)]

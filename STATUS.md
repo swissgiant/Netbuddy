@@ -12,7 +12,7 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 | Alembic-Head | `2523e7a92c2a` (`sites, device.site_id, credential api fields`) |
 | DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
 | Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (82 Tests) |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (87 Tests) |
 | CLI-Profile | cisco_ios, dell_os10, dell_os6, fs_ruijie, fs_centec (sysinfo live-validiert, Rest unvalidiert) |
 | Vendor-Abstraction-Layer | Deklarative YAML-Profile + `DeclarativeAdapter`; Cisco IOS als erstes Profil (read-only, gegen Mock-Transport) |
 | Echter Transport | `ScrapliTransport` (async, read-only-Guard) + `ConnectionParams` aus `Credential`; noch kein Live-Zugriff |
@@ -119,6 +119,12 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - Dep `httpx` (jetzt Haupt-Dependency). `POST /credentials` nimmt auch API-Felder; `GET /adapters` zeigt unifi.
 - Tests: `test_unifi` (Mapping gegen Fake-Client, not-found, Registry); Conformance filtert auf Profil-Adapter. **82 Tests grün.**
 - Offene Folgepunkte (siehe `docs/roadmap.md`): UniFi-Bulk-Discovery, Site-Verdrahtung (mit GUI), UniFi-Auth-Variante.
+
+### Session 12 — Assistiertes Onboarding (Phase A3)
+- `services/onboarding.py`: `suggest_profile(transport)` fragt `show ?` ab, parst die Hilfe (`parse_show_help`), wählt je Capability per Schlüsselwörter den besten Kandidaten-Befehl (`pick_candidates`), führt sie read-only aus und liefert einen `ProfileDraft` (Befehl + Roh-Output je Capability). Das ist die „Befehle finden"-Hälfte; Parser-Ableitung daraus = Phase 5.
+- `ScrapliTransport` Read-only-Guard erweitert: Hilfe-Befehle (`show ?`, `?`, `help`, `list`, alles endend auf `?`) erlaubt.
+- `connection.onboarding_params` (erzwingt `generic`-Plattform, funktioniert für unbekannte Geräte). `POST /devices/{id}/suggest-profile` (injizierbarer Onboarding-Transport für Tests).
+- Tests: `services/test_onboarding` (parse/pick/suggest/missing/guard) + `api/test_onboarding_api`. **87 Tests grün.**
 
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults

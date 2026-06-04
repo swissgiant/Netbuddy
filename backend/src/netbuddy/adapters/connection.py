@@ -37,6 +37,26 @@ def _platform_for(adapter_id: str) -> str:
         raise ValueError(f"Keine Scrapli-Plattform für adapter_id {adapter_id!r}") from exc
 
 
+def onboarding_params(device: Device, credential: Credential) -> ConnectionParams:
+    """Wie :func:`params_from_credential`, aber erzwingt die `generic`-Plattform.
+
+    Für assistiertes Onboarding eines (noch) unbekannten Geräts: funktioniert ohne dass
+    `device.adapter_id` schon einem Vendor zugeordnet ist.
+    """
+    return ConnectionParams(
+        host=device.mgmt_ip,
+        port=credential.ssh_port,
+        username=credential.username or "",
+        password=SecretStr(credential.password) if credential.password is not None else None,
+        enable_password=(
+            SecretStr(credential.enable_password)
+            if credential.enable_password is not None
+            else None
+        ),
+        platform="generic",
+    )
+
+
 def params_from_credential(device: Device, credential: Credential) -> ConnectionParams:
     """Leitet :class:`ConnectionParams` aus einem Gerät und einem Credential ab.
 

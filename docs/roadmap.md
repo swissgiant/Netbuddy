@@ -12,8 +12,8 @@ Session-Fortschritt: `STATUS.md`. Fleet-Fakten: `docs/fleet-and-adapters.md`.
 | A2 — Live-Read-only + Validierungs-Tool | connect(), generic transport, validate-Endpoints, ValidationCheck | ✅ (S9) |
 | C — Discovery/Persistenz | DTOs → ORM-Aggregate, DiscoveryRun, Aggregat-Endpoints | ✅ (S10) |
 | B — API-Adapter-Klasse + UniFi | zweite Integrationsart, Credential-API-Felder, Site/Controller | ✅ (S11) |
-| **A3 — Assistiertes Onboarding** | Geräte-Hilfe → Kandidaten-Befehle → validieren → Profil-Vorschlag | 🔨 als Nächstes |
-| D — Aruba (CLI) + Meraki (API) | weitere Vendor | ⏳ geplant |
+| A3 — Assistiertes Onboarding | Geräte-Hilfe → Kandidaten-Befehle → Profil-Entwurf | ✅ (S12) |
+| **D — Aruba (CLI) + Meraki (API)** | weitere Vendor | 🔨 als Nächstes |
 | E — Fortigate (Firewall, API, read-only) | Firewall-Geräteklasse | ⏳ geplant |
 | **G — GUI / Topologie-Graph** | grafisch, zoombar; Standorte→Switches→Firewalls; Layer ein/ausblendbar; nicht nur Listen | ⏳ geplant (Frontend) |
 | F — Schreibzugriff/VLAN/VPN (Nordstern) | NICHT autonom — braucht Alex' Go + Backup/Rollback | ⛔ gesperrt |

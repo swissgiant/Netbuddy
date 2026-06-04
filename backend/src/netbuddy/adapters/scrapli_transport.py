@@ -13,6 +13,13 @@ _GENERIC = "generic"
 
 # Nur lesende Befehle dürfen über diesen Transport laufen (read-only first).
 _READ_ONLY_PREFIXES = ("show", "display")
+# Hilfe-/Discovery-Befehle (für assistiertes Onboarding) sind ebenfalls lesend.
+_HELP_COMMANDS = {"?", "help", "list"}
+
+
+def _is_read_only(command: str) -> bool:
+    text = command.strip().lower()
+    return text.startswith(_READ_ONLY_PREFIXES) or text in _HELP_COMMANDS or text.endswith("?")
 
 
 class _CommandResult(Protocol):
@@ -98,7 +105,7 @@ class ScrapliTransport:
         await self.close()
 
     async def send_command(self, command: str) -> str:
-        if not command.strip().lower().startswith(_READ_ONLY_PREFIXES):
+        if not _is_read_only(command):
             raise TransportError(f"Nur lesende Befehle erlaubt, abgelehnt: {command!r}")
         response = await self._driver.send_command(command)
         return response.result
