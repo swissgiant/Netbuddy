@@ -13,6 +13,7 @@ from netbuddy.adapters.dto import (
     SystemInfo,
 )
 from netbuddy.adapters.factory import connect
+from netbuddy.adapters.meraki import MerakiAdapter
 from netbuddy.adapters.profile import VendorProfile, load_profile
 from netbuddy.adapters.registry import (
     UnknownAdapterError,
@@ -41,6 +42,7 @@ __all__ = [
     "InterfaceData",
     "LldpNeighborData",
     "MacEntryData",
+    "MerakiAdapter",
     "MockTransport",
     "RecordingTransport",
     "ScrapliTransport",

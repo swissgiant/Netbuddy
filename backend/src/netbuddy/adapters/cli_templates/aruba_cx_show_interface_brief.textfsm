@@ -1,0 +1,10 @@
+Value PORT (\S+)
+Value VLAN (\S+)
+Value TYPE (\S+)
+Value ENABLED (yes|no)
+Value STATUS (up|down)
+
+Start
+  ^Port\s+VLAN -> Next
+  ^-+ -> Next
+  ^${PORT}\s+${VLAN}\s+${TYPE}\s+${ENABLED}\s+${STATUS} -> Record

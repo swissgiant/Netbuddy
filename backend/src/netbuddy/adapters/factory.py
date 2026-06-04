@@ -30,10 +30,12 @@ def connect(device: Device, credential: Credential) -> tuple[SwitchAdapter, Any]
             raise AdapterError(
                 f"API-Adapter {device.adapter_id!r} braucht eine base_url in der Credential"
             )
-        client = HttpxApiClient(credential.base_url, token=credential.api_token)
-        site = str(credential.extra.get("site", "default"))
+        header_name = str(credential.extra.get("auth_header", "X-API-KEY"))
+        client = HttpxApiClient(
+            credential.base_url, token=credential.api_token, header_name=header_name
+        )
         adapter = get_api_adapter_class(device.adapter_id)(
-            client, site=site, match_ip=str(device.mgmt_ip)
+            client, match_ip=str(device.mgmt_ip), options=credential.extra
         )
         return adapter, client
 

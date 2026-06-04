@@ -54,7 +54,7 @@ def _adapter() -> UnifiAdapter:
         async def get_json(self, path: str, params: dict[str, Any] | None = None) -> Any:
             return _PAYLOAD
 
-    return UnifiAdapter(_FakeClient(), site="default", match_ip="10.123.40.3")
+    return UnifiAdapter(_FakeClient(), match_ip="10.123.40.3", options={"site": "default"})
 
 
 async def test_system_info() -> None:
@@ -89,7 +89,9 @@ async def test_device_not_found() -> None:
             return {"data": []}
 
     with pytest.raises(DeviceNotFoundError):
-        await UnifiAdapter(_FakeClient(), site="default", match_ip="1.2.3.4").get_system_info()
+        await UnifiAdapter(
+            _FakeClient(), match_ip="1.2.3.4", options={"site": "default"}
+        ).get_system_info()
 
 
 def test_unifi_registered_as_api_adapter() -> None:

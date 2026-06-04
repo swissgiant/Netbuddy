@@ -1,0 +1,9 @@
+Value MAC (\S+)
+Value VLAN (\d+)
+Value TYPE (\S+)
+Value PORT (\S+)
+
+Start
+  ^MAC\s+age -> Next
+  ^-+ -> Next
+  ^${MAC}\s+${VLAN}\s+${TYPE}\s+${PORT}\s*$$ -> Record

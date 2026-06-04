@@ -38,9 +38,11 @@ class UnifiAdapter:
     )
     provenance: ClassVar[str] = "UniFi Controller-API — unvalidiert (kein Controller-Zugriff)"
 
-    def __init__(self, client: ApiClient, *, site: str, match_ip: str) -> None:
+    def __init__(
+        self, client: ApiClient, *, match_ip: str, options: dict[str, Any] | None = None
+    ) -> None:
         self._client = client
-        self._site = site
+        self._site = str((options or {}).get("site", "default"))
         self._match_ip = match_ip
         self._cached: dict[str, Any] | None = None
 

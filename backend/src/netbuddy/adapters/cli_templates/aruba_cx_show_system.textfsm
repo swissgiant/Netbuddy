@@ -1,0 +1,6 @@
+Value MODEL (.+?)
+Value SERIAL (\S+)
+
+Start
+  ^Product Name\s+:\s+${MODEL}\s*$$
+  ^Serial Number\s+:\s+${SERIAL}\s*$$ -> Record

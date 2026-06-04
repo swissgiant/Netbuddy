@@ -1,0 +1,4 @@
+LOCAL-PORT  CHASSIS-ID         PORT-ID    TTL   NEIGHBOR-NAME
+----------- ------------------ ---------- ----- -------------
+1/1/1       00:11:22:33:44:55  Gi0/1      120   core-sw-01
+1/1/2       b4:fb:e4:11:22:33  eth0       120   bls-ap-01

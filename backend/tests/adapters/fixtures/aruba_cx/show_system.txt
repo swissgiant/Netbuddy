@@ -1,0 +1,5 @@
+Hostname            : bls-aruba-01
+System Description  : FL.10.09.1040
+Product Name        : R8N85A 6300M 48G
+Serial Number       : SG00KP12345
+Base MAC Address    : 88:3a:30:11:22:33

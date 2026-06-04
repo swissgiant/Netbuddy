@@ -1,0 +1,8 @@
+-----------------------------------------------------------------------------
+ArubaOS-CX
+(c) Copyright 2017-2022 Hewlett Packard Enterprise Development LP
+-----------------------------------------------------------------------------
+Version      : FL.10.09.1040
+Build Date   : 2022-03-15 06:12:01 PDT
+Build ID     : ArubaOS-CX:FL.10.09.1040:abcdef
+Active Image : primary
