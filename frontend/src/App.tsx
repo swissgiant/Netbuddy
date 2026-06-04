@@ -45,7 +45,7 @@ export default function App() {
         </button>
       </nav>
       <main className="main">
-        {view === "topology" && <TopologyView />}
+        {view === "topology" && <TopologyView theme={theme} />}
         {view === "devices" && <DevicesView />}
         {view === "credentials" && <CredentialsView />}
       </main>

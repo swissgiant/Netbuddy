@@ -17,10 +17,13 @@ interface Props {
   // sichtbare Layer (Knoten-Typen + Kanten-Typen), vom Parent gesteuert
   visibleNodeTypes: Set<string>;
   visibleEdgeTypes: Set<string>;
+  theme: "dark" | "light";
 }
 
+const labelColor = (theme: "dark" | "light") => (theme === "dark" ? "#e2e8f0" : "#0f172a");
+
 /** Zoom-/pan-barer Cytoscape-Graph; Layer werden per Sichtbarkeit gefiltert. */
-export function TopologyGraph({ topology, visibleNodeTypes, visibleEdgeTypes }: Props) {
+export function TopologyGraph({ topology, visibleNodeTypes, visibleEdgeTypes, theme }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
 
@@ -43,7 +46,7 @@ export function TopologyGraph({ topology, visibleNodeTypes, visibleEdgeTypes }: 
           style: {
             "background-color": NODE_COLOR.other,
             label: "data(label)",
-            color: "#111",
+            color: labelColor(theme),
             "font-size": 10,
             "text-valign": "bottom",
             "text-margin-y": 4,
@@ -86,6 +89,11 @@ export function TopologyGraph({ topology, visibleNodeTypes, visibleEdgeTypes }: 
       e.style("display", visibleEdgeTypes.has(e.data("etype")) ? "element" : "none");
     });
   }, [visibleNodeTypes, visibleEdgeTypes]);
+
+  // Label-Farbe an das Theme anpassen (Canvas-Render, daher nicht über CSS steuerbar).
+  useEffect(() => {
+    cyRef.current?.nodes().style("color", labelColor(theme));
+  }, [theme]);
 
   return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
 }

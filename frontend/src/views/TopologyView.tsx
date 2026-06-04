@@ -6,7 +6,7 @@ import { TopologyGraph } from "../TopologyGraph";
 const NODE_LAYERS = ["site", "switch", "firewall", "router", "ap", "other"] as const;
 const EDGE_LAYERS = ["member", "lldp"] as const;
 
-export function TopologyView() {
+export function TopologyView({ theme }: { theme: "dark" | "light" }) {
   const [topology, setTopology] = useState<Topology | null>(null);
   const [adapters, setAdapters] = useState<AdapterInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +70,7 @@ export function TopologyView() {
 
       <div className="graph">
         {topology ? (
-          <TopologyGraph topology={topology} visibleNodeTypes={nodeLayers} visibleEdgeTypes={edgeLayers} />
+          <TopologyGraph topology={topology} visibleNodeTypes={nodeLayers} visibleEdgeTypes={edgeLayers} theme={theme} />
         ) : (
           <p style={{ padding: 16 }}>Lade Topologie…</p>
         )}
