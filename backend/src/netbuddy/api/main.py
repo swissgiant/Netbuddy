@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from loguru import logger
 
-from netbuddy.api.routes import adapters, credentials, devices, health
+from netbuddy.api.routes import adapters, credentials, devices, health, sites, topology
 from netbuddy.core.config import get_settings
 from netbuddy.core.logging import setup_logging
 
@@ -29,6 +29,8 @@ def create_app() -> FastAPI:
     app.include_router(devices.router)
     app.include_router(credentials.router)
     app.include_router(adapters.router)
+    app.include_router(sites.router)
+    app.include_router(topology.router)
     return app
 
 

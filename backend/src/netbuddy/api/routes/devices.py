@@ -107,6 +107,7 @@ class DeviceCreate(BaseModel):
     adapter_id: str
     device_type: DeviceType = DeviceType.SWITCH
     model: str | None = None
+    site_id: uuid.UUID | None = None
     credential_id: uuid.UUID | None = None
 
 
@@ -118,6 +119,7 @@ async def _create_device(body: DeviceCreate, session: SessionDep) -> Device:
         adapter_id=body.adapter_id,
         device_type=body.device_type,
         model=body.model,
+        site_id=body.site_id,
     )
     session.add(device)
     await session.flush()
