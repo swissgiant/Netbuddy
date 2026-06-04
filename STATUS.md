@@ -9,10 +9,10 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 | Komponente | Status |
 |---|---|
 | Docker-Dev-Stack (postgres + redis + adminer) | Seit ~2 Wochen ununterbrochen `healthy`; Endpoints lt. README |
-| Alembic-Head | `843563cc7225` (`validation_check table`) |
+| Alembic-Head | `2523e7a92c2a` (`sites, device.site_id, credential api fields`) |
 | DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
 | Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (77 Tests) |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (82 Tests) |
 | CLI-Profile | cisco_ios, dell_os10, dell_os6, fs_ruijie, fs_centec (sysinfo live-validiert, Rest unvalidiert) |
 | Vendor-Abstraction-Layer | Deklarative YAML-Profile + `DeclarativeAdapter`; Cisco IOS als erstes Profil (read-only, gegen Mock-Transport) |
 | Echter Transport | `ScrapliTransport` (async, read-only-Guard) + `ConnectionParams` aus `Credential`; noch kein Live-Zugriff |
@@ -112,6 +112,13 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - Tests: `services/test_discovery` (persistiert, idempotent/ersetzt, partial bei Fehler), `api/test_discovery_api`. **77 Tests grün.**
 - **Bekannt:** Interface-Namens-Mismatch zwischen Befehlen (z.B. OS10 `Eth 1/1/1` vs `ethernet1/1/1`) → Discovery legt Zusatz-Interfaces an; Normalisierung später (siehe `docs/roadmap.md`).
 - **Neue Anforderung (Alex):** grafisches, zoombares **Topologie-GUI** (Standorte→Switches→Firewalls, Layer ein/ausblendbar) → als **Phase G** aufgenommen (Topologie-API + Cytoscape.js-Frontend).
+
+### Session 11 — API-Adapter-Klasse + UniFi (Phase B)
+- **Unterbau:** `Credential` um API-Felder (`base_url`, `api_token` verschlüsselt, `extra` JSONB) + `CredentialProtocol.API`; neues `Site`-Modell + `Device.site_id`; Migration `2523e7a92c2a` (Enum-Wert via `autocommit_block`).
+- **Zweite Adapter-Klasse:** `adapters/api_client.py` (`ApiClient`-Protocol + `HttpxApiClient`, async CM); `adapters/unifi.py` `UnifiAdapter` (Controller-JSON `stat/device`, Match über mgmt_ip → system/interfaces/lldp/mac), `provenance: unvalidiert`. Registry trägt jetzt **Profil-** *und* **API-Adapter**: `register_api_adapter`, `adapter_kind`, `get_api_adapter_class`, `provenance_for`, `available_adapters` merged. `connect()` branched CLI/API (Transport vs HTTP-Client) — Validate/Discover-Endpoints funktionieren dadurch für beide Klassen transparent.
+- Dep `httpx` (jetzt Haupt-Dependency). `POST /credentials` nimmt auch API-Felder; `GET /adapters` zeigt unifi.
+- Tests: `test_unifi` (Mapping gegen Fake-Client, not-found, Registry); Conformance filtert auf Profil-Adapter. **82 Tests grün.**
+- Offene Folgepunkte (siehe `docs/roadmap.md`): UniFi-Bulk-Discovery, Site-Verdrahtung (mit GUI), UniFi-Auth-Variante.
 
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults

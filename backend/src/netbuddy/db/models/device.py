@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, Index, String, Text, func, text
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, String, Text, func, text
 from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,6 +25,12 @@ class Device(TimestampMixin, SoftDeleteMixin, Base):
         UUID(as_uuid=True),
         primary_key=True,
         server_default=text("gen_random_uuid()"),
+    )
+    site_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("site.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     hostname: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     mgmt_ip: Mapped[str] = mapped_column(INET(), nullable=False, index=True)

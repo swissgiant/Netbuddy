@@ -16,9 +16,11 @@ from netbuddy.adapters.factory import connect
 from netbuddy.adapters.profile import VendorProfile, load_profile
 from netbuddy.adapters.registry import (
     UnknownAdapterError,
+    adapter_kind,
     available_adapters,
     build_adapter,
     get_profile,
+    provenance_for,
 )
 from netbuddy.adapters.scrapli_transport import ScrapliTransport
 from netbuddy.adapters.transport import (
@@ -27,6 +29,7 @@ from netbuddy.adapters.transport import (
     RecordingTransport,
     TransportError,
 )
+from netbuddy.adapters.unifi import UnifiAdapter
 
 __all__ = [
     "AdapterError",
@@ -44,12 +47,15 @@ __all__ = [
     "SwitchAdapter",
     "SystemInfo",
     "TransportError",
+    "UnifiAdapter",
     "UnknownAdapterError",
     "VendorProfile",
+    "adapter_kind",
     "available_adapters",
     "build_adapter",
     "connect",
     "get_profile",
     "load_profile",
     "params_from_credential",
+    "provenance_for",
 ]

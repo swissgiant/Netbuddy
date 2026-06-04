@@ -5,7 +5,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from netbuddy.adapters import available_adapters, get_profile
+from netbuddy.adapters import available_adapters, provenance_for
 from netbuddy.api.deps import SessionDep
 from netbuddy.db.models import ValidationCheck
 
@@ -39,7 +39,6 @@ async def list_adapters(session: SessionDep) -> list[AdapterInfo]:
 
     adapters: list[AdapterInfo] = []
     for adapter_id, caps in sorted(available_adapters().items()):
-        profile = get_profile(adapter_id)
         cap_infos: list[CapabilityStatusInfo] = []
         for capability in sorted(c.value for c in caps):
             rows = by_key.get((adapter_id, capability), [])
@@ -55,7 +54,7 @@ async def list_adapters(session: SessionDep) -> list[AdapterInfo]:
             )
         adapters.append(
             AdapterInfo(
-                adapter_id=adapter_id, provenance=profile.provenance, capabilities=cap_infos
+                adapter_id=adapter_id, provenance=provenance_for(adapter_id), capabilities=cap_infos
             )
         )
     return adapters

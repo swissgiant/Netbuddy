@@ -1,9 +1,10 @@
 import uuid
 from collections.abc import Sequence
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from netbuddy.api.deps import SessionDep
@@ -13,13 +14,20 @@ router = APIRouter(prefix="/credentials", tags=["credentials"])
 
 
 class CredentialCreate(BaseModel):
-    """Anlage einer SSH-Credential. Secrets werden via `EncryptedString` verschlüsselt abgelegt."""
+    """Anlage einer Credential (SSH **oder** API). Secrets via `EncryptedString` verschlüsselt.
+
+    SSH: `username` (+ `password`/`enable_password`/`ssh_port`). API (UniFi/Meraki/…):
+    `base_url` + `api_token` (+ `extra`, z.B. `{"site": "default"}`).
+    """
 
     name: str
-    username: str
+    username: str | None = None
     password: str | None = None
     enable_password: str | None = None
     ssh_port: int = 22
+    base_url: str | None = None
+    api_token: str | None = None
+    extra: dict[str, Any] = Field(default_factory=dict)
 
 
 class CredentialRead(BaseModel):
@@ -43,6 +51,9 @@ async def create_credential(body: CredentialCreate, session: SessionDep) -> Cred
         password=body.password,
         enable_password=body.enable_password,
         ssh_port=body.ssh_port,
+        base_url=body.base_url,
+        api_token=body.api_token,
+        extra=body.extra,
     )
     session.add(credential)
     await session.flush()

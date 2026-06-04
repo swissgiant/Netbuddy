@@ -12,6 +12,7 @@ dependencies = [
     "asyncpg>=0.31.0",
     "cryptography>=48.0.0",
     "fastapi>=0.136.1",
+    "httpx>=0.28.1",
     "loguru>=0.7.3",
     "ntc-templates>=9.1.0",
     "pydantic-settings>=2.14.1",

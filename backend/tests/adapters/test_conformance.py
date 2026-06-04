@@ -18,7 +18,7 @@ from netbuddy.adapters.dto import (
     MacEntryData,
     SystemInfo,
 )
-from netbuddy.adapters.registry import get_profile
+from netbuddy.adapters.registry import adapter_kind, get_profile
 
 _FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -36,9 +36,11 @@ def _fixture_file(adapter_id: str, command: str) -> Path:
 
 
 def _cases() -> list[tuple[str, Capability]]:
+    # Nur CLI/Profil-Adapter haben Fixtures; API-Adapter (z.B. unifi) sind hier nicht relevant.
     return [
         (adapter_id, capability)
         for adapter_id in available_adapters()
+        if adapter_kind(adapter_id) == "profile"
         for capability in get_profile(adapter_id).capabilities
     ]
 

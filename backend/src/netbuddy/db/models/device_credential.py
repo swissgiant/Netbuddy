@@ -12,6 +12,7 @@ from netbuddy.db.types import enum_values
 class CredentialProtocol(enum.StrEnum):
     SSH = "ssh"
     SNMP = "snmp"
+    API = "api"  # HTTP/JSON-API-Adapter (UniFi/Meraki/Forti/Cato)
 
 
 class DeviceCredential(TimestampMixin, SoftDeleteMixin, Base):

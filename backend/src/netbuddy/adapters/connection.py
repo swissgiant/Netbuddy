@@ -46,7 +46,7 @@ def params_from_credential(device: Device, credential: Credential) -> Connection
     return ConnectionParams(
         host=device.mgmt_ip,
         port=credential.ssh_port,
-        username=credential.username,
+        username=credential.username or "",
         password=SecretStr(credential.password) if credential.password is not None else None,
         enable_password=(
             SecretStr(credential.enable_password)
