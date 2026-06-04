@@ -30,5 +30,11 @@ SessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
+    """Request-scoped Session: committet bei Erfolg, rollt bei Fehler zurück."""
     async with SessionLocal() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
