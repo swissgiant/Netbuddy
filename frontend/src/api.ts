@@ -119,6 +119,33 @@ export const createSite = (body: { name: string; code?: string }) =>
 
 export const fetchSuggestions = () => http<SuggestedDevice[]>("/discovery/suggestions");
 
+// --- Auth / Users ---
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  role: "admin" | "operator" | "viewer";
+  enabled: boolean;
+}
+export const fetchSetupStatus = () => http<{ setup_needed: boolean }>("/auth/setup-status");
+export const authSetup = (username: string, password: string) =>
+  http<{ token: string; user: AuthUser }>("/auth/setup", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+export const authLogin = (username: string, password: string) =>
+  http<{ token: string; user: AuthUser }>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+export const authLogout = () => http<void>("/auth/logout", { method: "POST" });
+export const fetchMe = () => http<AuthUser>("/auth/me");
+
+export const fetchUsers = () => http<AuthUser[]>("/users");
+export const createUser = (username: string, password: string, role: string) =>
+  http<AuthUser>("/users", { method: "POST", body: JSON.stringify({ username, password, role }) });
+export const deleteUser = (id: string) => http<void>(`/users/${id}`, { method: "DELETE" });
+
 export interface DeviceCredentialRow {
   device_id: string;
   credential_id: string;

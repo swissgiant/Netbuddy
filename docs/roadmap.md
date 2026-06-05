@@ -17,7 +17,7 @@ Session-Fortschritt: `STATUS.md`. Fleet-Fakten: `docs/fleet-and-adapters.md`.
 | E — Fortigate (Firewall, API, read-only) | Firewall-Geräteklasse | ✅ (S14) |
 | G — GUI / Topologie-Graph | Topologie-API ✅ + React/Cytoscape-Frontend (build/typecheck ✅, Browser-Render offen) | 🟢 (S15) |
 | G2 — GUI-App-Ausbau | Menü, Geräte-Liste + Add/Remove, Credentials-Verwaltung, LLDP-Vorschläge, Dark Mode (default) + Toggle | 🟢 (S16) build ✅, Browser-Feincheck offen |
-| **H — User/Login + RBAC** | Login, Userverwaltung, Rollen/Berechtigungen (wer darf suchen/lesen/ändern) | 🔨 als Nächstes |
+| H — User/Login + RBAC | Login, Userverwaltung, Rollen admin/operator/viewer, globale Policy | 🟢 (S17) |
 | F — Schreibzugriff/VLAN/VPN (Nordstern) | NICHT autonom — braucht Alex' Go + Backup/Rollback | ⛔ gesperrt |
 
 ### Backlog aus Alex' Wünschen (live gesammelt)

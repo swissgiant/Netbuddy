@@ -9,10 +9,10 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 | Komponente | Status |
 |---|---|
 | Docker-Dev-Stack (postgres + redis + adminer) | Seit ~2 Wochen ununterbrochen `healthy`; Endpoints lt. README |
-| Alembic-Head | `2523e7a92c2a` (`sites, device.site_id, credential api fields`) |
+| Alembic-Head | `16614eab791f` (`users and auth sessions`) |
 | DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
 | Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (106 Tests) |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (109 Tests) |
 | CLI-Profile | cisco_ios, dell_os10, dell_os6, fs_ruijie, fs_centec, aruba_cx (sysinfo dell/fs live-validiert, Rest unvalidiert) |
 | API-Adapter | unifi, meraki, fortigate (Firewall) — JSON-API, unvalidiert |
 | Vendor-Abstraction-Layer | Deklarative YAML-Profile + `DeclarativeAdapter`; Cisco IOS als erstes Profil (read-only, gegen Mock-Transport) |
@@ -143,6 +143,13 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - **Backend:** `DELETE /devices/{id}` + `DELETE /credentials/{id}` (Soft-Delete); `site_id` in `DeviceRead`; **`GET /discovery/suggestions`** (LLDP-Nachbarn, die noch nicht im Inventar sind → Add-Vorschläge). 106 Tests grün.
 - **Frontend zur App ausgebaut:** Navigations-**Menü** (Topologie / Geräte / Credentials / [Benutzer—Phase H]); **Dark Mode als Default + Toggle** (CSS-Variablen, in localStorage). Views: **Geräte** (Liste + Hinzufügen-Formular + Entfernen + LLDP-Vorschläge „ins Formular"), **Credentials** (SSH/API anlegen + entfernen), **Topologie** (Graph + Layer + Adapter-Status). `npm run build` (tsc + vite) sauber.
 - Server laufen: Backend `0.0.0.0:8000`, Vite-GUI `0.0.0.0:5173` (HMR).
+
+### Session 17 — Login + Userverwaltung + RBAC (Phase H)
+- **Modelle:** `app_user` (username unique-active, bcrypt-`password_hash`, Rolle `admin/operator/viewer`, enabled) + `auth_session` (opaker Token als SHA-256-Hash, 12h TTL). Migration `16614eab791f`.
+- **Auth:** `POST /auth/setup` (erster Admin, nur solange keine User existieren), `/auth/login` (Token als httpOnly-Cookie `nb_session` **und** Bearer für API/Swagger; Header gewinnt vor Cookie), `/auth/logout`, `/auth/me`, `/auth/setup-status`.
+- **RBAC:** globale Dependency `authorize` (app-weite Policy): GET = viewer+, Mutationen/„suchen" (validate/discover/suggest, CRUD) = operator+, `/users` = admin; `/auth/*` nur eingeloggt; public: health/docs/login/setup. `/users` CRUD (admin).
+- **GUI:** Login-/Erst-Einrichtungs-Screen, Benutzer-View (anlegen mit Rolle, löschen, Selbstschutz), Nav zeigt User+Rolle, Abmelden-Button; 👤-Menüpunkt nur für Admins. Vite-Proxy um `/auth`, `/users`, **`/device-credentials`, `/discovery`** ergänzt (die letzten zwei fehlten — Suggestions/Credential-Badges luden im Dev still nicht).
+- Tests: `test_auth_api` (Setup-Flow, Rollen-Enforcement viewer/operator/admin, Logout-Revoke) + bestehende Tests via `authorize`-Override unverändert; neue `auth_client`-Fixture. **109 Tests grün.**
 
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults
