@@ -59,6 +59,8 @@ nur Listen; verschiedene Infos als Layer **ein-/ausblendbar**. Plan:
 
 ## Bekannte Schwächen / Normalisierung nötig
 
+> ✅ **Interface-Namens-Mismatch behoben** (S20, `services/ifname.normalize_interface_name`).
+
 - **Interface-Namens-Mismatch:** manche Vendor nennen denselben Port je Befehl unterschiedlich
   (OS10: `Eth 1/1/1` in `show interface status`, aber `ethernet1/1/1` in lldp/mac). Discovery legt
   dann zusätzliche „virtuelle" Interfaces an (create-if-missing). → Später Namens-Normalisierung pro

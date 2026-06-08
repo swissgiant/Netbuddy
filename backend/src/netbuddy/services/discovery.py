@@ -20,22 +20,28 @@ from netbuddy.db.models import (
     LldpNeighbor,
     MacAddressEntry,
 )
+from netbuddy.services.ifname import normalize_interface_name
 
 
 async def _interface_cache(session: AsyncSession, device_id: Any) -> dict[str, Interface]:
+    """Cache, keyed by normalisiertem Namen, damit LLDP/MAC denselben Port treffen."""
     stmt = select(Interface).where(Interface.device_id == device_id, Interface.deleted_at.is_(None))
-    return {iface.name: iface for iface in (await session.execute(stmt)).scalars()}
+    return {
+        normalize_interface_name(iface.name): iface
+        for iface in (await session.execute(stmt)).scalars()
+    }
 
 
 async def _get_or_create_interface(
     session: AsyncSession, device_id: Any, name: str, cache: dict[str, Interface]
 ) -> Interface:
-    if name in cache:
-        return cache[name]
+    key = normalize_interface_name(name)
+    if key in cache:
+        return cache[key]
     iface = Interface(device_id=device_id, name=name)
     session.add(iface)
     await session.flush()
-    cache[name] = iface
+    cache[key] = iface
     return iface
 
 
