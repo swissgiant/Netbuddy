@@ -10,7 +10,16 @@ const NODE_COLOR: Record<string, string> = {
   router: "#7c3aed",
   ap: "#059669",
   other: "#9ca3af",
+  endpoint: "#f59e0b",
 };
+
+// Ephemerer Endgerät-Knoten (nur bei Suche eingeblendet).
+export interface EndpointHighlight {
+  id: string;
+  label: string;
+  deviceId: string; // Switch, an dem es hängt (device:<uuid>-Knoten)
+  port: string;
+}
 
 interface Props {
   topology: Topology;
@@ -21,6 +30,7 @@ interface Props {
   fontSize: number;
   edgeWidth: number;
   edgeColor: string;
+  endpoints: EndpointHighlight[];
 }
 
 const labelColor = (theme: "dark" | "light") => (theme === "dark" ? "#e2e8f0" : "#0f172a");
@@ -34,6 +44,7 @@ export function TopologyGraph({
   fontSize,
   edgeWidth,
   edgeColor,
+  endpoints,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
@@ -71,6 +82,7 @@ export function TopologyGraph({
           style: { "background-color": color },
         })),
         { selector: 'node[ntype = "site"]', style: { shape: "round-rectangle", width: 40, height: 28 } },
+        { selector: 'node[ntype = "endpoint"]', style: { shape: "diamond", width: 30, height: 30 } },
         {
           selector: "edge",
           style: {
@@ -81,6 +93,10 @@ export function TopologyGraph({
           },
         },
         { selector: 'edge[etype = "lldp"]', style: { "line-color": "#94a3b8", "line-style": "dashed" } },
+        {
+          selector: 'edge[etype = "endpoint"]',
+          style: { "line-color": "#f59e0b", label: "data(label)", "font-size": 9, color: labelColor(theme) },
+        },
       ],
       layout: { name: "cose", animate: false },
       wheelSensitivity: 0.2,
@@ -94,12 +110,48 @@ export function TopologyGraph({
     const cy = cyRef.current;
     if (!cy) return;
     cy.nodes().forEach((n) => {
-      n.style("display", visibleNodeTypes.has(n.data("ntype")) ? "element" : "none");
+      const show = n.data("ephemeral") || visibleNodeTypes.has(n.data("ntype"));
+      n.style("display", show ? "element" : "none");
     });
     cy.edges().forEach((e) => {
-      e.style("display", visibleEdgeTypes.has(e.data("etype")) ? "element" : "none");
+      const show = e.data("ephemeral") || visibleEdgeTypes.has(e.data("etype"));
+      e.style("display", show ? "element" : "none");
     });
   }, [visibleNodeTypes, visibleEdgeTypes]);
+
+  // Such-Treffer als ephemere Endgerät-Knoten am jeweiligen Switch einblenden (sonst nicht).
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    cy.elements("[?ephemeral]").remove();
+    const ids: string[] = [];
+    for (const e of endpoints) {
+      const target = cy.getElementById(`device:${e.deviceId}`);
+      if (target.empty()) continue;
+      const pos = target.position();
+      cy.add({
+        group: "nodes",
+        data: { id: e.id, label: e.label, ntype: "endpoint", ephemeral: true },
+        position: { x: pos.x + 70, y: pos.y + 70 },
+      });
+      cy.add({
+        group: "edges",
+        data: {
+          id: `${e.id}->edge`,
+          source: e.id,
+          target: `device:${e.deviceId}`,
+          etype: "endpoint",
+          ephemeral: true,
+          label: e.port,
+        },
+      });
+      ids.push(e.id);
+    }
+    if (ids.length) {
+      const nodes = cy.nodes("[?ephemeral]");
+      cy.animate({ fit: { eles: nodes.closedNeighborhood(), padding: 80 }, duration: 300 });
+    }
+  }, [endpoints]);
 
   // Label-Farbe an das Theme anpassen (Canvas-Render, daher nicht über CSS steuerbar).
   useEffect(() => {

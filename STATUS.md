@@ -12,7 +12,7 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 | Alembic-Head | `9866fd865f56` (`config_backup and audit_log`) |
 | DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
 | Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (119 Tests) |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (123 Tests) |
 | CLI-Profile | cisco_ios, dell_os10, dell_os6, fs_ruijie, fs_centec, aruba_cx (sysinfo dell/fs live-validiert, Rest unvalidiert) |
 | API-Adapter | unifi, meraki, fortigate (Firewall) — JSON-API, unvalidiert |
 | Vendor-Abstraction-Layer | Deklarative YAML-Profile + `DeclarativeAdapter`; Cisco IOS als erstes Profil (read-only, gegen Mock-Transport) |
@@ -174,6 +174,11 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - Endpoints: `POST /devices/{id}/backup`, `GET /devices/{id}/backups`, `GET /devices/{id}/backups/{id}`, `GET /devices/{id}/config-diff`.
 - **Audit-Log:** Modell `AuditLog` + `services/audit.audit()`-Helfer; geloggt bei device.create/delete/backup. `GET /audit` (nur **admin**, RBAC-Policy um `/audit` erweitert).
 - Tests: `test_backup_api` (Dedupe, Diff, 400 ohne Credential). **119 Tests grün.**
+
+### Session 22 — Endgerät-Suche / Lokalisierung (welches Gerät an welchem Port)
+- `services/locate.locate(q)`: sucht per **MAC / Name / IP** (Teilstring, case-insensitiv) über MAC-Address-Table + LLDP-Nachbarn → liefert **Switch + Port**, wo das Gerät hängt (MACADDR via Cast). `GET /search?q=` (viewer+).
+- **GUI:** Suchfeld in der Topologie. Treffer werden **nur bei Suche** als ephemere Endgerät-Knoten (Rauten, amber) am jeweiligen Switch eingeblendet (Kante = Port), inkl. Zoom/Fit; „ausblenden ✕" entfernt sie wieder. Endgeräte sind sonst **nicht** im Graph (Topologie = Sites/Switches/FW + LLDP). Layer-Sichtbarkeit lässt ephemere Knoten unberührt.
+- Tests: `test_search_api` (MAC/Name/IP, leere Query → 422). **123 Tests grün.**
 
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults

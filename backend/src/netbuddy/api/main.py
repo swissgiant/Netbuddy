@@ -14,6 +14,7 @@ from netbuddy.api.routes import (
     devices,
     discovery,
     health,
+    search,
     sites,
     topology,
     users,
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(users.router)
     app.include_router(audit.router)
+    app.include_router(search.router)
     return app
 
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import type { AdapterInfo, Topology } from "../api";
-import { fetchAdapters, fetchTopology } from "../api";
+import type { AdapterInfo, LocateResult, Topology } from "../api";
+import { fetchAdapters, fetchTopology, searchEndpoints } from "../api";
+import type { EndpointHighlight } from "../TopologyGraph";
 import { TopologyGraph } from "../TopologyGraph";
 
 const NODE_LAYERS = ["site", "switch", "firewall", "router", "ap", "other"] as const;
@@ -15,6 +16,9 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
   const [fontSize, setFontSize] = useState(10);
   const [edgeWidth, setEdgeWidth] = useState(2);
   const [edgeColor, setEdgeColor] = useState("#94a3b8");
+  const [query, setQuery] = useState("");
+  const [hits, setHits] = useState<LocateResult[]>([]);
+  const [searched, setSearched] = useState(false);
 
   const reload = () => {
     fetchTopology().then(setTopology).catch((e) => setError(String(e)));
@@ -28,6 +32,29 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
     return c;
   }, [topology]);
 
+  const runSearch = async () => {
+    if (!query.trim()) return;
+    setSearched(true);
+    try {
+      setHits(await searchEndpoints(query.trim()));
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+  const clearSearch = () => {
+    setQuery("");
+    setHits([]);
+    setSearched(false);
+  };
+
+  // Such-Treffer → ephemere Endgerät-Knoten (eindeutig je Switch+Port+Match).
+  const endpoints: EndpointHighlight[] = hits.map((h, i) => ({
+    id: `ep:${i}`,
+    label: h.system_name || h.mac || h.match,
+    deviceId: h.device_id,
+    port: h.port,
+  }));
+
   const toggle = (set: Set<string>, setter: (s: Set<string>) => void, key: string) => {
     const next = new Set(set);
     if (next.has(key)) next.delete(key);
@@ -40,6 +67,36 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
       <aside className="controls">
         <button className="ghost" onClick={reload}>↻ Neu laden</button>
         {error && <p className="error">{error}</p>}
+
+        <h3>Suche (Gerät / MAC / IP)</h3>
+        <div style={{ display: "flex", gap: 4 }}>
+          <input
+            placeholder="z.B. Name, aa:bb:cc, 10.x"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && runSearch()}
+            style={{ flex: 1, minWidth: 0 }}
+          />
+          <button onClick={runSearch}>🔍</button>
+        </div>
+        {searched && (
+          <div style={{ fontSize: 12, marginTop: 6 }}>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span className="muted">{hits.length} Treffer</span>
+              <a style={{ cursor: "pointer" }} onClick={clearSearch}>ausblenden ✕</a>
+            </div>
+            {hits.map((h, i) => (
+              <div key={i} style={{ marginTop: 4 }}>
+                <strong>{h.system_name || h.mac || h.match}</strong>
+                <br />
+                <span className="muted">
+                  {h.device_hostname} / {h.port}
+                  {h.vlan != null ? ` · VLAN ${h.vlan}` : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <h3>Layer — Geräte</h3>
         {NODE_LAYERS.map((t) => (
@@ -97,6 +154,7 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
             fontSize={fontSize}
             edgeWidth={edgeWidth}
             edgeColor={edgeColor}
+            endpoints={endpoints}
           />
         ) : (
           <p style={{ padding: 16 }}>Lade Topologie…</p>
