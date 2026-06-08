@@ -1,3 +1,5 @@
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime
 from typing import Any
 
@@ -8,7 +10,10 @@ from netbuddy.adapters.base import SwitchAdapter
 from netbuddy.adapters.capabilities import Capability
 from netbuddy.adapters.dto import InterfaceData
 from netbuddy.db.models import (
+    Credential,
+    CredentialProtocol,
     Device,
+    DeviceCredential,
     DiscoveryRun,
     DiscoveryStatus,
     Interface,
@@ -165,3 +170,41 @@ async def run_discovery(
     run.finished_at = now
     await session.flush()
     return run
+
+
+ScheduledAdapterProvider = Callable[
+    [Device, Credential], AbstractAsyncContextManager[SwitchAdapter]
+]
+
+
+async def run_scheduled_discovery(
+    session: AsyncSession, adapter_provider: ScheduledAdapterProvider
+) -> dict[str, Any]:
+    """Discovert alle aktiven Geräte, die eine SSH-Credential haben (für den geplanten Lauf).
+
+    Read-only; pro Gerät wird die verknüpfte SSH-Credential genutzt. Fehler je Gerät werden
+    gesammelt, nicht hochgereicht.
+    """
+    stmt = (
+        select(Device, Credential)
+        .join(DeviceCredential, DeviceCredential.device_id == Device.id)
+        .join(Credential, Credential.id == DeviceCredential.credential_id)
+        .where(
+            Device.deleted_at.is_(None),
+            Device.enabled.is_(True),
+            DeviceCredential.protocol == CredentialProtocol.SSH,
+            DeviceCredential.deleted_at.is_(None),
+            Credential.deleted_at.is_(None),
+        )
+    )
+    pairs = (await session.execute(stmt)).all()
+    ok: list[str] = []
+    errors: list[dict[str, str]] = []
+    for device, credential in pairs:
+        try:
+            async with adapter_provider(device, credential) as adapter:
+                await run_discovery(session, device, adapter, triggered_by="scheduled")
+            ok.append(device.hostname)
+        except Exception as exc:
+            errors.append({"device": device.hostname, "error": f"{type(exc).__name__}: {exc}"})
+    return {"devices": len(pairs), "ok": ok, "errors": errors}

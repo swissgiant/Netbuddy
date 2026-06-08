@@ -19,6 +19,7 @@ Session-Fortschritt: `STATUS.md`. Fleet-Fakten: `docs/fleet-and-adapters.md`.
 | G2 — GUI-App-Ausbau | Menü, Geräte-Liste + Add/Remove, Credentials-Verwaltung, LLDP-Vorschläge, Dark Mode (default) + Toggle | 🟢 (S16) build ✅, Browser-Feincheck offen |
 | H — User/Login + RBAC | Login, Userverwaltung, Rollen admin/operator/viewer, globale Policy | 🟢 (S17) |
 | Autodiscovery-Crawl | rekursiv über LLDP (mgmt-IP), Auto-Add + Adapter-Schätzung | 🟢 (S18) |
+| ARQ-Worker | geplante periodische Discovery (cron) | 🟢 (S19) |
 | F — Schreibzugriff/VLAN/VPN (Nordstern) | NICHT autonom — braucht Alex' Go + Backup/Rollback | ⛔ gesperrt |
 
 ### Backlog aus Alex' Wünschen (live gesammelt)

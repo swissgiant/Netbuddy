@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     fernet_key: SecretStr
+    redis_url: str = "redis://localhost:6379"
+    # Intervall des geplanten Discovery-Laufs (Minuten); 0 = aus.
+    scheduled_discovery_minutes: int = 30
 
 
 @lru_cache(maxsize=1)
