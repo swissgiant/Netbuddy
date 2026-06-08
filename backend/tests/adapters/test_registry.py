@@ -30,7 +30,7 @@ def test_build_adapter_returns_declarative_adapter() -> None:
     adapter = build_adapter("cisco_ios", MockTransport({}))
     assert isinstance(adapter, DeclarativeAdapter)
     assert adapter.adapter_id == "cisco_ios"
-    assert adapter.capabilities() == _CISCO_CAPS
+    assert adapter.capabilities() >= _CISCO_CAPS  # + READ_CONFIG (backup_command gesetzt)
 
 
 def test_unknown_adapter_raises() -> None:

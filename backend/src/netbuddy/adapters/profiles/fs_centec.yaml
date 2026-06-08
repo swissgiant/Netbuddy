@@ -4,6 +4,8 @@
 adapter_id: fs_centec
 provenance: "FS.com Centec/FSOS — sysinfo lab-validated (S5800 7.0.4.21); interfaces/lldp/mac unvalidated"
 
+backup_command: "show running-config"
+
 capabilities:
   read_system_info:
     command: "show version"

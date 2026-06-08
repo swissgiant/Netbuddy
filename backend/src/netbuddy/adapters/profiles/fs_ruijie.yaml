@@ -4,6 +4,8 @@
 adapter_id: fs_ruijie
 provenance: "FS.com Ruijie/FSOS — sysinfo lab-validated (N8560-48BC 11.0(5)); interfaces/lldp/mac unvalidated"
 
+backup_command: "show running-config"
+
 capabilities:
   read_system_info:
     command: "show version"

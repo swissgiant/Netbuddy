@@ -4,6 +4,8 @@
 adapter_id: dell_os6
 provenance: "Dell OS6 — sysinfo lab-validated (N2248PX-ON 6.6.3.15); interfaces/lldp/mac unvalidated"
 
+backup_command: "show running-config"
+
 capabilities:
   read_system_info:
     command: "show version"

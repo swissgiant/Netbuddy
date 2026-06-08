@@ -87,9 +87,11 @@ async def validate_adapter(adapter: SwitchAdapter) -> DeviceValidationReport:
     Bricht nicht bei der ersten fehlerhaften Capability ab — jede wird einzeln gemeldet,
     damit der Report zeigt, welche gespeicherten Kommandos/Profile wirklich funktionieren.
     """
+    # READ_CONFIG (Backup) hat kein DTO-Mapping → nicht Teil der Read-Validierung.
     reports = [
         await _check_capability(adapter, capability)
         for capability in sorted(adapter.capabilities(), key=lambda c: c.value)
+        if capability in _METHODS
     ]
     healthy = all(r.status is not CapabilityStatus.ERROR for r in reports)
     return DeviceValidationReport(

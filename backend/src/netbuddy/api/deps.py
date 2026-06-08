@@ -52,7 +52,7 @@ async def authorize(request: Request, user: CurrentUserDep) -> User | None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Nicht angemeldet")
     if path.startswith("/auth/"):
         return user
-    if path.startswith("/users"):
+    if path.startswith(("/users", "/audit")):
         required = UserRole.ADMIN
     elif request.method == "GET":
         required = UserRole.VIEWER

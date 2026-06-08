@@ -1,3 +1,5 @@
+from netbuddy.db.models.audit import AuditLog
+from netbuddy.db.models.backup import ConfigBackup
 from netbuddy.db.models.credential import (
     Credential,
     SnmpAuthProtocol,
@@ -16,7 +18,9 @@ from netbuddy.db.models.validation import ValidationCheck
 
 __all__ = [
     "AdminStatus",
+    "AuditLog",
     "AuthSession",
+    "ConfigBackup",
     "Credential",
     "CredentialProtocol",
     "Device",

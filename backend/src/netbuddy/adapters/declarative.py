@@ -29,7 +29,15 @@ class DeclarativeAdapter:
         self.adapter_id = profile.adapter_id
 
     def capabilities(self) -> frozenset[Capability]:
-        return frozenset(self._profile.capabilities)
+        caps = set(self._profile.capabilities)
+        if self._profile.backup_command:
+            caps.add(Capability.READ_CONFIG)
+        return frozenset(caps)
+
+    async def get_config(self) -> str:
+        if not self._profile.backup_command:
+            raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_CONFIG)
+        return await self._transport.send_command(self._profile.backup_command)
 
     def _capability(self, capability: Capability) -> CapabilitySpec:
         spec = self._profile.capabilities.get(capability)

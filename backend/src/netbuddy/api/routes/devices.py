@@ -9,6 +9,7 @@ from sqlalchemy import delete, select
 
 from netbuddy.adapters import UnknownAdapterError, get_profile
 from netbuddy.api.deps import (
+    CurrentUserDep,
     LiveAdapterDep,
     OnboardingTransportDep,
     SessionDep,
@@ -16,6 +17,7 @@ from netbuddy.api.deps import (
 )
 from netbuddy.db.models import (
     AdminStatus,
+    ConfigBackup,
     Credential,
     CredentialProtocol,
     Device,
@@ -30,6 +32,8 @@ from netbuddy.db.models import (
     OperStatus,
     ValidationCheck,
 )
+from netbuddy.services.audit import audit
+from netbuddy.services.backup import BackupResult, backup_device, diff_latest
 from netbuddy.services.discovery import run_discovery
 from netbuddy.services.onboarding import ProfileDraft, suggest_profile
 from netbuddy.services.validation import DeviceValidationReport
@@ -137,16 +141,19 @@ async def _create_device(body: DeviceCreate, session: SessionDep) -> Device:
 
 
 @router.post("", response_model=DeviceRead, status_code=status.HTTP_201_CREATED)
-async def create_device(body: DeviceCreate, session: SessionDep) -> Device:
+async def create_device(body: DeviceCreate, session: SessionDep, user: CurrentUserDep) -> Device:
     """Legt ein Gerät an (+ optionale SSH-Credential-Verknüpfung)."""
-    return await _create_device(body, session)
+    device = await _create_device(body, session)
+    await audit(session, user, "device.create", device.hostname, {"adapter_id": device.adapter_id})
+    return device
 
 
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_device(device_id: uuid.UUID, session: SessionDep) -> None:
+async def delete_device(device_id: uuid.UUID, session: SessionDep, user: CurrentUserDep) -> None:
     """Entfernt ein Gerät (Soft-Delete)."""
     device = await get_device(device_id, session)
     device.deleted_at = datetime.now(UTC)
+    await audit(session, user, "device.delete", device.hostname)
 
 
 class DeviceCredentialLink(BaseModel):
@@ -405,3 +412,62 @@ async def suggest_profile_endpoint(
         )
     async with transport_factory(device, credential) as transport:
         return await suggest_profile(transport, suggested_adapter_id=device.adapter_id)
+
+
+# --- Config-Backup (read-only) + Diff ---------------------------------------------------------
+
+
+class ConfigBackupRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    sha256: str
+    created_at: datetime
+
+
+@router.post("/{device_id}/backup", response_model=BackupResult)
+async def backup_device_endpoint(
+    device_id: uuid.UUID, session: SessionDep, live_adapter: LiveAdapterDep, user: CurrentUserDep
+) -> BackupResult:
+    """Sichert read-only die laufende Konfiguration (nur bei Änderung neu gespeichert)."""
+    device = await get_device(device_id, session)
+    credential = await _ssh_credential(device_id, session)
+    if credential is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Keine SSH-Credential für dieses Gerät verknüpft",
+        )
+    async with live_adapter(device, credential) as adapter:
+        result = await backup_device(session, device, adapter)
+    await audit(session, user, "device.backup", device.hostname, {"changed": result.changed})
+    return result
+
+
+@router.get("/{device_id}/backups", response_model=list[ConfigBackupRead])
+async def list_backups(device_id: uuid.UUID, session: SessionDep) -> Sequence[ConfigBackup]:
+    """Metadaten der Konfig-Sicherungen eines Geräts (neueste zuerst)."""
+    await get_device(device_id, session)
+    stmt = (
+        select(ConfigBackup)
+        .where(ConfigBackup.device_id == device_id)
+        .order_by(ConfigBackup.created_at.desc())
+    )
+    return (await session.execute(stmt)).scalars().all()
+
+
+@router.get("/{device_id}/backups/{backup_id}")
+async def get_backup_content(
+    device_id: uuid.UUID, backup_id: uuid.UUID, session: SessionDep
+) -> dict[str, str]:
+    """Voller Konfig-Text einer Sicherung."""
+    backup = await session.get(ConfigBackup, backup_id)
+    if backup is None or backup.device_id != device_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Backup nicht gefunden")
+    return {"content": backup.content, "sha256": backup.sha256}
+
+
+@router.get("/{device_id}/config-diff")
+async def config_diff(device_id: uuid.UUID, session: SessionDep) -> dict[str, str]:
+    """Unified-Diff der beiden jüngsten Sicherungen (leer, wenn < 2 vorhanden)."""
+    await get_device(device_id, session)
+    return {"diff": await diff_latest(session, device_id)}

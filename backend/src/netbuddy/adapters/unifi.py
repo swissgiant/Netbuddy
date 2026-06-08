@@ -1,7 +1,7 @@
 from typing import Any, ClassVar, cast
 
 from netbuddy.adapters.api_client import ApiClient
-from netbuddy.adapters.base import AdapterError
+from netbuddy.adapters.base import AdapterError, CapabilityNotSupportedError
 from netbuddy.adapters.capabilities import Capability
 from netbuddy.adapters.dto import (
     InterfaceData,
@@ -122,3 +122,6 @@ class UnifiAdapter:
                 )
             )
         return entries
+
+    async def get_config(self) -> str:
+        raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_CONFIG)

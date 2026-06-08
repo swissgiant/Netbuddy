@@ -9,10 +9,10 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 | Komponente | Status |
 |---|---|
 | Docker-Dev-Stack (postgres + redis + adminer) | Seit ~2 Wochen ununterbrochen `healthy`; Endpoints lt. README |
-| Alembic-Head | `720e220bdf56` (`lldp remote_mgmt_address`) |
+| Alembic-Head | `9866fd865f56` (`config_backup and audit_log`) |
 | DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
 | Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (117 Tests) |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (119 Tests) |
 | CLI-Profile | cisco_ios, dell_os10, dell_os6, fs_ruijie, fs_centec, aruba_cx (sysinfo dell/fs live-validiert, Rest unvalidiert) |
 | API-Adapter | unifi, meraki, fortigate (Firewall) — JSON-API, unvalidiert |
 | Vendor-Abstraction-Layer | Deklarative YAML-Profile + `DeclarativeAdapter`; Cisco IOS als erstes Profil (read-only, gegen Mock-Transport) |
@@ -167,6 +167,13 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 ### Session 20 — Interface-Namen-Normalisierung
 - `services/ifname.normalize_interface_name`: vendor-tolerante Kanonisierung (Präfix-Map + Leerzeichen raus), sodass LLDP/MAC denselben Port treffen wie die Interface-Liste (OS10 „Eth 1/1/1" == „ethernet1/1/1", Cisco „GigabitEthernet1/0/1" == „Gi1/0/1"). Discovery cached + matched jetzt über den normalisierten Schlüssel → keine doppelten „virtuellen" Interfaces mehr.
 - Tests: `test_ifname`. **117 Tests grün.** (Behebt die in `docs/roadmap.md` notierte Schwäche.)
+
+### Session 21 — Config-Backup + Diff + Audit-Log (Fundament für F)
+- **READ_CONFIG**-Capability + `SwitchAdapter.get_config()`; `DeclarativeAdapter` liefert die laufende Konfig über `backup_command` im Profil (cisco/dell/fs/aruba gesetzt), API-Adapter werfen `CapabilityNotSupportedError`.
+- `services/backup.py`: `backup_device` (read-only Konfig holen, per SHA-256 dedupliziert speichern), `diff_latest` (Unified-Diff der zwei jüngsten Sicherungen). Modell `ConfigBackup` (+ Migration `9866fd865f56`).
+- Endpoints: `POST /devices/{id}/backup`, `GET /devices/{id}/backups`, `GET /devices/{id}/backups/{id}`, `GET /devices/{id}/config-diff`.
+- **Audit-Log:** Modell `AuditLog` + `services/audit.audit()`-Helfer; geloggt bei device.create/delete/backup. `GET /audit` (nur **admin**, RBAC-Policy um `/audit` erweitert).
+- Tests: `test_backup_api` (Dedupe, Diff, 400 ohne Credential). **119 Tests grün.**
 
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults

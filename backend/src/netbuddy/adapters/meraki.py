@@ -99,3 +99,6 @@ class MerakiAdapter:
 
     async def get_mac_table(self) -> list[MacEntryData]:
         raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_MAC_TABLE)
+
+    async def get_config(self) -> str:
+        raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_CONFIG)

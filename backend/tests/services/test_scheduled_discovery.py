@@ -34,6 +34,9 @@ class _FakeAdapter:
     async def get_mac_table(self) -> list[MacEntryData]:
         return []
 
+    async def get_config(self) -> str:
+        return ""
+
 
 def _provider() -> AdapterProvider:
     @asynccontextmanager

@@ -31,6 +31,9 @@ class _FakeAdapter:
     async def get_mac_table(self) -> list[MacEntryData]:
         return []
 
+    async def get_config(self) -> str:
+        return ""
+
 
 # Nachbarn je Management-IP: Seed (10.0.0.1) sieht leaf-01; leaf-01 (10.0.0.2) sieht nichts Neues.
 _NEIGHBORS = {

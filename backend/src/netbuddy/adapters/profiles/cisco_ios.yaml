@@ -3,6 +3,8 @@
 adapter_id: cisco_ios
 ntc_platform: cisco_ios
 
+backup_command: "show running-config"
+
 capabilities:
   read_system_info:
     command: "show version"

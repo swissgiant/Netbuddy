@@ -92,6 +92,7 @@ class VendorProfile(BaseModel):
     adapter_id: str
     ntc_platform: str | None = None
     provenance: str | None = None  # z.B. "vendor docs, unvalidated" / "lab-validated"
+    backup_command: str | None = None  # liefert die laufende Konfig (READ_CONFIG)
     capabilities: dict[Capability, CapabilitySpec]
 
 

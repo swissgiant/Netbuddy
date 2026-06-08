@@ -3,6 +3,8 @@
 adapter_id: aruba_cx
 provenance: "ArubaOS-CX — vendor docs, unvalidated (kein Lab-Capture)"
 
+backup_command: "show running-config"
+
 capabilities:
   read_system_info:
     sources:
