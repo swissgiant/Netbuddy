@@ -8,6 +8,7 @@ Locally assigned remote Neighbor Index: 3
 Remote TTL: 120
 Remote System Name: core-sw-01
 Remote System Desc: Dell EMC Networking OS10
+Remote Management Address: 10.123.40.2
 
 Remote Chassis ID Subtype: Mac address (4)
 Remote Chassis ID: 00:13:21:99:aa:bb
@@ -19,3 +20,4 @@ Locally assigned remote Neighbor Index: 4
 Remote TTL: 120
 Remote System Name: esx01
 Remote System Desc: VMware ESXi 8.0
+Remote Management Address: 10.123.40.50

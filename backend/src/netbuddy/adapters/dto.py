@@ -41,6 +41,7 @@ class LldpNeighborData(BaseModel):
     remote_port_description: str | None = None
     remote_system_name: str | None = None
     remote_system_description: str | None = None
+    mgmt_address: str | None = None  # Management-IP des Nachbarn (für Autodiscovery-Crawl)
 
 
 class MacEntryData(BaseModel):

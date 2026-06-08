@@ -39,6 +39,7 @@ capabilities:
       remote_port_description: { from: port_desc, via: [strip_or_none] }
       remote_system_name: { from: system_name, via: [strip_or_none] }
       remote_system_description: { from: system_desc, via: [strip_or_none] }
+      mgmt_address: { from: mgmt_address, via: [strip_or_none] }
 
   read_mac_table:
     command: "show mac address-table"

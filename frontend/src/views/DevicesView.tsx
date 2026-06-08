@@ -7,6 +7,7 @@ import type {
   Site,
   SuggestedDevice,
 } from "../api";
+import type { CrawlReport } from "../api";
 import {
   createDevice,
   deleteDevice,
@@ -17,6 +18,7 @@ import {
   fetchSites,
   fetchSuggestions,
   linkCredential,
+  startCrawl,
   unlinkCredential,
 } from "../api";
 
@@ -40,6 +42,9 @@ export function DevicesView() {
   const [links, setLinks] = useState<DeviceCredentialRow[]>([]);
   const [form, setForm] = useState<DeviceCreate>(EMPTY);
   const [error, setError] = useState<string | null>(null);
+  const [crawl, setCrawl] = useState({ seed: "", credential: "", depth: 2 });
+  const [crawlReport, setCrawlReport] = useState<CrawlReport | null>(null);
+  const [crawling, setCrawling] = useState(false);
 
   const reload = () => {
     fetchDevices().then(setDevices).catch((e) => setError(String(e)));
@@ -81,6 +86,22 @@ export function DevicesView() {
     reload();
   };
 
+  const runCrawl = async () => {
+    if (!crawl.seed || !crawl.credential) return;
+    setCrawling(true);
+    setCrawlReport(null);
+    setError(null);
+    try {
+      const report = await startCrawl([crawl.seed], crawl.credential, crawl.depth, null);
+      setCrawlReport(report);
+      reload();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setCrawling(false);
+    }
+  };
+
   const set = (k: keyof DeviceCreate, v: string) => setForm({ ...form, [k]: v || null });
 
   return (
@@ -111,6 +132,35 @@ export function DevicesView() {
           </select>
           <button onClick={submit} disabled={!form.hostname || !form.mgmt_ip}>Hinzufügen</button>
         </div>
+      </div>
+
+      <div className="card">
+        <h3>Autodiscovery-Crawl <span className="muted" style={{ fontSize: 12 }}>(read-only, über LLDP)</span></h3>
+        <div className="row">
+          <select value={crawl.seed} onChange={(e) => setCrawl({ ...crawl, seed: e.target.value })}>
+            <option value="">Seed-Gerät…</option>
+            {devices.map((d) => <option key={d.id} value={d.id}>{d.hostname}</option>)}
+          </select>
+          <select value={crawl.credential} onChange={(e) => setCrawl({ ...crawl, credential: e.target.value })}>
+            <option value="">Discovery-Credential…</option>
+            {credentials.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <label className="muted" style={{ fontSize: 12 }}>
+            Tiefe{" "}
+            <input type="number" min={0} max={5} value={crawl.depth} style={{ width: 56 }}
+              onChange={(e) => setCrawl({ ...crawl, depth: Number(e.target.value) })} />
+          </label>
+          <button onClick={runCrawl} disabled={!crawl.seed || !crawl.credential || crawling}>
+            {crawling ? "läuft…" : "Crawl starten"}
+          </button>
+        </div>
+        {crawlReport && (
+          <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
+            Ausgelesen: {crawlReport.discovered.length} · Neu aufgenommen: {crawlReport.added.length}
+            {crawlReport.added.length > 0 && ` (${crawlReport.added.map((a) => a.hostname).join(", ")})`}
+            {crawlReport.errors.length > 0 && ` · Fehler: ${crawlReport.errors.length}`}
+          </p>
+        )}
       </div>
 
       {suggestions.length > 0 && (

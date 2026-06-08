@@ -119,6 +119,28 @@ export const createSite = (body: { name: string; code?: string }) =>
 
 export const fetchSuggestions = () => http<SuggestedDevice[]>("/discovery/suggestions");
 
+export interface CrawlReport {
+  seeds: number;
+  discovered: string[];
+  added: { hostname: string; mgmt_ip: string; adapter_id: string }[];
+  errors: { device: string; error: string }[];
+}
+export const startCrawl = (
+  seedDeviceIds: string[],
+  credentialId: string,
+  maxDepth: number,
+  defaultAdapterId: string | null,
+) =>
+  http<CrawlReport>("/discovery/crawl", {
+    method: "POST",
+    body: JSON.stringify({
+      seed_device_ids: seedDeviceIds,
+      credential_id: credentialId,
+      max_depth: maxDepth,
+      default_adapter_id: defaultAdapterId,
+    }),
+  });
+
 // --- Auth / Users ---
 
 export interface AuthUser {

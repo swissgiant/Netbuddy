@@ -33,6 +33,7 @@ class LldpNeighbor(TimestampMixin, SoftDeleteMixin, Base):
     remote_port_description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     remote_system_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     remote_system_description: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    remote_mgmt_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
     discovered_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

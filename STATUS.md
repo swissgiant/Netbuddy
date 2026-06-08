@@ -9,10 +9,10 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 | Komponente | Status |
 |---|---|
 | Docker-Dev-Stack (postgres + redis + adminer) | Seit ~2 Wochen ununterbrochen `healthy`; Endpoints lt. README |
-| Alembic-Head | `16614eab791f` (`users and auth sessions`) |
+| Alembic-Head | `720e220bdf56` (`lldp remote_mgmt_address`) |
 | DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
 | Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (109 Tests) |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (112 Tests) |
 | CLI-Profile | cisco_ios, dell_os10, dell_os6, fs_ruijie, fs_centec, aruba_cx (sysinfo dell/fs live-validiert, Rest unvalidiert) |
 | API-Adapter | unifi, meraki, fortigate (Firewall) — JSON-API, unvalidiert |
 | Vendor-Abstraction-Layer | Deklarative YAML-Profile + `DeclarativeAdapter`; Cisco IOS als erstes Profil (read-only, gegen Mock-Transport) |
@@ -150,6 +150,12 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - **RBAC:** globale Dependency `authorize` (app-weite Policy): GET = viewer+, Mutationen/„suchen" (validate/discover/suggest, CRUD) = operator+, `/users` = admin; `/auth/*` nur eingeloggt; public: health/docs/login/setup. `/users` CRUD (admin).
 - **GUI:** Login-/Erst-Einrichtungs-Screen, Benutzer-View (anlegen mit Rolle, löschen, Selbstschutz), Nav zeigt User+Rolle, Abmelden-Button; 👤-Menüpunkt nur für Admins. Vite-Proxy um `/auth`, `/users`, **`/device-credentials`, `/discovery`** ergänzt (die letzten zwei fehlten — Suggestions/Credential-Badges luden im Dev still nicht).
 - Tests: `test_auth_api` (Setup-Flow, Rollen-Enforcement viewer/operator/admin, Logout-Revoke) + bestehende Tests via `authorize`-Override unverändert; neue `auth_client`-Fixture. **109 Tests grün.**
+
+### Session 18 — Autodiscovery-Crawl (rekursiv über LLDP)
+- **Enabler:** LLDP-**Management-Adresse** erfasst — `LldpNeighborData.mgmt_address`, Spalte `lldp_neighbor.remote_mgmt_address` (Migration `720e220bdf56`); cisco_ios (ntc-Feld) + dell_os10 (Template+Fixture) mappen sie; Discovery persistiert sie.
+- **`services/crawl.py`** `crawl(...)`: BFS ab Seed-Geräten, tiefenbegrenzt, read-only. Pro Gerät discover → LLDP-Nachbarn mit Management-IP, die noch nicht im Inventar sind, automatisch als Device anlegen (Adapter via `guess_adapter()` aus system_description, sonst `default_adapter_id`), mit der Discovery-Credential verknüpfen und weiter crawlen. `CrawlReport` (discovered/added/errors). Injizierbarer Adapter-Provider → testbar ohne Hardware.
+- **`POST /discovery/crawl`** (operator+): seed_device_ids + credential_id + max_depth + default_adapter_id. **GUI:** „Autodiscovery-Crawl"-Karte in der Geräte-View (Seed + Credential + Tiefe → Report).
+- Tests: `test_crawl` (guess_adapter, BFS legt an + crawlt rekursiv, Tiefenlimit). **112 Tests grün.**
 
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults

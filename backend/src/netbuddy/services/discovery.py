@@ -116,6 +116,7 @@ async def run_discovery(
                         remote_port_description=neighbor.remote_port_description,
                         remote_system_name=neighbor.remote_system_name,
                         remote_system_description=neighbor.remote_system_description,
+                        remote_mgmt_address=neighbor.mgmt_address,
                     )
                 )
             await session.flush()

@@ -4,6 +4,7 @@ Value PORT_ID (\S+)
 Value PORT_DESC (.+?)
 Value SYSTEM_NAME (.+?)
 Value SYSTEM_DESC (.+?)
+Value MGMT_ADDRESS (\S+)
 
 Start
   ^Remote Chassis ID Subtype -> Continue.Record
@@ -13,3 +14,4 @@ Start
   ^Local Port ID:\s+${LOCAL_INTERFACE}\s*$$
   ^Remote System Name:\s+${SYSTEM_NAME}\s*$$
   ^Remote System Desc:\s+${SYSTEM_DESC}\s*$$
+  ^Remote Management Address:\s+${MGMT_ADDRESS}\s*$$
