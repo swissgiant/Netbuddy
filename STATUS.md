@@ -204,7 +204,12 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   2. Der `AsyncGenericDriver` (Dell/FS) kennt Dells Prompt/Pager nicht → lange Ausgaben hingen am `--More--` (`ScrapliTimeout`). Fix: `terminal length 0` beim Öffnen (nur generic-Plattformen, reine Session-Einstellung, read-only-safe).
 - **Ergebnis:** `dell_os10` jetzt **live-validiert** (vorher unvalidated): system_info, interfaces (56), lldp (31), mac (338), arp (97) — alle Felder geparst. Provenance aktualisiert. Regressionstests für beide Fixes. Commit `2c160db`.
 - **Standort-Verwaltung (Alex' Wunsch):** es gab `GET/POST /sites`, aber kein GUI und kein Delete. Neu: `DELETE /sites/{id}` (Soft-Delete, 409 wenn noch Geräte dranhängen), **`SitesView`** (anlegen/auflisten/löschen + Geräte-Zähler) + Nav-Eintrag „📍 Standorte". Tests `test_sites_api`. 140 Tests grün.
-- **Offene GUI-Lücken (notiert):** kein Geräte-Bearbeiten-Endpoint (IP-Korrektur nur via Löschen+Neu) — `PATCH /devices/{id}` wäre fällig; Crawl-Report zeigt nur Fehler-Anzahl, nicht die Meldungen.
+### Session 26 — 1-Klick-Anlage, Profil-Raten, ARP-IP, Inline-Edit + fs_centec live-validiert
+- **Geräte bearbeiten:** `PATCH /devices/{id}` (Teil-Update, `site_id: null` leert; `refresh` gegen Lazy-IO bei `updated_at`). GUI: Standort + Adapter als **Inline-Dropdowns** in der Liste, Name/IP per ✎-Edit — kein Löschen+Neuanlegen mehr.
+- **1-Klick-Anlage aus LLDP-Vorschlag:** „+ Hinzufügen" statt des wirkungslosen „ins Formular" (das nur das weggescrollte Formular oben füllte). Profil wird **geraten** (`guess_adapter` aus system_description → `guessed_adapter` im Vorschlag), Mgmt-IP kommt aus **ARP** (LLDP-`chassis_id` = MAC → `ArpEntry`), Prompt nur als Fallback.
+- **fs_centec live-validiert** gegen echte FS S5800-48MBQ (bls-sw-53 / FSOS 7.0.4.5, 10.120.10.53): system_info, interfaces (54), mac (206). LLDP leer, weil das Gerät real **0 Nachbarn** meldet („has 0 neighbor(s)") — deshalb taucht es nicht in der Autodiscovery auf (LLDP auf dem Uplink/Gegenstelle aus); per IP manuell anlegen. Provenance aktualisiert.
+- Tests: `test_patch_device_updates_fields`, `guessed_adapter` im Suggestions-Test. 141 Tests grün.
+- **Noch offen:** Crawl-Report zeigt nur Fehler-Anzahl, nicht die Meldungen.
 
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults

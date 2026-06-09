@@ -84,6 +84,8 @@ export interface SuggestedDevice {
   chassis_id: string;
   remote_port_id: string;
   system_description: string | null;
+  mgmt_address: string | null;
+  guessed_adapter: string | null;
   seen_on: string[];
 }
 
@@ -163,6 +165,8 @@ export const fetchDevices = () => http<Device[]>("/devices");
 export const createDevice = (body: DeviceCreate) =>
   http<Device>("/devices", { method: "POST", body: JSON.stringify(body) });
 export const deleteDevice = (id: string) => http<void>(`/devices/${id}`, { method: "DELETE" });
+export const updateDevice = (id: string, body: Partial<DeviceCreate>) =>
+  http<Device>(`/devices/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 
 // Read-only Live-Aktionen + Inventar-Lesesichten (Geräte-Detail).
 export const discoverDevice = (id: string) =>

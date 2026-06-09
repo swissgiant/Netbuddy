@@ -149,6 +149,32 @@ async def create_device(body: DeviceCreate, session: SessionDep, user: CurrentUs
     return device
 
 
+class DeviceUpdate(BaseModel):
+    """Teil-Update eines Geräts; nur gesetzte Felder werden geändert (`site_id: null` = leeren)."""
+
+    hostname: str | None = None
+    mgmt_ip: IPvAnyAddress | None = None
+    vendor: str | None = None
+    adapter_id: str | None = None
+    device_type: DeviceType | None = None
+    site_id: uuid.UUID | None = None
+
+
+@router.patch("/{device_id}", response_model=DeviceRead)
+async def update_device(
+    device_id: uuid.UUID, body: DeviceUpdate, session: SessionDep, user: CurrentUserDep
+) -> Device:
+    """Ändert ein Gerät inline (Standort/Adapter/IP/…), ohne Löschen+Neuanlegen."""
+    device = await get_device(device_id, session)
+    fields = body.model_dump(exclude_unset=True)
+    for key, value in fields.items():
+        setattr(device, key, str(value) if key == "mgmt_ip" and value is not None else value)
+    await session.flush()
+    await audit(session, user, "device.update", device.hostname, {"fields": list(fields)})
+    await session.refresh(device)  # onupdate-Felder (updated_at) frisch laden, sonst Lazy-IO
+    return device
+
+
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_device(device_id: uuid.UUID, session: SessionDep, user: CurrentUserDep) -> None:
     """Entfernt ein Gerät (Soft-Delete)."""

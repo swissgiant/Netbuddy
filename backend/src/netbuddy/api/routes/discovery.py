@@ -5,9 +5,9 @@ from pydantic import BaseModel
 from sqlalchemy import select
 
 from netbuddy.api.deps import HostResolverDep, LiveAdapterDep, SessionDep
-from netbuddy.db.models import Credential, Device, Interface, LldpNeighbor
-from netbuddy.services.crawl import CrawlReport, crawl
-from netbuddy.services.hosts import correlate_hosts
+from netbuddy.db.models import ArpEntry, Credential, Device, Interface, LldpNeighbor
+from netbuddy.services.crawl import CrawlReport, crawl, guess_adapter
+from netbuddy.services.hosts import correlate_hosts, normalize_mac
 
 router = APIRouter(prefix="/discovery", tags=["discovery"])
 
@@ -19,6 +19,8 @@ class SuggestedDevice(BaseModel):
     chassis_id: str
     remote_port_id: str
     system_description: str | None
+    mgmt_address: str | None  # Management-IP aus LLDP (für 1-Klick-Anlage)
+    guessed_adapter: str | None  # aus system_description geratenes Profil (UI-Vorauswahl)
     seen_on: list[str]  # "<hostname> / <local-interface>"
 
 
@@ -32,6 +34,18 @@ async def list_suggestions(session: SessionDep) -> list[SuggestedDevice]:
     known_hostnames = {d.hostname for d in devices}
     device_by_id = {d.id: d for d in devices}
     iface_by_id = {i.id: i for i in (await session.execute(select(Interface))).scalars()}
+
+    # MAC→IP aus der ARP-Tabelle: erlaubt, die Mgmt-IP eines Nachbarn über seine LLDP-chassis_id
+    # (= MAC) zu finden, wenn LLDP selbst keine Management-Adresse meldet.
+    arp_by_mac: dict[str, str] = {}
+    for ip, mac in (await session.execute(select(ArpEntry.ip_address, ArpEntry.mac))).all():
+        if mac:
+            arp_by_mac[mac] = ip
+
+    def resolve_ip(lldp_mgmt: str | None, chassis_id: str) -> str | None:
+        if lldp_mgmt:
+            return lldp_mgmt
+        return arp_by_mac.get(normalize_mac(chassis_id))
 
     by_chassis: dict[str, SuggestedDevice] = {}
     for n in (await session.execute(select(LldpNeighbor))).scalars():
@@ -50,10 +64,15 @@ async def list_suggestions(session: SessionDep) -> list[SuggestedDevice]:
                 chassis_id=n.remote_chassis_id,
                 remote_port_id=n.remote_port_id,
                 system_description=n.remote_system_description,
+                mgmt_address=resolve_ip(n.remote_mgmt_address, n.remote_chassis_id),
+                guessed_adapter=guess_adapter(n.remote_system_description, None),
                 seen_on=[seen],
             )
-        elif seen not in existing.seen_on:
-            existing.seen_on.append(seen)
+        else:
+            if seen not in existing.seen_on:
+                existing.seen_on.append(seen)
+            if existing.mgmt_address is None:
+                existing.mgmt_address = resolve_ip(n.remote_mgmt_address, n.remote_chassis_id)
 
     return list(by_chassis.values())
 

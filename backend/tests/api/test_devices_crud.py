@@ -75,6 +75,36 @@ async def test_lldp_suggestions(api_client: AsyncClient, db_session: AsyncSessio
     assert "core-sw" not in names  # bereits im Inventar
     sug = next(s for s in suggestions if s["system_name"] == "new-access-sw")
     assert sug["seen_on"] == ["core-sw / Eth1/1/1"]
+    assert sug["guessed_adapter"] == "dell_os10"  # aus "Dell OS10" geraten
+
+
+async def test_patch_device_updates_fields(api_client: AsyncClient) -> None:
+    site = (await api_client.post("/sites", json={"name": "Werk Süd"})).json()
+    created = await api_client.post(
+        "/devices",
+        json={"hostname": "wrong", "mgmt_ip": "10.0.0.99", "vendor": "", "adapter_id": ""},
+    )
+    did = created.json()["id"]
+
+    patched = await api_client.patch(
+        f"/devices/{did}",
+        json={
+            "hostname": "core-2",
+            "mgmt_ip": "10.0.0.5",
+            "adapter_id": "dell_os10",
+            "site_id": site["id"],
+        },
+    )
+    assert patched.status_code == 200
+    body = patched.json()
+    assert body["hostname"] == "core-2"
+    assert body["mgmt_ip"] == "10.0.0.5"
+    assert body["adapter_id"] == "dell_os10"
+    assert body["site_id"] == site["id"]
+
+    # site_id explizit leeren
+    cleared = await api_client.patch(f"/devices/{did}", json={"site_id": None})
+    assert cleared.json()["site_id"] is None
 
 
 async def test_device_credential_link_unlink(api_client: AsyncClient) -> None:

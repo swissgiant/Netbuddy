@@ -1,8 +1,8 @@
 # FS.com FSOS — Centec-Familie (z.B. S5800/48MBQ, Interfaces "eth-0-x").
-# System-Info gegen ECHTEN Capture validiert (BLS-SW-56 / S5800 / FSOS 7.0.4.21);
-# interfaces/lldp/mac sind doku-/research-abgeleitet und werden per Live-Probe bestätigt.
+# Live validiert gegen bls-sw-53 / S5800-48MBQ / FSOS 7.0.4.5: system_info, interfaces (54),
+# mac (206). LLDP-Parser ungeprüft, weil das Gerät real 0 Nachbarn meldet ("has 0 neighbor(s)").
 adapter_id: fs_centec
-provenance: "FS.com Centec/FSOS — sysinfo lab-validated (S5800 7.0.4.21); interfaces/lldp/mac unvalidated"
+provenance: "FS.com Centec/FSOS — live-validated (S5800-48MBQ 7.0.4.5): sysinfo/interfaces/mac; lldp ungeprüft (0 Nachbarn am Testgerät)"
 
 backup_command: "show running-config"
 

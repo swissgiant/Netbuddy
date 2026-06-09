@@ -20,6 +20,7 @@ import {
   linkCredential,
   startCrawl,
   unlinkCredential,
+  updateDevice,
 } from "../api";
 import { DeviceIcon } from "../icons";
 import { DeviceDetail } from "./DeviceDetail";
@@ -48,6 +49,7 @@ export function DevicesView() {
   const [crawlReport, setCrawlReport] = useState<CrawlReport | null>(null);
   const [crawling, setCrawling] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const [edit, setEdit] = useState<{ id: string; hostname: string; mgmt_ip: string } | null>(null);
 
   const reload = () => {
     fetchDevices().then(setDevices).catch((e) => setError(String(e)));
@@ -59,7 +61,6 @@ export function DevicesView() {
   };
   useEffect(reload, []);
 
-  const siteName = (id: string | null) => sites.find((s) => s.id === id)?.name ?? "—";
   const linksFor = (deviceId: string) => links.filter((l) => l.device_id === deviceId);
 
   const submit = async () => {
@@ -77,6 +78,44 @@ export function DevicesView() {
     if (!confirm("Gerät wirklich entfernen?")) return;
     await deleteDevice(id);
     reload();
+  };
+
+  // 1-Klick-Anlage aus einem LLDP-Vorschlag: Mgmt-IP + geratenes Profil übernehmen.
+  const addFromSuggestion = async (s: SuggestedDevice) => {
+    setError(null);
+    let ip = s.mgmt_address ?? "";
+    if (!ip) {
+      ip = prompt(`Management-IP für ${s.system_name ?? s.chassis_id}? (LLDP meldete keine)`) ?? "";
+      if (!ip) return;
+    }
+    try {
+      await createDevice({
+        hostname: s.system_name || s.chassis_id,
+        mgmt_ip: ip,
+        vendor: "",
+        adapter_id: s.guessed_adapter ?? "",
+        device_type: "switch",
+      });
+      reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  // Inline-Update in der Liste (Standort/Adapter/Name/IP) — kein Löschen+Neuanlegen.
+  const patch = async (id: string, body: Record<string, string | null>) => {
+    setError(null);
+    try {
+      await updateDevice(id, body);
+      reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+  const saveEdit = async () => {
+    if (!edit) return;
+    await patch(edit.id, { hostname: edit.hostname, mgmt_ip: edit.mgmt_ip });
+    setEdit(null);
   };
 
   const attach = async (deviceId: string, credentialId: string) => {
@@ -170,22 +209,36 @@ export function DevicesView() {
         <div className="card">
           <h3>Vorgeschlagen (aus LLDP) <span className="badge">{suggestions.length}</span></h3>
           <table>
-            <thead><tr><th>System-Name</th><th>Chassis</th><th>gesehen an</th><th></th></tr></thead>
+            <thead>
+              <tr>
+                <th>System-Name</th><th>Mgmt-IP</th><th>Profil (geraten)</th>
+                <th>gesehen an</th><th></th>
+              </tr>
+            </thead>
             <tbody>
               {suggestions.map((s) => (
                 <tr key={s.chassis_id}>
-                  <td>{s.system_name ?? <span className="muted">unbekannt</span>}</td>
-                  <td className="muted">{s.chassis_id}</td>
+                  <td>{s.system_name ?? <span className="muted">{s.chassis_id}</span>}</td>
+                  <td className="muted">{s.mgmt_address ?? "—"}</td>
+                  <td>
+                    {s.guessed_adapter
+                      ? <span className="badge">{s.guessed_adapter}</span>
+                      : <span className="muted">?</span>}
+                  </td>
                   <td className="muted">{s.seen_on.join(", ")}</td>
                   <td>
-                    <button className="ghost" onClick={() => setForm({ ...EMPTY, hostname: s.system_name ?? "" })}>
-                      ins Formular
+                    <button onClick={() => addFromSuggestion(s)} title="Als Gerät anlegen (Profil geraten)">
+                      + Hinzufügen
                     </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <p className="muted" style={{ fontSize: 12 }}>
+            „+ Hinzufügen" legt das Gerät direkt an (Profil aus LLDP geraten). Standort/Adapter/IP
+            sind danach in der Liste änderbar — ohne Löschen.
+          </p>
         </div>
       )}
 
@@ -213,15 +266,38 @@ export function DevicesView() {
                       <DeviceIcon type={d.device_type} size={18} title={d.device_type} />
                     </td>
                     <td>
-                      <a style={{ cursor: "pointer" }} onClick={() => setSelected(open ? null : d.id)}>
-                        {open ? "▾" : "▸"} {d.hostname}
-                      </a>
+                      {edit?.id === d.id ? (
+                        <input value={edit.hostname} style={{ width: 140 }}
+                          onChange={(e) => setEdit({ ...edit, hostname: e.target.value })} />
+                      ) : (
+                        <a style={{ cursor: "pointer" }} onClick={() => setSelected(open ? null : d.id)}>
+                          {open ? "▾" : "▸"} {d.hostname}
+                        </a>
+                      )}
                     </td>
-                    <td>{d.mgmt_ip}</td>
+                    <td>
+                      {edit?.id === d.id ? (
+                        <input value={edit.mgmt_ip} style={{ width: 120 }}
+                          onChange={(e) => setEdit({ ...edit, mgmt_ip: e.target.value })} />
+                      ) : (
+                        d.mgmt_ip
+                      )}
+                    </td>
                     <td><span className="badge">{d.device_type}</span></td>
-                    <td>{d.vendor}</td>
-                    <td>{d.adapter_id}</td>
-                    <td className="muted">{siteName(d.site_id)}</td>
+                    <td>{d.vendor || <span className="muted">—</span>}</td>
+                    <td>
+                      <select value={d.adapter_id} onChange={(e) => patch(d.id, { adapter_id: e.target.value })}>
+                        <option value="">— Profil —</option>
+                        {adapterIds.map((a) => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                    </td>
+                    <td>
+                      <select value={d.site_id ?? ""}
+                        onChange={(e) => patch(d.id, { site_id: e.target.value || null })}>
+                        <option value="">— kein —</option>
+                        {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </td>
                     <td>
                       {myLinks.map((l) => (
                         <span key={l.credential_id + l.protocol} className="badge" style={{ marginRight: 4 }}>
@@ -242,7 +318,21 @@ export function DevicesView() {
                         ))}
                       </select>
                     </td>
-                    <td><button className="danger" onClick={() => remove(d.id)}>entfernen</button></td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      {edit?.id === d.id ? (
+                        <>
+                          <button onClick={saveEdit} title="speichern">✓</button>{" "}
+                          <button className="ghost" onClick={() => setEdit(null)} title="abbrechen">✕</button>
+                        </>
+                      ) : (
+                        <>
+                          <button className="ghost"
+                            onClick={() => setEdit({ id: d.id, hostname: d.hostname, mgmt_ip: d.mgmt_ip })}
+                            title="Name/IP bearbeiten">✎</button>{" "}
+                          <button className="danger" onClick={() => remove(d.id)}>entfernen</button>
+                        </>
+                      )}
+                    </td>
                   </tr>
                   {open && (
                     <tr className="detail-row">
