@@ -11,6 +11,7 @@ from netbuddy.adapters import UnknownAdapterError, get_profile
 from netbuddy.api.deps import (
     CurrentUserDep,
     LiveAdapterDep,
+    LiveConnectionDep,
     OnboardingTransportDep,
     SessionDep,
     ValidatorDep,
@@ -26,6 +27,7 @@ from netbuddy.db.models import (
     DeviceType,
     DiscoveryRun,
     DiscoveryStatus,
+    Host,
     Interface,
     LldpNeighbor,
     MacAddressEntry,
@@ -36,6 +38,8 @@ from netbuddy.db.models import (
 from netbuddy.services.audit import audit
 from netbuddy.services.backup import BackupResult, backup_device, diff_latest
 from netbuddy.services.discovery import run_discovery
+from netbuddy.services.hosts import normalize_mac
+from netbuddy.services.lldp_control import LldpEnableResult, enable_lldp, read_lldp_enabled
 from netbuddy.services.onboarding import ProfileDraft, suggest_profile
 from netbuddy.services.validation import DeviceValidationReport
 
@@ -381,6 +385,8 @@ class LldpNeighborRead(BaseModel):
     remote_port_description: str | None
     remote_system_name: str | None
     remote_system_description: str | None
+    resolved_ip: str | None = None  # aus ARP/LLDP-Mgmt (über chassis_id-MAC)
+    resolved_name: str | None = None  # aus DNS (Host-Korrelation)
 
 
 class MacEntryRead(BaseModel):
@@ -406,11 +412,44 @@ async def list_interfaces(device_id: uuid.UUID, session: SessionDep) -> Sequence
 
 
 @router.get("/{device_id}/lldp-neighbors", response_model=list[LldpNeighborRead])
-async def list_lldp_neighbors(device_id: uuid.UUID, session: SessionDep) -> Sequence[LldpNeighbor]:
-    """LLDP-Nachbarn eines Geräts."""
+async def list_lldp_neighbors(device_id: uuid.UUID, session: SessionDep) -> list[LldpNeighborRead]:
+    """LLDP-Nachbarn eines Geräts, angereichert um IP (ARP/LLDP-Mgmt) + DNS-Name (Host)."""
     await get_device(device_id, session)
-    stmt = select(LldpNeighbor).where(LldpNeighbor.local_device_id == device_id)
-    return (await session.execute(stmt)).scalars().all()
+    neighbors = (
+        (
+            await session.execute(
+                select(LldpNeighbor).where(LldpNeighbor.local_device_id == device_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    # MAC → korrelierter Host (IP + DNS-Name) bzw. ARP-IP, gematcht über die chassis_id (= MAC).
+    hosts = {h.mac: h for h in (await session.execute(select(Host))).scalars()}
+    arp_ip: dict[str, str] = {}
+    for ip, mac in (await session.execute(select(ArpEntry.ip_address, ArpEntry.mac))).all():
+        arp_ip.setdefault(mac, ip)
+
+    result: list[LldpNeighborRead] = []
+    for n in neighbors:
+        mac = normalize_mac(n.remote_chassis_id)
+        host = hosts.get(mac)
+        result.append(
+            LldpNeighborRead(
+                id=n.id,
+                local_interface_id=n.local_interface_id,
+                remote_chassis_id=n.remote_chassis_id,
+                remote_port_id=n.remote_port_id,
+                remote_port_description=n.remote_port_description,
+                remote_system_name=n.remote_system_name,
+                remote_system_description=n.remote_system_description,
+                resolved_ip=(host.ip_address if host else None)
+                or arp_ip.get(mac)
+                or n.remote_mgmt_address,
+                resolved_name=host.name if host else None,
+            )
+        )
+    return result
 
 
 @router.get("/{device_id}/mac-table", response_model=list[MacEntryRead])
@@ -515,3 +554,66 @@ async def config_diff(device_id: uuid.UUID, session: SessionDep) -> dict[str, st
     """Unified-Diff der beiden jüngsten Sicherungen (leer, wenn < 2 vorhanden)."""
     await get_device(device_id, session)
     return {"diff": await diff_latest(session, device_id)}
+
+
+# --- LLDP-Steuerung (Status read-only; Aktivieren = Schreibzugriff) ---------------------------
+
+
+class LldpStatusResult(BaseModel):
+    supported: bool  # Profil hat einen LLDP-Schreibpfad
+    enabled: bool | None  # globaler LLDP-Status (None, wenn nicht unterstützt/nicht lesbar)
+
+
+async def _lldp_prereqs(device_id: uuid.UUID, session: SessionDep) -> tuple[Device, Credential]:
+    device = await get_device(device_id, session)
+    credential = await _ssh_credential(device_id, session)
+    if credential is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Keine SSH-Credential für dieses Gerät verknüpft",
+        )
+    return device, credential
+
+
+@router.post("/{device_id}/lldp/status", response_model=LldpStatusResult)
+async def lldp_status_endpoint(
+    device_id: uuid.UUID, session: SessionDep, connection: LiveConnectionDep
+) -> LldpStatusResult:
+    """Prüft read-only live, ob LLDP global aktiv ist (für die „aktivieren?"-Nachfrage)."""
+    device, credential = await _lldp_prereqs(device_id, session)
+    profile = get_profile(device.adapter_id)
+    if profile.lldp_control is None:
+        return LldpStatusResult(supported=False, enabled=None)
+    async with connection(device, credential) as (_adapter, transport):
+        enabled = await read_lldp_enabled(transport, profile.lldp_control)
+    return LldpStatusResult(supported=True, enabled=enabled)
+
+
+@router.post("/{device_id}/lldp/enable", response_model=LldpEnableResult)
+async def lldp_enable_endpoint(
+    device_id: uuid.UUID,
+    session: SessionDep,
+    connection: LiveConnectionDep,
+    user: CurrentUserDep,
+) -> LldpEnableResult:
+    """Aktiviert LLDP global + pro Port. ⚠️ Schreibzugriff: vorher Backup, danach Verifikation.
+
+    Eng auf LLDP begrenzt; nur erlaubt, wenn das Profil einen `lldp_control`-Pfad hat.
+    """
+    device, credential = await _lldp_prereqs(device_id, session)
+    profile = get_profile(device.adapter_id)
+    if profile.lldp_control is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Adapter {device.adapter_id!r} unterstützt LLDP-Aktivierung nicht",
+        )
+    async with connection(device, credential) as (adapter, transport):
+        result = await enable_lldp(session, device, adapter, transport, profile.lldp_control)
+    await audit(
+        session,
+        user,
+        "device.lldp_enable",
+        device.hostname,
+        {"interfaces": result.interfaces_configured, "enabled_after": result.enabled_after},
+    )
+    return result

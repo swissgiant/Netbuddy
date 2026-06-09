@@ -102,6 +102,29 @@ def get_live_adapter() -> LiveAdapter:
 LiveAdapterDep = Annotated[LiveAdapter, Depends(get_live_adapter)]
 
 
+# Wie LiveAdapter, liefert aber Adapter UND Transport — der Transport trägt den (autorisierten)
+# Schreibpfad `send_config`, den der LLDP-Endpoint braucht. Injizierbar für Tests.
+LiveConnection = Callable[
+    [Device, Credential], AbstractAsyncContextManager[tuple[SwitchAdapter, ScrapliTransport]]
+]
+
+
+@asynccontextmanager
+async def _default_live_connection(
+    device: Device, credential: Credential
+) -> AsyncIterator[tuple[SwitchAdapter, ScrapliTransport]]:
+    adapter, transport = connect(device, credential)
+    async with transport:
+        yield adapter, transport
+
+
+def get_live_connection() -> LiveConnection:
+    return _default_live_connection
+
+
+LiveConnectionDep = Annotated[LiveConnection, Depends(get_live_connection)]
+
+
 # Generischer Transport fürs assistierte Onboarding (unbekanntes Gerät). Injizierbar für Tests.
 OnboardingTransport = Callable[[Device, Credential], AbstractAsyncContextManager[CommandTransport]]
 

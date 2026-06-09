@@ -110,6 +110,8 @@ export interface LldpNeighborRow {
   remote_port_description: string | null;
   remote_system_name: string | null;
   remote_system_description: string | null;
+  resolved_ip: string | null;
+  resolved_name: string | null;
 }
 export interface MacEntry {
   id: string;
@@ -180,6 +182,21 @@ export const fetchLldpNeighbors = (id: string) =>
 export const fetchArp = (id: string) => http<ArpEntry[]>(`/devices/${id}/arp`);
 export const backupDevice = (id: string) =>
   http<{ changed: boolean; sha256: string }>(`/devices/${id}/backup`, { method: "POST" });
+
+export interface LldpStatus {
+  supported: boolean;
+  enabled: boolean | null;
+}
+export const lldpStatus = (id: string) =>
+  http<LldpStatus>(`/devices/${id}/lldp/status`, { method: "POST" });
+export interface LldpEnableResult {
+  was_enabled: boolean;
+  backed_up: boolean;
+  interfaces_configured: number;
+  enabled_after: boolean;
+}
+export const enableLldp = (id: string) =>
+  http<LldpEnableResult>(`/devices/${id}/lldp/enable`, { method: "POST" });
 
 export const fetchCredentials = () => http<Credential[]>("/credentials");
 export const createCredential = (body: CredentialCreate) =>

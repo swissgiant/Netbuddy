@@ -5,16 +5,19 @@ import type {
   DiscoveryRunResult,
   Interface,
   LldpNeighborRow,
+  LldpStatus,
   MacEntry,
   ValidationReport,
 } from "../api";
 import {
   backupDevice,
   discoverDevice,
+  enableLldp,
   fetchArp,
   fetchInterfaces,
   fetchLldpNeighbors,
   fetchMacTable,
+  lldpStatus,
   validateDevice,
 } from "../api";
 import { DeviceIcon } from "../icons";
@@ -43,6 +46,7 @@ export function DeviceDetail({ device }: { device: Device }) {
   const [run, setRun] = useState<DiscoveryRunResult | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lldpCtl, setLldpCtl] = useState<LldpStatus | null>(null);
 
   const loadInventory = useCallback(async () => {
     const [i, m, l, a] = await Promise.all([
@@ -89,6 +93,21 @@ export function DeviceDetail({ device }: { device: Device }) {
       setRun(null);
       setError(r.changed ? "Backup gespeichert (geändert)." : "Backup unverändert.");
     });
+  const checkLldp = () =>
+    act("lldp-status", async () => {
+      setLldpCtl(await lldpStatus(device.id));
+    });
+  const runEnableLldp = () =>
+    act("lldp-enable", async () => {
+      if (!confirm("LLDP global + auf allen Ports aktivieren? Schreibzugriff (Backup wird angelegt).")) return;
+      const r = await enableLldp(device.id);
+      setLldpCtl({ supported: true, enabled: r.enabled_after });
+      setError(
+        r.enabled_after
+          ? `LLDP aktiviert (global + ${r.interfaces_configured} Ports, Backup angelegt).`
+          : "LLDP-Aktivierung lief, Status weiterhin AUS — bitte am Gerät prüfen.",
+      );
+    });
 
   const macCount = (ifaceId: string) => macs.filter((m) => m.interface_id === ifaceId).length;
   const neighbor = (ifaceId: string) =>
@@ -134,6 +153,26 @@ export function DeviceDetail({ device }: { device: Device }) {
             ` · Fehler: ${run.errors.map((e) => e.capability ?? "?").join(", ")}`}
         </p>
       )}
+
+      <div className="lldp-bar">
+        {lldpCtl === null ? (
+          <button className="ghost" onClick={checkLldp} disabled={busy !== null}>
+            {busy === "lldp-status" ? "prüft LLDP…" : "LLDP-Status prüfen"}
+          </button>
+        ) : !lldpCtl.supported ? (
+          <span className="muted">LLDP-Steuerung für dieses Profil nicht verfügbar.</span>
+        ) : lldpCtl.enabled ? (
+          <span className="ok-text">● LLDP ist aktiv</span>
+        ) : (
+          <span className="row" style={{ gap: 10 }}>
+            <span className="warn-text">● LLDP ist AUS — der Switch wird so nicht erkannt.</span>
+            <button onClick={runEnableLldp} disabled={busy !== null}
+              title="Schreibzugriff: global + alle Ports, mit Backup">
+              {busy === "lldp-enable" ? "aktiviert…" : "LLDP aktivieren (Schreibzugriff)"}
+            </button>
+          </span>
+        )}
+      </div>
 
       <div className="tabs">
         {([
@@ -213,12 +252,19 @@ export function DeviceDetail({ device }: { device: Device }) {
 
       {tab === "lldp" && (
         <table>
-          <thead><tr><th>lokaler Port</th><th>Nachbar</th><th>Remote-Port</th><th>Chassis</th></tr></thead>
+          <thead>
+            <tr>
+              <th>lokaler Port</th><th>Nachbar</th><th>Hostname (DNS)</th><th>IP (ARP/Mgmt)</th>
+              <th>Remote-Port</th><th>Chassis</th>
+            </tr>
+          </thead>
           <tbody>
             {lldp.map((n) => (
               <tr key={n.id}>
                 <td>{ifaceName(n.local_interface_id)}</td>
                 <td>{n.remote_system_name ?? <span className="muted">?</span>}</td>
+                <td>{n.resolved_name ?? <span className="muted">—</span>}</td>
+                <td>{n.resolved_ip ?? <span className="muted">—</span>}</td>
                 <td className="muted">{n.remote_port_description ?? n.remote_port_id}</td>
                 <td className="muted">{n.remote_chassis_id}</td>
               </tr>

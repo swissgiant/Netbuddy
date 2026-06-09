@@ -84,6 +84,25 @@ class CapabilitySpec(BaseModel):
         return self
 
 
+class LldpControlSpec(BaseModel):
+    """Optionaler Schreibpfad, um LLDP zu prüfen und (global + pro Port) zu aktivieren.
+
+    Bewusst eng: nur LLDP. ``enabled_marker`` ist ein Regex gegen die ``status_command``-Ausgabe.
+    ``enable_interface`` wird je physischem Interface im jeweiligen Interface-Kontext gesendet
+    (``interface_enter`` füllt ``{name}``). Schreibzugriff nur über den expliziten, autorisierten
+    LLDP-Endpoint — nie über den read-only Discovery-/Validierungspfad.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    status_command: str
+    enabled_marker: str  # Regex; matcht → LLDP global aktiv
+    enable_global: list[str] = Field(default_factory=list)
+    enable_interface: list[str] = Field(default_factory=list)
+    interface_enter: str = "interface {name}"
+    interface_exit: str = "exit"
+
+
 class VendorProfile(BaseModel):
     """Deklarative Beschreibung eines Vendor-Adapters (ein YAML pro Vendor)."""
 
@@ -93,6 +112,7 @@ class VendorProfile(BaseModel):
     ntc_platform: str | None = None
     provenance: str | None = None  # z.B. "vendor docs, unvalidated" / "lab-validated"
     backup_command: str | None = None  # liefert die laufende Konfig (READ_CONFIG)
+    lldp_control: LldpControlSpec | None = None  # optionaler LLDP-Schreibpfad (write)
     capabilities: dict[Capability, CapabilitySpec]
 
 

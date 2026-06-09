@@ -114,3 +114,15 @@ class ScrapliTransport:
             raise TransportError(f"Nur lesende Befehle erlaubt, abgelehnt: {command!r}")
         response = await self._driver.send_command(command)
         return response.result
+
+    async def send_config(self, lines: list[str]) -> str:
+        """Expliziter Schreibpfad (NICHT read-only-guarded) — nur für autorisierte Änderungen.
+
+        Umrahmt die Zeilen mit ``configure terminal`` … ``end``. Aufrufer ist für die
+        Berechtigung verantwortlich (LLDP-Endpoint mit Backup + Audit), nicht dieser Transport.
+        """
+        results: list[str] = []
+        for line in ("configure terminal", *lines, "end"):
+            response = await self._driver.send_command(line)
+            results.append(response.result)
+        return "\n".join(results)

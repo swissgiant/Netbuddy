@@ -211,6 +211,15 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - Tests: `test_patch_device_updates_fields`, `guessed_adapter` im Suggestions-Test. 141 Tests grün.
 - **Noch offen:** Crawl-Report zeigt nur Fehler-Anzahl, nicht die Meldungen.
 
+### Session 27 — ERSTER SCHREIBPFAD (eng begrenzt): LLDP aktivieren + LLDP-Liste angereichert
+- **Hintergrund:** FS-Switches haben LLDP per Default aus → Autodiscovery findet sie nicht. Alex hat **Schreibzugriff für genau diesen Fall** freigegeben. Entscheidungen: **global + alle Ports**, **Backup→schreiben→verifizieren** + Audit.
+- **Profil-gesteuerter Write:** `LldpControlSpec` im Profil (`status_command`, `enabled_marker`-Regex, `enable_global`, `enable_interface`, `interface_enter/exit`). Für `fs_centec` gesetzt (`lldp enable` global + je `eth-0-x`). Andere Profile: kein `lldp_control` → 400 „nicht unterstützt".
+- **Getrennter Schreibpfad:** `ScrapliTransport.send_config()` (umrahmt mit `configure terminal`…`end`) — **nicht** read-only-guarded, nur über den autorisierten LLDP-Endpoint. `services/lldp_control.py`: `read_lldp_enabled` + `enable_lldp` (Backup zuerst, dann global+physische Ports, dann Status erneut lesen). `is_physical` filtert vlan/po/loopback/mgmt raus.
+- **Endpoints:** `POST /devices/{id}/lldp/status` (read-only live) + `POST /devices/{id}/lldp/enable` (write, operator+, Audit `device.lldp_enable`). Neue Dep `LiveConnectionDep` (Adapter **und** Transport).
+- **LLDP-Liste angereichert:** `GET /devices/{id}/lldp-neighbors` liefert jetzt zusätzlich `resolved_ip` (Host/ARP/LLDP-Mgmt über chassis_id-MAC) + `resolved_name` (DNS via Host). GUI-Tab zeigt Hostname + IP-Spalten.
+- **GUI:** LLDP-Statusleiste im Geräte-Detail — „LLDP-Status prüfen" → wenn AUS: Banner „LLDP ist AUS" + Button „LLDP aktivieren (Schreibzugriff)" mit Bestätigung.
+- Tests: `test_lldp_control` (Service: aus→aktivieren→an, Backup, nur physische Ports), `test_lldp_api` (Status+Enable gemockt, Cred-Pflicht). **146 Tests grün.** Noch NICHT live ausgeführt — der echte Write auf bls-sw-53 wartet auf Alex' Trigger.
+
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults
 - Explizite `DROP TYPE`-Schleife im `downgrade()` (Alembic vergisst Enums)

@@ -134,3 +134,8 @@ tr.selected td { background: var(--panel-2); }
 .vstat.ok { background: color-mix(in srgb, var(--ok) 28%, transparent); color: var(--ok); }
 .vstat.empty { background: color-mix(in srgb, #f59e0b 25%, transparent); color: #f59e0b; }
 .vstat.error { background: color-mix(in srgb, var(--danger) 25%, transparent); color: var(--danger); }
+
+/* --- LLDP-Statusleiste im Geräte-Detail ---------------------------------- */
+.lldp-bar { margin: 8px 0; font-size: 13px; }
+.ok-text { color: var(--ok); }
+.warn-text { color: #f59e0b; }
