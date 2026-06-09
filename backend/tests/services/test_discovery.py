@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from netbuddy.adapters import MockTransport, build_adapter
 from netbuddy.db.models import (
+    ArpEntry,
     Device,
     DeviceType,
     DiscoveryStatus,
@@ -21,6 +22,7 @@ _COMMANDS = {
     "show interface status": "show_interface_status.txt",
     "show lldp neighbors detail": "show_lldp_neighbors_detail.txt",
     "show mac address-table": "show_mac_address-table.txt",
+    "show ip arp": "show_ip_arp.txt",
 }
 
 
@@ -85,6 +87,15 @@ async def test_discovery_persists_inventory(db_session: AsyncSession) -> None:
         .all()
     )
     assert len(macs) == 4
+
+    arp = (
+        (await db_session.execute(select(ArpEntry).where(ArpEntry.device_id == device.id)))
+        .scalars()
+        .all()
+    )
+    assert len(arp) == 4
+    # MAC kanonisch (12 Hex, kleingeschrieben, keine Trenner) abgelegt
+    assert {a.mac for a in arp} >= {"000015c6ca49", "90b11cf4aace"}
 
 
 async def test_discovery_is_idempotent_and_replaces_volatile(db_session: AsyncSession) -> None:

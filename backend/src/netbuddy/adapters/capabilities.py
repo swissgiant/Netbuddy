@@ -13,4 +13,5 @@ class Capability(enum.StrEnum):
     READ_INTERFACES = "read_interfaces"
     READ_LLDP = "read_lldp"
     READ_MAC_TABLE = "read_mac_table"
+    READ_ARP = "read_arp"  # ARP-Tabelle (IP↔MAC), für Namensauflösung von Endgeräten
     READ_CONFIG = "read_config"  # laufende Konfiguration als Roh-Text (für Backup/Diff)

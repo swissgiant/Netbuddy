@@ -10,6 +10,7 @@ from netbuddy.adapters.base import SwitchAdapter
 from netbuddy.adapters.capabilities import Capability
 from netbuddy.adapters.dto import InterfaceData
 from netbuddy.db.models import (
+    ArpEntry,
     Credential,
     CredentialProtocol,
     Device,
@@ -20,6 +21,7 @@ from netbuddy.db.models import (
     LldpNeighbor,
     MacAddressEntry,
 )
+from netbuddy.services.hosts import normalize_mac
 from netbuddy.services.ifname import normalize_interface_name
 
 
@@ -155,6 +157,26 @@ async def run_discovery(
         except Exception as exc:
             errors.append({"capability": "read_mac_table", "error": f"{type(exc).__name__}: {exc}"})
 
+    if Capability.READ_ARP in caps:
+        try:
+            arp_entries = await adapter.get_arp()
+            await session.execute(delete(ArpEntry).where(ArpEntry.device_id == device.id))
+            for arp in arp_entries:
+                mac = normalize_mac(arp.mac_address)
+                if not mac:
+                    continue
+                session.add(
+                    ArpEntry(
+                        device_id=device.id,
+                        ip_address=arp.ip_address,
+                        mac=mac,
+                        vlan_id=arp.vlan_id,
+                    )
+                )
+            await session.flush()
+        except Exception as exc:
+            errors.append({"capability": "read_arp", "error": f"{type(exc).__name__}: {exc}"})
+
     attempted = sum(
         1
         for c in (
@@ -162,6 +184,7 @@ async def run_discovery(
             Capability.READ_INTERFACES,
             Capability.READ_LLDP,
             Capability.READ_MAC_TABLE,
+            Capability.READ_ARP,
         )
         if c in caps
     )

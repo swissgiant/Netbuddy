@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from netbuddy.adapters.base import CapabilityNotSupportedError
 from netbuddy.adapters.capabilities import Capability
 from netbuddy.adapters.dto import (
+    ArpData,
     InterfaceData,
     LldpNeighborData,
     MacEntryData,
@@ -98,4 +99,9 @@ class DeclarativeAdapter:
     async def get_mac_table(self) -> list[MacEntryData]:
         spec, rows = await self._list_rows(Capability.READ_MAC_TABLE)
         items = [build_dto(MacEntryData, spec.fields, row) for row in rows]
+        return self._drop_empty(items, spec.drop_when_empty)
+
+    async def get_arp(self) -> list[ArpData]:
+        spec, rows = await self._list_rows(Capability.READ_ARP)
+        items = [build_dto(ArpData, spec.fields, row) for row in rows]
         return self._drop_empty(items, spec.drop_when_empty)

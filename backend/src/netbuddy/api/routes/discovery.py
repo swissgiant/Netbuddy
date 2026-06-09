@@ -4,9 +4,10 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from netbuddy.api.deps import LiveAdapterDep, SessionDep
+from netbuddy.api.deps import HostResolverDep, LiveAdapterDep, SessionDep
 from netbuddy.db.models import Credential, Device, Interface, LldpNeighbor
 from netbuddy.services.crawl import CrawlReport, crawl
+from netbuddy.services.hosts import correlate_hosts
 
 router = APIRouter(prefix="/discovery", tags=["discovery"])
 
@@ -100,3 +101,13 @@ async def crawl_endpoint(
         max_depth=body.max_depth,
         default_adapter_id=body.default_adapter_id,
     )
+
+
+@router.post("/resolve-hosts")
+async def resolve_hosts(session: SessionDep, resolver: HostResolverDep) -> dict[str, int]:
+    """Korreliert die gesammelten ARP-Einträge zu Hosts (MAC↔IP) und löst Namen per Reverse-DNS.
+
+    Macht Endgeräte per Name/IP über `/search` auffindbar. Read-only gegenüber Geräten — es werden
+    nur die schon discoverten ARP-Daten plus DNS genutzt.
+    """
+    return await correlate_hosts(session, resolver)

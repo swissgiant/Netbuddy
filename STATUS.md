@@ -9,10 +9,10 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 | Komponente | Status |
 |---|---|
 | Docker-Dev-Stack (postgres + redis + adminer) | Seit ~2 Wochen ununterbrochen `healthy`; Endpoints lt. README |
-| Alembic-Head | `9866fd865f56` (`config_backup and audit_log`) |
+| Alembic-Head | `3db5f7c39230` (`arp_entry + host`, Namensauflösung) |
 | DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
 | Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (123 Tests) |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (136 Tests) |
 | CLI-Profile | cisco_ios, dell_os10, dell_os6, fs_ruijie, fs_centec, aruba_cx (sysinfo dell/fs live-validiert, Rest unvalidiert) |
 | API-Adapter | unifi, meraki, fortigate (Firewall) — JSON-API, unvalidiert |
 | Vendor-Abstraction-Layer | Deklarative YAML-Profile + `DeclarativeAdapter`; Cisco IOS als erstes Profil (read-only, gegen Mock-Transport) |
@@ -179,6 +179,16 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - `services/locate.locate(q)`: sucht per **MAC / Name / IP** (Teilstring, case-insensitiv) über MAC-Address-Table + LLDP-Nachbarn → liefert **Switch + Port**, wo das Gerät hängt (MACADDR via Cast). `GET /search?q=` (viewer+).
 - **GUI:** Suchfeld in der Topologie. Treffer werden **nur bei Suche** als ephemere Endgerät-Knoten (Rauten, amber) am jeweiligen Switch eingeblendet (Kante = Port), inkl. Zoom/Fit; „ausblenden ✕" entfernt sie wieder. Endgeräte sind sonst **nicht** im Graph (Topologie = Sites/Switches/FW + LLDP). Layer-Sichtbarkeit lässt ephemere Knoten unberührt.
 - Tests: `test_search_api` (MAC/Name/IP, leere Query → 422). **123 Tests grün.**
+
+### Session 23 — Namensauflösung von Endgeräten (MAC→IP→Name)
+- Ziel (Alex): Endgeräte nicht nur per MAC, sondern **per Name** finden und wissen, an welchem Switch-Port sie hängen — und das nur bei Suche, sonst nicht im Graph.
+- Neue Capability `read_arp` + DTO `ArpData`; auf dem `SwitchAdapter`-Protocol, im `DeclarativeAdapter` (`get_arp` via `_list_rows`) und als `CapabilityNotSupportedError` auf den API-Adaptern (unifi/meraki/fortigate).
+- Profile: `read_arp` für **cisco_ios** (ntc `show ip arp`) und **dell_os10** (eigenes TextFSM `dell_os10_show_ip_arp.textfsm`) + Fixtures; Conformance-Gate deckt beide ab.
+- Modelle `ArpEntry` (IP↔MAC je Gerät, pro Lauf ersetzt) + `Host` (korreliert MAC↔IP↔Name, Upsert per kanonischer MAC). Migration `3db5f7c39230`.
+- `services/discovery.py`: persistiert ARP read-only, MAC kanonisch (`normalize_mac`, 12 Hex lowercase). `services/hosts.py`: `normalize_mac`, `reverse_dns` (PTR im Thread, injizierbar), `correlate_hosts` (ARP→IP→DNS, idempotent).
+- `services/locate.py`: zusätzlicher Treffer-Typ **`host`** — Suche nach Name/IP/MAC → über die kanonische MAC auf MAC-Table-Port; liefert IP + Name. `POST /discovery/resolve-hosts` (operator+) löst die gesammelten ARP-Daten zu Hosts auf (DNS-Resolver injizierbar via `HostResolverDep`).
+- **GUI:** Button „Namen auflösen" in der Topologie-Suche (zeigt `aufgelöst/gesamt`); Treffer zeigen Name + IP, ephemere Knoten labeln mit dem aufgelösten Namen.
+- Tests: `test_hosts` (normalize_mac, correlate_hosts, locate-by-name/-ip, ARP-Replace), `test_resolve_hosts_api` (Resolver-Override → Suche per Name). **136 Tests grün.**
 
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults

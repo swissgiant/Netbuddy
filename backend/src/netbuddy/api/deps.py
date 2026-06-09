@@ -13,6 +13,7 @@ from netbuddy.adapters.transport import CommandTransport
 from netbuddy.db.models import Credential, Device, User, UserRole
 from netbuddy.db.session import get_session
 from netbuddy.services.auth import COOKIE_NAME, resolve_token
+from netbuddy.services.hosts import DnsResolver, reverse_dns
 from netbuddy.services.validation import DeviceValidationReport, validate_device
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -119,3 +120,12 @@ def get_onboarding_transport() -> OnboardingTransport:
 
 
 OnboardingTransportDep = Annotated[OnboardingTransport, Depends(get_onboarding_transport)]
+
+
+# Reverse-DNS-Resolver für die Host-Namensauflösung. Injizierbar, damit Tests ohne echtes DNS
+# laufen (deterministischer Fake statt `socket.gethostbyaddr`).
+def get_host_resolver() -> DnsResolver:
+    return reverse_dns
+
+
+HostResolverDep = Annotated[DnsResolver, Depends(get_host_resolver)]

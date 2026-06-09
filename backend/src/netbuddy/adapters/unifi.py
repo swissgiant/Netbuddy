@@ -4,6 +4,7 @@ from netbuddy.adapters.api_client import ApiClient
 from netbuddy.adapters.base import AdapterError, CapabilityNotSupportedError
 from netbuddy.adapters.capabilities import Capability
 from netbuddy.adapters.dto import (
+    ArpData,
     InterfaceData,
     LldpNeighborData,
     MacEntryData,
@@ -125,3 +126,6 @@ class UnifiAdapter:
 
     async def get_config(self) -> str:
         raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_CONFIG)
+
+    async def get_arp(self) -> list[ArpData]:
+        raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_ARP)

@@ -1,0 +1,6 @@
+Codes: * - default-route, M - management-route
+Address          Hardware address    Interface                  Egress Interface
+10.0.0.1         00:00:15:c6:ca:49   vlan10                     ethernet1/1/21
+10.0.0.20        90:b1:1c:f4:aa:ce   vlan10                     ethernet1/1/21
+10.0.0.21        34:17:eb:02:8c:33   vlan20                     ethernet1/1/1
+192.168.1.5      e4:f0:04:3e:2d:86   mgmt1/1/1

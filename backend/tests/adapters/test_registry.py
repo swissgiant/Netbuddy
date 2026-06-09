@@ -16,6 +16,7 @@ _CISCO_CAPS = frozenset(
         Capability.READ_INTERFACES,
         Capability.READ_LLDP,
         Capability.READ_MAC_TABLE,
+        Capability.READ_ARP,
     }
 )
 

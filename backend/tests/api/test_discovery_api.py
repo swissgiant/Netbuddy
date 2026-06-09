@@ -16,6 +16,7 @@ _COMMANDS = {
     "show interface status": "show_interface_status.txt",
     "show lldp neighbors detail": "show_lldp_neighbors_detail.txt",
     "show mac address-table": "show_mac_address-table.txt",
+    "show ip arp": "show_ip_arp.txt",
 }
 
 

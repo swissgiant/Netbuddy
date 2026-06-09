@@ -44,6 +44,15 @@ class LldpNeighborData(BaseModel):
     mgmt_address: str | None = None  # Management-IP des Nachbarn (für Autodiscovery-Crawl)
 
 
+class ArpData(BaseModel):
+    """Ein ARP-Eintrag (IP↔MAC), Basis für die Namensauflösung von Endgeräten."""
+
+    ip_address: str
+    mac_address: str
+    vlan_id: int | None = None
+    interface: str | None = None
+
+
 class MacEntryData(BaseModel):
     """Ein Eintrag der MAC-Address-Table, verankert an einem Interface-Namen."""
 

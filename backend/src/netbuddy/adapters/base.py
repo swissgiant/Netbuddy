@@ -2,6 +2,7 @@ from typing import Protocol, runtime_checkable
 
 from netbuddy.adapters.capabilities import Capability
 from netbuddy.adapters.dto import (
+    ArpData,
     InterfaceData,
     LldpNeighborData,
     MacEntryData,
@@ -43,5 +44,7 @@ class SwitchAdapter(Protocol):
     async def get_lldp_neighbors(self) -> list[LldpNeighborData]: ...
 
     async def get_mac_table(self) -> list[MacEntryData]: ...
+
+    async def get_arp(self) -> list[ArpData]: ...
 
     async def get_config(self) -> str: ...

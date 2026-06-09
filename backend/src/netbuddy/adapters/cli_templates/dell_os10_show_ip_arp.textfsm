@@ -1,0 +1,10 @@
+Value IP_ADDRESS (\d+\.\d+\.\d+\.\d+)
+Value MAC (\S+)
+Value INTERFACE (\S+)
+Value EGRESS (\S+)
+
+Start
+  ^Codes: -> Next
+  ^Address\s+Hardware -> Next
+  ^${IP_ADDRESS}\s+${MAC}\s+${INTERFACE}\s+${EGRESS}\s*$$ -> Record
+  ^${IP_ADDRESS}\s+${MAC}\s+${INTERFACE}\s*$$ -> Record

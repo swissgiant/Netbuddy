@@ -23,6 +23,7 @@ _METHODS: dict[Capability, tuple[str, bool]] = {
     Capability.READ_INTERFACES: ("get_interfaces", True),
     Capability.READ_LLDP: ("get_lldp_neighbors", True),
     Capability.READ_MAC_TABLE: ("get_mac_table", True),
+    Capability.READ_ARP: ("get_arp", True),
 }
 
 

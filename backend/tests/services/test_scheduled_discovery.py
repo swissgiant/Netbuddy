@@ -4,7 +4,13 @@ from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from netbuddy.adapters.capabilities import Capability
-from netbuddy.adapters.dto import InterfaceData, LldpNeighborData, MacEntryData, SystemInfo
+from netbuddy.adapters.dto import (
+    ArpData,
+    InterfaceData,
+    LldpNeighborData,
+    MacEntryData,
+    SystemInfo,
+)
 from netbuddy.db.models import (
     Credential,
     CredentialProtocol,
@@ -32,6 +38,9 @@ class _FakeAdapter:
         return []
 
     async def get_mac_table(self) -> list[MacEntryData]:
+        return []
+
+    async def get_arp(self) -> list[ArpData]:
         return []
 
     async def get_config(self) -> str:

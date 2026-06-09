@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AdapterInfo, LocateResult, Topology } from "../api";
-import { fetchAdapters, fetchTopology, searchEndpoints } from "../api";
+import { fetchAdapters, fetchTopology, resolveHosts, searchEndpoints } from "../api";
 import type { EndpointHighlight } from "../TopologyGraph";
 import { TopologyGraph } from "../TopologyGraph";
 
@@ -19,6 +19,7 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<LocateResult[]>([]);
   const [searched, setSearched] = useState(false);
+  const [resolveMsg, setResolveMsg] = useState<string | null>(null);
 
   const reload = () => {
     fetchTopology().then(setTopology).catch((e) => setError(String(e)));
@@ -46,11 +47,20 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
     setHits([]);
     setSearched(false);
   };
+  const runResolve = async () => {
+    setResolveMsg("Löse Namen auf…");
+    try {
+      const r = await resolveHosts();
+      setResolveMsg(`${r.resolved}/${r.hosts} Hosts mit Namen aufgelöst`);
+    } catch (e) {
+      setResolveMsg(String(e));
+    }
+  };
 
   // Such-Treffer → ephemere Endgerät-Knoten (eindeutig je Switch+Port+Match).
   const endpoints: EndpointHighlight[] = hits.map((h, i) => ({
     id: `ep:${i}`,
-    label: h.system_name || h.mac || h.match,
+    label: h.name || h.system_name || h.mac || h.match,
     deviceId: h.device_id,
     port: h.port,
   }));
@@ -79,6 +89,12 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
           />
           <button onClick={runSearch}>🔍</button>
         </div>
+        <div className="row" style={{ marginTop: 4, justifyContent: "space-between" }}>
+          <button className="ghost" onClick={runResolve} title="ARP→IP→DNS korrelieren">
+            Namen auflösen
+          </button>
+          {resolveMsg && <span className="muted" style={{ fontSize: 11 }}>{resolveMsg}</span>}
+        </div>
         {searched && (
           <div style={{ fontSize: 12, marginTop: 6 }}>
             <div className="row" style={{ justifyContent: "space-between" }}>
@@ -87,10 +103,12 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
             </div>
             {hits.map((h, i) => (
               <div key={i} style={{ marginTop: 4 }}>
-                <strong>{h.system_name || h.mac || h.match}</strong>
+                <strong>{h.name || h.system_name || h.mac || h.match}</strong>
+                {h.kind === "host" && <span className="muted"> · aufgelöst</span>}
                 <br />
                 <span className="muted">
                   {h.device_hostname} / {h.port}
+                  {h.ip_address ? ` · ${h.ip_address}` : ""}
                   {h.vlan != null ? ` · VLAN ${h.vlan}` : ""}
                 </span>
               </div>

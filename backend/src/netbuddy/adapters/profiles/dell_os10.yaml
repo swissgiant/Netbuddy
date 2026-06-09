@@ -54,3 +54,12 @@ capabilities:
         from: type
         via:
           - enum_value: { values_of: MacEntryType, default: dynamic }
+
+  read_arp:
+    command: "show ip arp"
+    parser: "textfsm:dell_os10_show_ip_arp.textfsm"
+    drop_when_empty: [mac_address]
+    fields:
+      ip_address: ip_address
+      mac_address: mac
+      interface: { from: interface, via: [strip_or_none] }

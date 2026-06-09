@@ -3,7 +3,13 @@ from typing import Any, ClassVar, cast
 from netbuddy.adapters.api_client import ApiClient
 from netbuddy.adapters.base import AdapterError, CapabilityNotSupportedError
 from netbuddy.adapters.capabilities import Capability
-from netbuddy.adapters.dto import InterfaceData, LldpNeighborData, MacEntryData, SystemInfo
+from netbuddy.adapters.dto import (
+    ArpData,
+    InterfaceData,
+    LldpNeighborData,
+    MacEntryData,
+    SystemInfo,
+)
 from netbuddy.adapters.registry import register_api_adapter
 from netbuddy.db.models import AdminStatus, DeviceType
 
@@ -102,3 +108,6 @@ class MerakiAdapter:
 
     async def get_config(self) -> str:
         raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_CONFIG)
+
+    async def get_arp(self) -> list[ArpData]:
+        raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_ARP)

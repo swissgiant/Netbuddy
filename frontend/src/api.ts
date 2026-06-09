@@ -120,18 +120,27 @@ export const createSite = (body: { name: string; code?: string }) =>
 export const fetchSuggestions = () => http<SuggestedDevice[]>("/discovery/suggestions");
 
 export interface LocateResult {
-  kind: "mac" | "lldp";
+  kind: "host" | "mac" | "lldp";
   match: string;
   device_id: string;
   device_hostname: string;
   port: string;
   vlan: number | null;
   mac: string | null;
+  ip_address: string | null;
+  name: string | null;
   system_name: string | null;
   mgmt_address: string | null;
 }
 export const searchEndpoints = (q: string) =>
   http<LocateResult[]>(`/search?q=${encodeURIComponent(q)}`);
+
+export interface ResolveHostsResult {
+  hosts: number;
+  resolved: number;
+}
+export const resolveHosts = () =>
+  http<ResolveHostsResult>("/discovery/resolve-hosts", { method: "POST" });
 
 export interface CrawlReport {
   seeds: number;

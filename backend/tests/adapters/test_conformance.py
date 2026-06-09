@@ -13,6 +13,7 @@ import pytest
 from netbuddy.adapters import MockTransport, available_adapters, build_adapter
 from netbuddy.adapters.capabilities import Capability
 from netbuddy.adapters.dto import (
+    ArpData,
     InterfaceData,
     LldpNeighborData,
     MacEntryData,
@@ -28,6 +29,7 @@ _METHODS = {
     Capability.READ_INTERFACES: ("get_interfaces", InterfaceData, True),
     Capability.READ_LLDP: ("get_lldp_neighbors", LldpNeighborData, True),
     Capability.READ_MAC_TABLE: ("get_mac_table", MacEntryData, True),
+    Capability.READ_ARP: ("get_arp", ArpData, True),
 }
 
 
