@@ -12,6 +12,17 @@ _SCRAPLI_PLATFORM = {
     "fs_ruijie": "generic",
 }
 
+# Paging beim Öffnen abschalten — der GenericDriver kennt Dells/FS' Prompt nicht und würde
+# sonst bei langen Ausgaben am `--More--`-Pager hängen (ScrapliTimeout). Core-Treiber (Cisco)
+# erledigen das selbst, daher hier nur die generic-Vendors. Reine Session-Einstellung, keine
+# Konfig-Änderung → mit „read-only first" vereinbar.
+_PAGING_DISABLE = {
+    "dell_os10": "terminal length 0",
+    "dell_os6": "terminal length 0",
+    "fs_centec": "terminal length 0",
+    "fs_ruijie": "terminal length 0",
+}
+
 
 class ConnectionParams(BaseModel):
     """Transiente, in-memory Verbindungsdaten für einen SSH-Transport.
@@ -28,6 +39,8 @@ class ConnectionParams(BaseModel):
     password: SecretStr | None = None
     enable_password: SecretStr | None = None
     platform: str
+    # Befehl zum Abschalten des Pagers beim Öffnen (None = Treiber regelt es selbst).
+    paging_command: str | None = None
 
 
 def _platform_for(adapter_id: str) -> str:
@@ -44,7 +57,7 @@ def onboarding_params(device: Device, credential: Credential) -> ConnectionParam
     `device.adapter_id` schon einem Vendor zugeordnet ist.
     """
     return ConnectionParams(
-        host=device.mgmt_ip,
+        host=str(device.mgmt_ip),
         port=credential.ssh_port,
         username=credential.username or "",
         password=SecretStr(credential.password) if credential.password is not None else None,
@@ -54,6 +67,7 @@ def onboarding_params(device: Device, credential: Credential) -> ConnectionParam
             else None
         ),
         platform="generic",
+        paging_command="terminal length 0",
     )
 
 
@@ -64,7 +78,7 @@ def params_from_credential(device: Device, credential: Credential) -> Connection
     ``EncryptedString``-Spaltentyp beim Lesen bereits entschlüsselt.
     """
     return ConnectionParams(
-        host=device.mgmt_ip,
+        host=str(device.mgmt_ip),
         port=credential.ssh_port,
         username=credential.username or "",
         password=SecretStr(credential.password) if credential.password is not None else None,
@@ -74,4 +88,5 @@ def params_from_credential(device: Device, credential: Credential) -> Connection
             else None
         ),
         platform=_platform_for(device.adapter_id),
+        paging_command=_PAGING_DISABLE.get(device.adapter_id),
     )

@@ -85,9 +85,14 @@ class ScrapliTransport:
         driver_factory: DriverFactory = _build_async_scrapli,
     ) -> None:
         self._driver = driver_factory(params)
+        self._paging_command = params.paging_command
 
     async def open(self) -> None:
         await self._driver.open()
+        # Pager direkt am Treiber abschalten (am Read-only-Guard vorbei: reine Session-
+        # Einstellung). Ohne das hängt der GenericDriver bei langen Ausgaben am `--More--`.
+        if self._paging_command:
+            await self._driver.send_command(self._paging_command)
 
     async def close(self) -> None:
         await self._driver.close()

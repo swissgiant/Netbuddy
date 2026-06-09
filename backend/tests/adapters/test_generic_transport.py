@@ -1,3 +1,5 @@
+from ipaddress import IPv4Address
+
 from scrapli.driver.generic import AsyncGenericDriver
 
 from netbuddy.adapters.connection import ConnectionParams, params_from_credential
@@ -31,3 +33,20 @@ def test_dell_fs_adapters_map_to_generic_platform() -> None:
         )
         params = params_from_credential(device, Credential(name="c", username="u", ssh_port=22))
         assert params.platform == "generic"
+        # Pager muss abgeschaltet werden, sonst hängt der GenericDriver bei langen Ausgaben.
+        assert params.paging_command == "terminal length 0"
+
+
+def test_mgmt_ip_object_is_coerced_to_string() -> None:
+    # Die INET-Spalte liefert beim DB-Lesen ein IPv4Address-Objekt; ConnectionParams.host
+    # braucht aber str (sonst Pydantic-ValidationError beim Verbindungsaufbau).
+    device = Device(
+        hostname="h",
+        mgmt_ip=IPv4Address("10.0.0.1"),
+        vendor="x",
+        device_type=DeviceType.SWITCH,
+        adapter_id="dell_os10",
+    )
+    params = params_from_credential(device, Credential(name="c", username="u", ssh_port=22))
+    assert params.host == "10.0.0.1"
+    assert isinstance(params.host, str)

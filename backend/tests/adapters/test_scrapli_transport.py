@@ -57,6 +57,18 @@ async def test_context_manager_opens_and_closes() -> None:
     assert driver.closed
 
 
+async def test_paging_command_sent_on_open() -> None:
+    driver = _FakeDriver(responses={"show version": "ok"})
+    params = ConnectionParams(
+        host="10.0.0.1", username="svc", platform="generic", paging_command="terminal length 0"
+    )
+    transport = ScrapliTransport(params, driver_factory=lambda _p: driver)
+    async with transport:
+        await transport.send_command("show version")
+    # Pager-Befehl läuft direkt beim Öffnen (vor allem anderen), am Read-only-Guard vorbei.
+    assert driver.commands == ["terminal length 0", "show version"]
+
+
 async def test_send_command_rejects_non_read_commands() -> None:
     driver = _FakeDriver()
     transport = _transport_with(driver)

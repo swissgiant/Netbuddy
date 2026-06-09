@@ -1,8 +1,8 @@
 # Dell EMC SmartFabric OS10 — read-only.
-# System-Info gegen ECHTEN Capture validiert (SW2 / S5248F-ON / 10.5.2.6);
-# interfaces/lldp/mac sind doku-/research-abgeleitet und werden per Live-Probe bestätigt.
+# ALLE Capabilities live gegen echte Hardware validiert (BLS-SW-Core2 / S5248F-ON / 10.5.2.6):
+# system_info, interfaces (56), lldp (31), mac (338), arp (97) — alle Felder geparst.
 adapter_id: dell_os10
-provenance: "Dell OS10 — sysinfo lab-validated (S5248F-ON 10.5.2.6); interfaces/lldp/mac unvalidated"
+provenance: "Dell OS10 — live-validated (S5248F-ON 10.5.2.6): sysinfo/interfaces/lldp/mac/arp"
 
 backup_command: "show running-configuration"
 
