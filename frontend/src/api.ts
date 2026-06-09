@@ -184,8 +184,9 @@ export const deleteCredential = (id: string) =>
   http<void>(`/credentials/${id}`, { method: "DELETE" });
 
 export const fetchSites = () => http<Site[]>("/sites");
-export const createSite = (body: { name: string; code?: string }) =>
+export const createSite = (body: { name: string; code?: string; description?: string }) =>
   http<Site>("/sites", { method: "POST", body: JSON.stringify(body) });
+export const deleteSite = (id: string) => http<void>(`/sites/${id}`, { method: "DELETE" });
 
 export const fetchSuggestions = () => http<SuggestedDevice[]>("/discovery/suggestions");
 

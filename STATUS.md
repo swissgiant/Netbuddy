@@ -198,6 +198,14 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - **Icons:** `icons.tsx` (Inline-SVG je Gerätetyp, Liste + Detail-Kopf) und `nodeIcons.ts` (weiße Data-URI-SVGs als Cytoscape-Knoten-Hintergrund) → echte Icons im Topologie-Graph, Switches als Chassis-Rechteck.
 - `tsc` + `vite build` sauber. Backend neu gestartet (Port 8000), Vite (5173).
 
+### Session 25 — ERSTER ECHTER GERÄTE-ZUGRIFF: dell_os10 live-validiert + Standort-Verwaltung
+- **Meilenstein:** Core-Switch (BLS-SW-Core2 / Dell S5248F-ON / OS10 10.5.2.6) read-only live ausgelesen. Zwei Blocker gefixt, die jeden Live-Zugriff verhindert hätten:
+  1. `params_from_credential` gab `device.mgmt_ip` (ein `IPv4Address` aus der `INET`-Spalte) an `ConnectionParams.host: str` → pydantic-`ValidationError` vor jedem I/O. Fix: `str(device.mgmt_ip)`.
+  2. Der `AsyncGenericDriver` (Dell/FS) kennt Dells Prompt/Pager nicht → lange Ausgaben hingen am `--More--` (`ScrapliTimeout`). Fix: `terminal length 0` beim Öffnen (nur generic-Plattformen, reine Session-Einstellung, read-only-safe).
+- **Ergebnis:** `dell_os10` jetzt **live-validiert** (vorher unvalidated): system_info, interfaces (56), lldp (31), mac (338), arp (97) — alle Felder geparst. Provenance aktualisiert. Regressionstests für beide Fixes. Commit `2c160db`.
+- **Standort-Verwaltung (Alex' Wunsch):** es gab `GET/POST /sites`, aber kein GUI und kein Delete. Neu: `DELETE /sites/{id}` (Soft-Delete, 409 wenn noch Geräte dranhängen), **`SitesView`** (anlegen/auflisten/löschen + Geräte-Zähler) + Nav-Eintrag „📍 Standorte". Tests `test_sites_api`. 140 Tests grün.
+- **Offene GUI-Lücken (notiert):** kein Geräte-Bearbeiten-Endpoint (IP-Korrektur nur via Löschen+Neu) — `PATCH /devices/{id}` wäre fällig; Crawl-Report zeigt nur Fehler-Anzahl, nicht die Meldungen.
+
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults
 - Explizite `DROP TYPE`-Schleife im `downgrade()` (Alembic vergisst Enums)
