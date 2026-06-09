@@ -86,6 +86,7 @@ export interface SuggestedDevice {
   system_description: string | null;
   mgmt_address: string | null;
   guessed_adapter: string | null;
+  guessed_vendor: string | null;
   seen_on: string[];
 }
 
@@ -112,6 +113,7 @@ export interface LldpNeighborRow {
   remote_system_description: string | null;
   resolved_ip: string | null;
   resolved_name: string | null;
+  guessed_vendor: string | null;
 }
 export interface MacEntry {
   id: string;

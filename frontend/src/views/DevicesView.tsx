@@ -211,7 +211,7 @@ export function DevicesView() {
           <table>
             <thead>
               <tr>
-                <th>System-Name</th><th>Mgmt-IP</th><th>Profil (geraten)</th>
+                <th>System-Name</th><th>Mgmt-IP</th><th>Hersteller (MAC)</th><th>Profil (geraten)</th>
                 <th>gesehen an</th><th></th>
               </tr>
             </thead>
@@ -220,6 +220,7 @@ export function DevicesView() {
                 <tr key={s.chassis_id}>
                   <td>{s.system_name ?? <span className="muted">{s.chassis_id}</span>}</td>
                   <td className="muted">{s.mgmt_address ?? "—"}</td>
+                  <td className="muted">{s.guessed_vendor ?? "—"}</td>
                   <td>
                     {s.guessed_adapter
                       ? <span className="badge">{s.guessed_adapter}</span>

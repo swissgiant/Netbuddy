@@ -220,6 +220,13 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - **GUI:** LLDP-Statusleiste im Geräte-Detail — „LLDP-Status prüfen" → wenn AUS: Banner „LLDP ist AUS" + Button „LLDP aktivieren (Schreibzugriff)" mit Bestätigung.
 - Tests: `test_lldp_control` (Service: aus→aktivieren→an, Backup, nur physische Ports), `test_lldp_api` (Status+Enable gemockt, Cred-Pflicht). **146 Tests grün.** Noch NICHT live ausgeführt — der echte Write auf bls-sw-53 wartet auf Alex' Trigger.
 
+### Session 28 — MAC-OUI → Hersteller-Vermutung (IEEE-Registry gebündelt)
+- Wunsch (Alex): aus den MACs in der LLDP-Liste auf den Hersteller schließen (FS.com etc.), generell auch für andere Switche/Firewalls.
+- **Daten:** IEEE/Wireshark-`manuf` geladen → kompakte `adapters/data/oui.csv` (39 279 /24-OUIs, ~1,2 MB, `prefix,vendor`). `services/oui.vendor_for_mac(mac)` (lru-gecacht; nutzt `normalize_mac`, gibt None bei Nicht-MAC wie LLDP-Name-Chassis).
+- **Live bestätigt:** FS S5800 hat OUI `64:9d:99` = „Fs Com Inc". Fleet-OUIs aufgelöst: `b0:4f:13`/`8c:47:be`=Dell (BLS-SW-*/SW1), `1c:6a:1b`=Ubiquiti (BLS-SW-68), `d4:76:a0`=Fortinet (BLS-FW1/2), `90:09:d0`=Synology, `b4:96:91`=Intel, `b8:e9:24`=Mellanox, `e4:3d:1a`=Broadcom, `00:0e:1e`=QLogic (Server-NICs).
+- **Verdrahtet:** `guessed_vendor` in `GET /devices/{id}/lldp-neighbors` (Spalte „Hersteller (MAC)") und in den LLDP-Vorschlägen (greift auch bei „Not Advertised", wo das Profil-Raten nichts hat). Tests `test_oui`. 153 Tests grün.
+- **Deployment-Notiz:** `adapters/data/oui.csv` muss (wie `profiles/`+`cli_templates/`) ins gebaute Package.
+
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults
 - Explizite `DROP TYPE`-Schleife im `downgrade()` (Alembic vergisst Enums)

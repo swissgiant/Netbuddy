@@ -8,6 +8,7 @@ from netbuddy.api.deps import HostResolverDep, LiveAdapterDep, SessionDep
 from netbuddy.db.models import ArpEntry, Credential, Device, Interface, LldpNeighbor
 from netbuddy.services.crawl import CrawlReport, crawl, guess_adapter
 from netbuddy.services.hosts import correlate_hosts, normalize_mac
+from netbuddy.services.oui import vendor_for_mac
 
 router = APIRouter(prefix="/discovery", tags=["discovery"])
 
@@ -21,6 +22,7 @@ class SuggestedDevice(BaseModel):
     system_description: str | None
     mgmt_address: str | None  # Management-IP aus LLDP (für 1-Klick-Anlage)
     guessed_adapter: str | None  # aus system_description geratenes Profil (UI-Vorauswahl)
+    guessed_vendor: str | None  # aus dem OUI der chassis_id-MAC (auch ohne system_description)
     seen_on: list[str]  # "<hostname> / <local-interface>"
 
 
@@ -66,6 +68,7 @@ async def list_suggestions(session: SessionDep) -> list[SuggestedDevice]:
                 system_description=n.remote_system_description,
                 mgmt_address=resolve_ip(n.remote_mgmt_address, n.remote_chassis_id),
                 guessed_adapter=guess_adapter(n.remote_system_description, None),
+                guessed_vendor=vendor_for_mac(n.remote_chassis_id),
                 seen_on=[seen],
             )
         else:

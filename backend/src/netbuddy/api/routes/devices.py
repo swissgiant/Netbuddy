@@ -41,6 +41,7 @@ from netbuddy.services.discovery import run_discovery
 from netbuddy.services.hosts import normalize_mac
 from netbuddy.services.lldp_control import LldpEnableResult, enable_lldp, read_lldp_enabled
 from netbuddy.services.onboarding import ProfileDraft, suggest_profile
+from netbuddy.services.oui import vendor_for_mac
 from netbuddy.services.validation import DeviceValidationReport
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -387,6 +388,7 @@ class LldpNeighborRead(BaseModel):
     remote_system_description: str | None
     resolved_ip: str | None = None  # aus ARP/LLDP-Mgmt (über chassis_id-MAC)
     resolved_name: str | None = None  # aus DNS (Host-Korrelation)
+    guessed_vendor: str | None = None  # aus dem OUI der chassis_id-MAC (IEEE-Registry)
 
 
 class MacEntryRead(BaseModel):
@@ -447,6 +449,7 @@ async def list_lldp_neighbors(device_id: uuid.UUID, session: SessionDep) -> list
                 or arp_ip.get(mac)
                 or n.remote_mgmt_address,
                 resolved_name=host.name if host else None,
+                guessed_vendor=vendor_for_mac(n.remote_chassis_id),
             )
         )
     return result

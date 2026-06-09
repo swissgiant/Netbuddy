@@ -255,7 +255,7 @@ export function DeviceDetail({ device }: { device: Device }) {
           <thead>
             <tr>
               <th>lokaler Port</th><th>Nachbar</th><th>Hostname (DNS)</th><th>IP (ARP/Mgmt)</th>
-              <th>Remote-Port</th><th>Chassis</th>
+              <th>Hersteller (MAC)</th><th>Remote-Port</th><th>Chassis</th>
             </tr>
           </thead>
           <tbody>
@@ -265,6 +265,7 @@ export function DeviceDetail({ device }: { device: Device }) {
                 <td>{n.remote_system_name ?? <span className="muted">?</span>}</td>
                 <td>{n.resolved_name ?? <span className="muted">—</span>}</td>
                 <td>{n.resolved_ip ?? <span className="muted">—</span>}</td>
+                <td>{n.guessed_vendor ?? <span className="muted">—</span>}</td>
                 <td className="muted">{n.remote_port_description ?? n.remote_port_id}</td>
                 <td className="muted">{n.remote_chassis_id}</td>
               </tr>
