@@ -17,6 +17,7 @@ from netbuddy.api.deps import (
 )
 from netbuddy.db.models import (
     AdminStatus,
+    ArpEntry,
     ConfigBackup,
     Credential,
     CredentialProtocol,
@@ -391,6 +392,23 @@ async def list_mac_table(device_id: uuid.UUID, session: SessionDep) -> Sequence[
     """MAC-Address-Table eines Geräts."""
     await get_device(device_id, session)
     stmt = select(MacAddressEntry).where(MacAddressEntry.device_id == device_id)
+    return (await session.execute(stmt)).scalars().all()
+
+
+class ArpEntryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    ip_address: str
+    mac: str
+    vlan_id: int | None
+
+
+@router.get("/{device_id}/arp", response_model=list[ArpEntryRead])
+async def list_arp(device_id: uuid.UUID, session: SessionDep) -> Sequence[ArpEntry]:
+    """ARP-Tabelle eines Geräts (IP↔MAC, Basis der Namensauflösung)."""
+    await get_device(device_id, session)
+    stmt = select(ArpEntry).where(ArpEntry.device_id == device_id).order_by(ArpEntry.ip_address)
     return (await session.execute(stmt)).scalars().all()
 
 

@@ -190,6 +190,14 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - **GUI:** Button „Namen auflösen" in der Topologie-Suche (zeigt `aufgelöst/gesamt`); Treffer zeigen Name + IP, ephemere Knoten labeln mit dem aufgelösten Namen.
 - Tests: `test_hosts` (normalize_mac, correlate_hosts, locate-by-name/-ip, ARP-Replace), `test_resolve_hosts_api` (Resolver-Override → Suche per Name). **136 Tests grün.**
 
+### Session 24 — GUI: Geräte-Detail + Live-Aktionen + Switch-Faceplate + Icons
+- Hintergrund (Alex): vor dem ersten echten Core-Switch-Test sollen die read-only Live-Funktionen **im GUI** klickbar sein (bisher nur API), plus optische Switch-/Port-Darstellung.
+- Backend: neuer `GET /devices/{id}/arp` (ArpEntryRead) — die übrigen Read-/Aktions-Routen existierten schon. Test in `test_discovery_api` erweitert (ARP, MAC kanonisch). 136 Tests grün.
+- Frontend `api.ts`: `discoverDevice`/`validateDevice`/`backupDevice` + Lesesichten `fetchInterfaces/MacTable/LldpNeighbors/Arp` + Typen.
+- **`DeviceDetail.tsx`** (in der Geräte-Liste aufklappbar): Buttons **⟳ Discover / ✓ Validieren / 💾 Backup** (alle read-only, erster echter Geräte-Zugriff via GUI) + Tabs Ports/MAC/LLDP/ARP/Validierung. **Switch-Faceplate**: physische Ports als Kästchen, grün=up / blass=down / amber=admin-down, blauer Punkt+Oberkante=LLDP-Nachbar, Tooltip (Name/Desc/Speed/Nachbar/MAC-Count), Legende; Validierungs-Tab zeigt Status (ok/empty/error) + Feld-Abdeckung.
+- **Icons:** `icons.tsx` (Inline-SVG je Gerätetyp, Liste + Detail-Kopf) und `nodeIcons.ts` (weiße Data-URI-SVGs als Cytoscape-Knoten-Hintergrund) → echte Icons im Topologie-Graph, Switches als Chassis-Rechteck.
+- `tsc` + `vite build` sauber. Backend neu gestartet (Port 8000), Vite (5173).
+
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults
 - Explizite `DROP TYPE`-Schleife im `downgrade()` (Alembic vergisst Enums)

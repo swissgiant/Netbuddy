@@ -68,6 +68,11 @@ async def test_discover_persists_and_aggregates_readable(api_client: AsyncClient
     macs = await api_client.get(f"/devices/{device_id}/mac-table")
     assert len(macs.json()) == 4
 
+    arp = await api_client.get(f"/devices/{device_id}/arp")
+    assert arp.status_code == 200
+    assert len(arp.json()) == 4
+    assert all(len(a["mac"]) == 12 for a in arp.json())  # kanonisch
+
 
 async def test_discover_without_credential_is_400(api_client: AsyncClient) -> None:
     device = await api_client.post(

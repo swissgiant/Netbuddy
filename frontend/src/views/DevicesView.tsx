@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type {
   Credential,
   Device,
@@ -21,6 +21,8 @@ import {
   startCrawl,
   unlinkCredential,
 } from "../api";
+import { DeviceIcon } from "../icons";
+import { DeviceDetail } from "./DeviceDetail";
 
 const DEVICE_TYPES = ["switch", "firewall", "router", "ap", "other"];
 const EMPTY: DeviceCreate = {
@@ -45,6 +47,7 @@ export function DevicesView() {
   const [crawl, setCrawl] = useState({ seed: "", credential: "", depth: 2 });
   const [crawlReport, setCrawlReport] = useState<CrawlReport | null>(null);
   const [crawling, setCrawling] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
 
   const reload = () => {
     fetchDevices().then(setDevices).catch((e) => setError(String(e)));
@@ -194,7 +197,7 @@ export function DevicesView() {
         <table>
           <thead>
             <tr>
-              <th>Hostname</th><th>IP</th><th>Typ</th><th>Vendor</th><th>Adapter</th>
+              <th></th><th>Hostname</th><th>IP</th><th>Typ</th><th>Vendor</th><th>Adapter</th>
               <th>Standort</th><th>Credentials</th><th></th>
             </tr>
           </thead>
@@ -202,36 +205,51 @@ export function DevicesView() {
             {devices.map((d) => {
               const myLinks = linksFor(d.id);
               const linkedIds = new Set(myLinks.map((l) => l.credential_id));
+              const open = selected === d.id;
               return (
-                <tr key={d.id}>
-                  <td>{d.hostname}</td>
-                  <td>{d.mgmt_ip}</td>
-                  <td><span className="badge">{d.device_type}</span></td>
-                  <td>{d.vendor}</td>
-                  <td>{d.adapter_id}</td>
-                  <td className="muted">{siteName(d.site_id)}</td>
-                  <td>
-                    {myLinks.map((l) => (
-                      <span key={l.credential_id + l.protocol} className="badge" style={{ marginRight: 4 }}>
-                        {l.credential_name} ({l.protocol}){" "}
-                        <a
-                          style={{ cursor: "pointer", color: "var(--danger)" }}
-                          onClick={() => detach(d.id, l.credential_id, l.protocol)}
-                          title="lösen"
-                        >
-                          ✕
-                        </a>
-                      </span>
-                    ))}
-                    <select value="" onChange={(e) => attach(d.id, e.target.value)} style={{ marginTop: 2 }}>
-                      <option value="">+ zuweisen…</option>
-                      {credentials.filter((c) => !linkedIds.has(c.id)).map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+                <Fragment key={d.id}>
+                  <tr className={open ? "selected" : ""}>
+                    <td style={{ color: "var(--muted)" }}>
+                      <DeviceIcon type={d.device_type} size={18} title={d.device_type} />
+                    </td>
+                    <td>
+                      <a style={{ cursor: "pointer" }} onClick={() => setSelected(open ? null : d.id)}>
+                        {open ? "▾" : "▸"} {d.hostname}
+                      </a>
+                    </td>
+                    <td>{d.mgmt_ip}</td>
+                    <td><span className="badge">{d.device_type}</span></td>
+                    <td>{d.vendor}</td>
+                    <td>{d.adapter_id}</td>
+                    <td className="muted">{siteName(d.site_id)}</td>
+                    <td>
+                      {myLinks.map((l) => (
+                        <span key={l.credential_id + l.protocol} className="badge" style={{ marginRight: 4 }}>
+                          {l.credential_name} ({l.protocol}){" "}
+                          <a
+                            style={{ cursor: "pointer", color: "var(--danger)" }}
+                            onClick={() => detach(d.id, l.credential_id, l.protocol)}
+                            title="lösen"
+                          >
+                            ✕
+                          </a>
+                        </span>
                       ))}
-                    </select>
-                  </td>
-                  <td><button className="danger" onClick={() => remove(d.id)}>entfernen</button></td>
-                </tr>
+                      <select value="" onChange={(e) => attach(d.id, e.target.value)} style={{ marginTop: 2 }}>
+                        <option value="">+ zuweisen…</option>
+                        {credentials.filter((c) => !linkedIds.has(c.id)).map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td><button className="danger" onClick={() => remove(d.id)}>entfernen</button></td>
+                  </tr>
+                  {open && (
+                    <tr className="detail-row">
+                      <td colSpan={9}><DeviceDetail device={d} /></td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
           </tbody>

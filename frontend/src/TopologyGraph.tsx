@@ -1,6 +1,7 @@
 import cytoscape from "cytoscape";
 import { useEffect, useRef } from "react";
 import type { Topology } from "./api";
+import { NODE_ICON } from "./nodeIcons";
 
 // Farbe je Knoten-Typ.
 const NODE_COLOR: Record<string, string> = {
@@ -82,7 +83,20 @@ export function TopologyGraph({
           style: { "background-color": color },
         })),
         { selector: 'node[ntype = "site"]', style: { shape: "round-rectangle", width: 40, height: 28 } },
+        { selector: 'node[ntype = "switch"]', style: { shape: "round-rectangle", width: 34, height: 28 } },
+        { selector: 'node[ntype = "firewall"]', style: { shape: "round-rectangle" } },
         { selector: 'node[ntype = "endpoint"]', style: { shape: "diamond", width: 30, height: 30 } },
+        // Echte Icons als Knoten-Hintergrundbild (weißer Strich auf der Typ-Farbe).
+        ...Object.entries(NODE_ICON).map(([ntype, uri]) => ({
+          selector: `node[ntype = "${ntype}"]`,
+          style: {
+            "background-image": uri,
+            "background-fit": "contain" as const,
+            "background-width": "68%",
+            "background-height": "68%",
+            "background-image-opacity": 0.95,
+          },
+        })),
         {
           selector: "edge",
           style: {

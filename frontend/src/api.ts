@@ -87,6 +87,63 @@ export interface SuggestedDevice {
   seen_on: string[];
 }
 
+export interface Interface {
+  id: string;
+  name: string;
+  if_index: number | null;
+  description: string | null;
+  admin_status: "up" | "down" | "unknown";
+  oper_status: "up" | "down" | "testing" | "unknown";
+  mac_address: string | null;
+  speed_mbps: number | null;
+  mtu: number | null;
+  interface_type: string | null;
+  last_polled: string | null;
+}
+export interface LldpNeighborRow {
+  id: string;
+  local_interface_id: string;
+  remote_chassis_id: string;
+  remote_port_id: string;
+  remote_port_description: string | null;
+  remote_system_name: string | null;
+  remote_system_description: string | null;
+}
+export interface MacEntry {
+  id: string;
+  interface_id: string;
+  mac_address: string;
+  vlan_id: number | null;
+  entry_type: string;
+}
+export interface ArpEntry {
+  id: string;
+  ip_address: string;
+  mac: string;
+  vlan_id: number | null;
+}
+export interface DiscoveryRunResult {
+  id: string;
+  status: "running" | "success" | "partial" | "failed";
+  triggered_by: string;
+  devices_found: number;
+  errors: { capability?: string; error: string }[];
+  started_at: string;
+  finished_at: string | null;
+}
+export interface CapabilityReport {
+  capability: string;
+  status: "ok" | "empty" | "error";
+  row_count: number;
+  coverage: Record<string, number>;
+  message: string | null;
+}
+export interface ValidationReport {
+  adapter_id: string;
+  healthy: boolean;
+  capabilities: CapabilityReport[];
+}
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     headers: { "Content-Type": "application/json" },
@@ -106,6 +163,19 @@ export const fetchDevices = () => http<Device[]>("/devices");
 export const createDevice = (body: DeviceCreate) =>
   http<Device>("/devices", { method: "POST", body: JSON.stringify(body) });
 export const deleteDevice = (id: string) => http<void>(`/devices/${id}`, { method: "DELETE" });
+
+// Read-only Live-Aktionen + Inventar-Lesesichten (Geräte-Detail).
+export const discoverDevice = (id: string) =>
+  http<DiscoveryRunResult>(`/devices/${id}/discover`, { method: "POST" });
+export const validateDevice = (id: string) =>
+  http<ValidationReport>(`/devices/${id}/validate`, { method: "POST" });
+export const fetchInterfaces = (id: string) => http<Interface[]>(`/devices/${id}/interfaces`);
+export const fetchMacTable = (id: string) => http<MacEntry[]>(`/devices/${id}/mac-table`);
+export const fetchLldpNeighbors = (id: string) =>
+  http<LldpNeighborRow[]>(`/devices/${id}/lldp-neighbors`);
+export const fetchArp = (id: string) => http<ArpEntry[]>(`/devices/${id}/arp`);
+export const backupDevice = (id: string) =>
+  http<{ changed: boolean; sha256: string }>(`/devices/${id}/backup`, { method: "POST" });
 
 export const fetchCredentials = () => http<Credential[]>("/credentials");
 export const createCredential = (body: CredentialCreate) =>
