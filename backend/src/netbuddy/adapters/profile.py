@@ -97,6 +97,8 @@ class LldpControlSpec(BaseModel):
 
     status_command: str
     enabled_marker: str  # Regex; matcht → LLDP global aktiv
+    config_enter: list[str] = Field(default_factory=lambda: ["configure terminal"])
+    config_exit: list[str] = Field(default_factory=lambda: ["end"])  # Centec: "exit"
     enable_global: list[str] = Field(default_factory=list)
     enable_interface: list[str] = Field(default_factory=list)
     interface_enter: str = "interface {name}"

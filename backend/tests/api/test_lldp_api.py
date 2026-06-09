@@ -72,15 +72,19 @@ async def test_lldp_status_then_enable(api_client: AsyncClient) -> None:
         result = (await api_client.post(f"/devices/{did}/lldp/enable")).json()
         assert result["was_enabled"] is False
         assert result["enabled_after"] is True
-        assert result["interfaces_configured"] == 1  # nur eth-0-1, nicht vlan10
+        # fs_centec ist global-only (kein enable_interface) → keine Port-Konfig
+        assert result["interfaces_configured"] == 0
         assert result["backed_up"] is True
 
         after = (await api_client.post(f"/devices/{did}/lldp/status")).json()
         assert after["enabled"] is True
     finally:
         app.dependency_overrides.pop(get_live_connection, None)
-    # global + interface-Konfig wurde gesendet
-    assert any("lldp enable" in c for c in transport.config_calls)
+    # globales `lldp enable` (im configure-terminal-Block) wurde gesendet
+    sent = transport.config_calls[0]
+    assert "lldp enable" in sent
+    assert "configure terminal" in sent
+    assert not any(line.startswith("interface ") for line in sent)
 
 
 async def test_lldp_enable_requires_credential(api_client: AsyncClient) -> None:

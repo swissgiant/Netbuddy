@@ -11,10 +11,11 @@ backup_command: "show running-config"
 lldp_control:
   status_command: "show lldp local config"
   enabled_marker: 'global enabled\s*:\s*YES'
+  config_enter: ["configure terminal"]
+  config_exit: ["exit"]   # Centec/FSOS kennt kein `end`
   enable_global: ["lldp enable"]
-  enable_interface: ["lldp enable"]
-  interface_enter: "interface {name}"
-  interface_exit: "exit"
+  # Kein enable_interface: globales `lldp enable` reicht auf Centec, damit der Switch advertised
+  # und vom Nachbarn (Core) erkannt wird. Per-Port über CLI wäre bei 48+ Ports zu langsam.
 
 capabilities:
   read_system_info:

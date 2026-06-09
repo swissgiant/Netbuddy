@@ -65,6 +65,15 @@ export function DeviceDetail({ device }: { device: Device }) {
     loadInventory().catch((e) => setError(String(e)));
   }, [loadInventory]);
 
+  // LLDP-Status beim Aufklappen automatisch live prüfen (still — Fehler lassen den
+  // manuellen „prüfen"-Button stehen). So erscheint die „aktivieren?"-Nachfrage von selbst.
+  useEffect(() => {
+    setLldpCtl(null);
+    lldpStatus(device.id)
+      .then(setLldpCtl)
+      .catch(() => setLldpCtl(null));
+  }, [device.id]);
+
   const act = async (label: string, fn: () => Promise<void>) => {
     setBusy(label);
     setError(null);

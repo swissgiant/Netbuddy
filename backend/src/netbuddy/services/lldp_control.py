@@ -59,21 +59,27 @@ async def enable_lldp(
     backup = await backup_device(session, device, adapter)
     backed_up = backup.changed or True  # eine Sicherung existiert jetzt in jedem Fall
 
-    # 2) Konfig-Zeilen: global + je physischem Interface.
+    # 2) Konfig-Sequenz: enter → global → (optional je physischem Interface) → exit.
+    # Per-Port nur, wenn das Profil `enable_interface` setzt — sonst reicht global (Centec:
+    # globales `lldp enable` genügt, damit der Switch advertised und vom Nachbarn gesehen wird;
+    # per-Port-CLI wäre bei 48+ Ports interaktiv minutenlang).
     physical = [i.name for i in await adapter.get_interfaces() if is_physical(i.name)]
-    lines: list[str] = list(spec.enable_global)
-    for name in physical:
-        lines.append(spec.interface_enter.format(name=name))
-        lines.extend(spec.enable_interface)
-        lines.append(spec.interface_exit)
-    if lines:
-        await transport.send_config(lines)
+    lines: list[str] = [*spec.config_enter, *spec.enable_global]
+    configured = 0
+    if spec.enable_interface:
+        for name in physical:
+            lines.append(spec.interface_enter.format(name=name))
+            lines.extend(spec.enable_interface)
+            lines.append(spec.interface_exit)
+        configured = len(physical)
+    lines.extend(spec.config_exit)
+    await transport.send_config(lines)
 
     # 3) Verifikation.
     enabled_after = await read_lldp_enabled(transport, spec)
     return LldpEnableResult(
         was_enabled=was_enabled,
         backed_up=backed_up,
-        interfaces_configured=len(physical),
+        interfaces_configured=configured,
         enabled_after=enabled_after,
     )

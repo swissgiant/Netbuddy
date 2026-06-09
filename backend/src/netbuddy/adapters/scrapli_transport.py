@@ -1,7 +1,10 @@
+import asyncio
+import re
 from collections.abc import Callable
 from types import TracebackType
 from typing import Protocol
 
+import asyncssh
 from scrapli import AsyncScrapli
 from scrapli.driver.generic import AsyncGenericDriver
 
@@ -10,6 +13,9 @@ from netbuddy.adapters.transport import TransportError
 
 # Sentinel-Plattform für Vendor ohne scrapli-Core-Treiber → AsyncGenericDriver.
 _GENERIC = "generic"
+
+# Prompt-Ende einer CLI-Zeile (exec/config/interface): endet auf > oder # (+ optional Space).
+_PROMPT_END = re.compile(r"[>#]\s*$")
 
 # Nur lesende Befehle dürfen über diesen Transport laufen (read-only first).
 _READ_ONLY_PREFIXES = ("show", "display")
@@ -86,6 +92,7 @@ class ScrapliTransport:
     ) -> None:
         self._driver = driver_factory(params)
         self._paging_command = params.paging_command
+        self._params = params
 
     async def open(self) -> None:
         await self._driver.open()
@@ -118,11 +125,39 @@ class ScrapliTransport:
     async def send_config(self, lines: list[str]) -> str:
         """Expliziter Schreibpfad (NICHT read-only-guarded) — nur für autorisierte Änderungen.
 
-        Umrahmt die Zeilen mit ``configure terminal`` … ``end``. Aufrufer ist für die
+        Sendet die Zeilen **wörtlich** (inkl. ``configure terminal``/``exit`` etc. — der Aufrufer
+        bzw. das Profil liefert die komplette Sequenz). Nutzt eine eigene interaktive
+        asyncssh-Shell statt des scrapli-GenericDrivers: Letzterer kommt mit Config-Mode-Prompt-
+        Wechseln (``(config)#``/``(config-if)#``) nicht zurecht. Aufrufer ist für die
         Berechtigung verantwortlich (LLDP-Endpoint mit Backup + Audit), nicht dieser Transport.
         """
-        results: list[str] = []
-        for line in ("configure terminal", *lines, "end"):
-            response = await self._driver.send_command(line)
-            results.append(response.result)
+        p = self._params
+        password = p.password.get_secret_value() if p.password else None
+        async with asyncssh.connect(
+            p.host,
+            port=p.port,
+            username=p.username,
+            password=password,
+            known_hosts=None,
+        ) as conn:
+            proc = await conn.create_process(term_type="vt100")
+
+            async def read_to_prompt(wait: float = 2.5) -> str:
+                """Liest bis zum nächsten CLI-Prompt (oder ``wait`` s Stille als Fallback)."""
+                buf = ""
+                try:
+                    while not _PROMPT_END.search(buf):
+                        buf += await asyncio.wait_for(proc.stdout.read(4096), timeout=wait)
+                except TimeoutError:
+                    pass
+                return buf
+
+            await read_to_prompt(5.0)  # Login-Banner/erster Prompt
+            # Pro Zeile senden UND lesen — nicht alle Zeilen am Stück (sonst füllt sich der
+            # Kanal und das Gerät trennt: BrokenPipe). Kurzer Timeout hält es flott.
+            results: list[str] = []
+            for line in lines:
+                proc.stdin.write(line + "\n")
+                results.append(await read_to_prompt())
+            proc.stdin.write("exit\n")
         return "\n".join(results)
