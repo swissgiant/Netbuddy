@@ -72,9 +72,10 @@ export function TopologyGraph({
             color: labelColor(theme),
             "font-size": fontSize,
             "text-valign": "bottom",
-            "text-margin-y": 4,
-            width: 26,
-            height: 26,
+            "text-margin-y": 6,
+            shape: "round-rectangle",
+            width: 44,
+            height: 40,
           },
         },
         // Farbe je Knoten-Typ via Selektoren (typsicher, ohne Funktions-Mapper).
@@ -82,19 +83,19 @@ export function TopologyGraph({
           selector: `node[ntype = "${ntype}"]`,
           style: { "background-color": color },
         })),
-        { selector: 'node[ntype = "site"]', style: { shape: "round-rectangle", width: 40, height: 28 } },
-        { selector: 'node[ntype = "switch"]', style: { shape: "round-rectangle", width: 34, height: 28 } },
-        { selector: 'node[ntype = "firewall"]', style: { shape: "round-rectangle" } },
         { selector: 'node[ntype = "endpoint"]', style: { shape: "diamond", width: 30, height: 30 } },
-        // Echte Icons als Knoten-Hintergrundbild (weißer Strich auf der Typ-Farbe).
+        // Icon als zentriertes Hintergrundbild mit Rand (fit:none + Prozent → kein Clipping/
+        // Rand-an-Rand). Weißer Strich auf der Typ-Farbe.
         ...Object.entries(NODE_ICON).map(([ntype, uri]) => ({
           selector: `node[ntype = "${ntype}"]`,
           style: {
             "background-image": uri,
-            "background-fit": "contain" as const,
-            "background-width": "68%",
-            "background-height": "68%",
-            "background-image-opacity": 0.95,
+            "background-fit": "none" as const,
+            "background-clip": "none" as const,
+            "background-width": "62%",
+            "background-height": "62%",
+            "background-position-x": "50%",
+            "background-position-y": "50%",
           },
         })),
         {

@@ -22,5 +22,6 @@ export const NODE_ICON: Record<string, string> = {
       '<path d="M12 13V8m0 0 3 2.5M12 8 9 10.5M17 10V5m0 0 2.5 1.8M17 5l-2.5 1.8"/>',
   ),
   ap: svg('<path d="M5 12a7 7 0 0 1 14 0M8 12a4 4 0 0 1 8 0M12 14v6"/>'),
-  site: svg('<path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/>'),
+  // Standort = Karten-Pin (passt zum „📍 Standorte"-Menü, klarer als ein Haus).
+  site: svg('<path d="M12 21s6.5-5.5 6.5-11A6.5 6.5 0 1 0 5.5 10c0 5.5 6.5 11 6.5 11z"/><circle cx="12" cy="10" r="2.4"/>'),
 };
