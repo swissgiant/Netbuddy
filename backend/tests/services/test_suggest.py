@@ -9,6 +9,7 @@ from netbuddy.db.models import (
     LldpNeighbor,
     MacAddressEntry,
     MacEntryType,
+    Site,
 )
 from netbuddy.services.crawl import guess_adapter, guess_device_type
 from netbuddy.services.suggest import suggest_devices
@@ -135,6 +136,56 @@ async def test_unified_lldp_ip_fallback_from_arp(db_session: AsyncSession) -> No
 
     (s,) = await suggest_devices(db_session)
     assert s.ip_address == "10.120.10.56"
+
+
+async def test_name_to_ip_rule_from_site_template(db_session: AsyncSession) -> None:
+    site = Site(name="Sulgen", mgmt_ip_template="10.120.10.{n}")
+    db_session.add(site)
+    await db_session.flush()
+    core, iface = await _core(db_session)
+    core.site_id = site.id
+    # zwei LLDP-Nachbarn ohne IP in irgendeiner Quelle: einer mit Endnummer, einer ohne
+    for chassis, name in (("b0:4f:13:39:0e:c0", "BLS-SW-51"), ("b0:4f:13:39:0e:c1", "Core2")):
+        db_session.add(
+            LldpNeighbor(
+                local_device_id=core.id,
+                local_interface_id=iface.id,
+                remote_chassis_id=chassis,
+                remote_port_id="Gi1/0/1",
+                remote_system_name=name,
+            )
+        )
+    await db_session.flush()
+
+    by_name = {s.name: s for s in await suggest_devices(db_session)}
+    sw51 = by_name["BLS-SW-51"]
+    assert sw51.ip_address == "10.120.10.51"
+    assert sw51.ip_guessed is True  # klar als Regel-Schätzung markiert
+    # "Core2" endet ohne Trenner-Nummer → keine Schätzung
+    assert by_name["Core2"].ip_address is None
+
+
+async def test_name_rule_does_not_override_real_sources(db_session: AsyncSession) -> None:
+    site = Site(name="Sulgen", mgmt_ip_template="10.120.10.{n}")
+    db_session.add(site)
+    await db_session.flush()
+    core, iface = await _core(db_session)
+    core.site_id = site.id
+    db_session.add(
+        LldpNeighbor(
+            local_device_id=core.id,
+            local_interface_id=iface.id,
+            remote_chassis_id="b0:4f:13:39:0e:c0",
+            remote_port_id="Gi1/0/1",
+            remote_system_name="BLS-SW-51",
+            remote_mgmt_address="192.168.99.51",  # echte LLDP-Quelle gewinnt
+        )
+    )
+    await db_session.flush()
+
+    (s,) = await suggest_devices(db_session)
+    assert s.ip_address == "192.168.99.51"
+    assert s.ip_guessed is False
 
 
 def test_guess_adapter_oui_fallback() -> None:

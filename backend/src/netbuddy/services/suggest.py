@@ -5,10 +5,22 @@ from pydantic import BaseModel
 from sqlalchemy import String, cast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from netbuddy.db.models import ArpEntry, Device, Host, Interface, LldpNeighbor, MacAddressEntry
+from netbuddy.db.models import (
+    ArpEntry,
+    Device,
+    Host,
+    Interface,
+    LldpNeighbor,
+    MacAddressEntry,
+    Site,
+)
 from netbuddy.services.crawl import guess_adapter
 from netbuddy.services.hosts import normalize_mac
 from netbuddy.services.oui import vendor_for_mac
+
+# Endnummer eines Gerätenamens — nur mit Trenner davor ("BLS-SW-51" → 51; "Core2"/"PC-3NRJKX3"
+# matchen bewusst NICHT, sonst rät die Namens-Regel Unsinn).
+_NAME_NUM = re.compile(r"[-_](\d+)$")
 
 # Hersteller, die (fast) nur Netz-Infrastruktur bauen → MAC in der Tabelle = vermutlich
 # Switch/Firewall/AP. Bewusst OHNE Dell/Intel/Broadcom: das sind im Fleet vor allem
@@ -32,7 +44,8 @@ class SuggestedDevice(BaseModel):
     sources: list[str]  # "lldp" und/oder "mac"
     name: str | None  # LLDP-System-Name, sonst DNS-Kurzname
     dns_name: str | None  # voller Reverse-DNS-Name (Host-Korrelation)
-    ip_address: str | None  # LLDP-Mgmt-Adresse > ARP > Host
+    ip_address: str | None  # LLDP-Mgmt-Adresse > ARP > Host > Namens-Regel
+    ip_guessed: bool = False  # True = IP stammt aus der Standort-Namens-Regel (Schätzung!)
     vendor: str | None  # Hersteller aus dem MAC-OUI (IEEE-Registry)
     chassis_id: str | None  # roher LLDP-Chassis-Wert (nur bei LLDP-Quelle)
     system_description: str | None
@@ -65,6 +78,11 @@ async def suggest_devices(session: AsyncSession) -> list[SuggestedDevice]:
         if mac:
             arp_by_mac.setdefault(mac, ip)
     hosts = {h.mac: h for h in (await session.execute(select(Host))).scalars()}
+    site_template = {
+        s.id: s.mgmt_ip_template
+        for s in (await session.execute(select(Site).where(Site.deleted_at.is_(None)))).scalars()
+        if s.mgmt_ip_template
+    }
 
     def seen_label(device_id: uuid.UUID, interface_id: uuid.UUID) -> str:
         dev = device_by_id.get(device_id)
@@ -72,6 +90,8 @@ async def suggest_devices(session: AsyncSession) -> list[SuggestedDevice]:
         return f"{dev.hostname if dev else '?'} / {iface.name if iface else '?'}"
 
     by_key: dict[str, SuggestedDevice] = {}
+    # Standort des Geräts, an dem der Vorschlag zuerst gesehen wurde (für die Namens-Regel).
+    site_for_key: dict[str, uuid.UUID | None] = {}
 
     # --- Quelle 1: LLDP-Nachbarn -------------------------------------------------------------
     for n in (await session.execute(select(LldpNeighbor))).scalars():
@@ -87,6 +107,8 @@ async def suggest_devices(session: AsyncSession) -> list[SuggestedDevice]:
         )
         seen = seen_label(n.local_device_id, n.local_interface_id)
         dns_short = host.name.split(".")[0] if host and host.name else None
+        local_dev = device_by_id.get(n.local_device_id)
+        site_for_key.setdefault(key, local_dev.site_id if local_dev else None)
         entry = by_key.get(key)
         if entry is None:
             by_key[key] = SuggestedDevice(
@@ -141,6 +163,8 @@ async def suggest_devices(session: AsyncSession) -> list[SuggestedDevice]:
         if ip is not None and ip in known_ips:
             continue  # schon im Inventar (per Mgmt-IP gematcht)
         host = hosts.get(mac)
+        owner = device_by_id.get(device_id)
+        site_for_key.setdefault(mac, owner.site_id if owner else None)
         by_key[mac] = SuggestedDevice(
             key=mac,
             sources=["mac"],
@@ -153,6 +177,20 @@ async def suggest_devices(session: AsyncSession) -> list[SuggestedDevice]:
             guessed_adapter=guess_adapter(None, None, chassis_id=mac),
             seen_on=[seen],
         )
+
+    # --- Namens→IP-Regel des Standorts (nur wo keine echte Quelle eine IP lieferte) -----------
+    # "BLS-SW-51" + Template "10.120.10.{n}" → 10.120.10.51, klar als Schätzung markiert.
+    for key, entry in by_key.items():
+        if entry.ip_address or not entry.name:
+            continue
+        site_id = site_for_key.get(key)
+        template = site_template.get(site_id) if site_id else None
+        if not template:
+            continue
+        match = _NAME_NUM.search(entry.name)
+        if match:
+            entry.ip_address = template.replace("{n}", match.group(1))
+            entry.ip_guessed = True
 
     # LLDP-Funde zuerst (meist die aussagekräftigeren), dann nach Hersteller/Schlüssel.
     return sorted(

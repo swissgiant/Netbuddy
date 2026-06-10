@@ -20,6 +20,9 @@ class Site(TimestampMixin, SoftDeleteMixin, Base):
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     code: Mapped[str | None] = mapped_column(String(32), nullable=True)
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Namens→IP-Regel des Standorts, z.B. "10.120.10.{n}": {n} = Endnummer des Gerätenamens
+    # (BLS-SW-51 → 10.120.10.51). Optional — nur wo der Kunde diese Logik wirklich lebt.
+    mgmt_ip_template: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     __table_args__ = (
         Index(

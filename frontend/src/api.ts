@@ -78,6 +78,7 @@ export interface Site {
   name: string;
   code: string | null;
   description: string | null;
+  mgmt_ip_template: string | null;
 }
 
 export interface SuggestedDevice {
@@ -86,6 +87,7 @@ export interface SuggestedDevice {
   name: string | null;
   dns_name: string | null;
   ip_address: string | null;
+  ip_guessed: boolean;
   vendor: string | null;
   chassis_id: string | null;
   system_description: string | null;
@@ -210,8 +212,11 @@ export const deleteCredential = (id: string) =>
   http<void>(`/credentials/${id}`, { method: "DELETE" });
 
 export const fetchSites = () => http<Site[]>("/sites");
-export const createSite = (body: { name: string; code?: string; description?: string }) =>
-  http<Site>("/sites", { method: "POST", body: JSON.stringify(body) });
+export const createSite = (
+  body: { name: string; code?: string; description?: string; mgmt_ip_template?: string },
+) => http<Site>("/sites", { method: "POST", body: JSON.stringify(body) });
+export const updateSite = (id: string, body: Partial<Omit<Site, "id">>) =>
+  http<Site>(`/sites/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 export const deleteSite = (id: string) => http<void>(`/sites/${id}`, { method: "DELETE" });
 
 export const fetchSuggestions = () => http<SuggestedDevice[]>("/discovery/suggestions");

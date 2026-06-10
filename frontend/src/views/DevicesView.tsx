@@ -251,7 +251,10 @@ export function DevicesView() {
                       <span className="muted"> ({s.dns_name})</span>
                     )}
                   </td>
-                  <td className="muted">{s.ip_address ?? "—"}</td>
+                  <td className="muted">
+                    {s.ip_address ?? "—"}
+                    {s.ip_guessed && <span title="aus der Standort-Namensregel geschätzt — prüfen!"> ≈</span>}
+                  </td>
                   <td className="muted">{s.vendor ?? "—"}</td>
                   <td>
                     {s.guessed_adapter

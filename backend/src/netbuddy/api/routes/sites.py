@@ -16,6 +16,16 @@ class SiteCreate(BaseModel):
     name: str
     code: str | None = None
     description: str | None = None
+    mgmt_ip_template: str | None = None  # z.B. "10.120.10.{n}"
+
+
+class SiteUpdate(BaseModel):
+    """Teil-Update; nur gesetzte Felder werden geändert (`mgmt_ip_template: null` = löschen)."""
+
+    name: str | None = None
+    code: str | None = None
+    description: str | None = None
+    mgmt_ip_template: str | None = None
 
 
 class SiteRead(BaseModel):
@@ -25,15 +35,46 @@ class SiteRead(BaseModel):
     name: str
     code: str | None
     description: str | None
+    mgmt_ip_template: str | None
     created_at: datetime
+
+
+def _check_template(template: str | None) -> None:
+    if template is not None and "{n}" not in template:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='mgmt_ip_template braucht den Platzhalter "{n}" (z.B. "10.120.10.{n}")',
+        )
 
 
 @router.post("", response_model=SiteRead, status_code=status.HTTP_201_CREATED)
 async def create_site(body: SiteCreate, session: SessionDep) -> Site:
     """Legt einen Standort an."""
-    site = Site(name=body.name, code=body.code, description=body.description)
+    _check_template(body.mgmt_ip_template)
+    site = Site(
+        name=body.name,
+        code=body.code,
+        description=body.description,
+        mgmt_ip_template=body.mgmt_ip_template,
+    )
     session.add(site)
     await session.flush()
+    return site
+
+
+@router.patch("/{site_id}", response_model=SiteRead)
+async def update_site(site_id: uuid.UUID, body: SiteUpdate, session: SessionDep) -> Site:
+    """Ändert einen Standort (z.B. die Namens→IP-Regel nachträglich setzen)."""
+    site = await session.get(Site, site_id)
+    if site is None or site.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Standort nicht gefunden")
+    fields = body.model_dump(exclude_unset=True)
+    if "mgmt_ip_template" in fields:
+        _check_template(fields["mgmt_ip_template"])
+    for key, value in fields.items():
+        setattr(site, key, value)
+    await session.flush()
+    await session.refresh(site)
     return site
 
 
