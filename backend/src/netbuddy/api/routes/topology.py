@@ -90,15 +90,15 @@ async def get_topology(session: SessionDep) -> Topology:
             )
         )
 
-    # VPN-Kanten: relevante Tunnel einer Firewall in Site A, deren Remote-Selektoren ein
-    # Segment von Site B überlappen → Kante Site A ↔ Site B (dedupliziert, Status = up?).
+    # VPN-Kanten gehen von der FIREWALL aus (nicht Site↔Site): Tunnel, dessen Remote-
+    # Selektoren ein Segment von Site B überlappen → Kante device:firewall → site:B.
     device_site = {d.id: d.site_id for d in devices}
-    seen_vpn: set[tuple[str, str]] = set()
+    seen_vpn: set[tuple[str, str, str]] = set()
     for tunnel in (await session.execute(select(VpnTunnel))).scalars():
         if not tunnel.relevant:
             continue
         local_site = device_site.get(tunnel.device_id)
-        if local_site is None:
+        if tunnel.device_id not in device_site:
             continue
         for site in sites:
             if site.id == local_site:
@@ -108,13 +108,18 @@ async def get_topology(session: SessionDep) -> Topology:
                 continue
             if not subnet_overlaps_site([str(s) for s in tunnel.remote_subnets], site_cidrs):
                 continue
-            a, b = f"site:{local_site}", f"site:{site.id}"
-            pair = (a, b) if a < b else (b, a)
-            if pair in seen_vpn:
+            key = (str(tunnel.device_id), str(site.id), tunnel.name)
+            if key in seen_vpn:
                 continue
-            seen_vpn.add(pair)
+            seen_vpn.add(key)
             edges.append(
-                TopologyEdge(source=a, target=b, type="vpn", label=tunnel.name, up=tunnel.is_up)
+                TopologyEdge(
+                    source=f"device:{tunnel.device_id}",
+                    target=f"site:{site.id}",
+                    type="vpn",
+                    label=tunnel.name,
+                    up=tunnel.is_up,
+                )
             )
 
     return Topology(nodes=nodes, edges=edges)

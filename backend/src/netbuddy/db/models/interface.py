@@ -54,6 +54,9 @@ class Interface(TimestampMixin, SoftDeleteMixin, Base):
     speed_mbps: Mapped[int | None] = mapped_column(Integer, nullable=True)
     mtu: Mapped[int | None] = mapped_column(Integer, nullable=True)
     interface_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Baumstruktur (z.B. FortiGate: VLAN-Interface hängt unter physischem Port).
+    parent_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    vlan_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_polled: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

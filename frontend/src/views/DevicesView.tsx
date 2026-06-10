@@ -188,7 +188,7 @@ export function DevicesView() {
                     <td>
                       {myLinks.map((l) => (
                         <span key={l.credential_id + l.protocol} className="badge" style={{ marginRight: 4 }}>
-                          {l.credential_name} ({l.protocol}){" "}
+                          {l.credential_name} ({l.kind}){" "}
                           <a
                             style={{ cursor: "pointer", color: "var(--danger)" }}
                             onClick={() => detach(d.id, l.credential_id, l.protocol)}

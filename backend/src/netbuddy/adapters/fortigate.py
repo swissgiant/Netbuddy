@@ -61,16 +61,44 @@ class FortigateAdapter:
             device_type=DeviceType.FIREWALL,
         )
 
+    async def _interface_tree(self) -> dict[str, dict[str, Any]]:
+        """Struktur aus der Konfig (`cmdb/system/interface`): Typ, Parent, VLAN-ID je Interface.
+
+        FortiOS hängt VLAN-Interfaces unter ihrem physischen Port (`interface`-Feld) —
+        damit lässt sich die Baumansicht im GUI aufbauen. Fehlt der Endpoint (ältere
+        FortiOS/fehlende Rechte), bleibt die Liste flach.
+        """
+        try:
+            payload = await self._client.get_json("/api/v2/cmdb/system/interface")
+        except Exception:
+            return {}
+        results = payload.get("results", []) if isinstance(payload, dict) else payload
+        tree: dict[str, dict[str, Any]] = {}
+        for row in results or []:
+            name = row.get("name")
+            if not name:
+                continue
+            tree[str(name)] = {
+                "type": row.get("type"),
+                "parent": row.get("interface") or None,
+                "vlanid": row.get("vlanid") or None,
+            }
+        return tree
+
     async def get_interfaces(self) -> list[InterfaceData]:
         payload = await self._client.get_json("/api/v2/monitor/system/interface")
         results = payload.get("results", {}) if isinstance(payload, dict) else {}
         # FortiOS liefert ein Dict {ifname: {...}} oder eine Liste.
         rows = results.values() if isinstance(results, dict) else results
+        tree = await self._interface_tree()
         interfaces: list[InterfaceData] = []
         for row in rows:
+            name = str(row.get("name") or row.get("id") or "")
+            cfg = tree.get(name, {})
+            vlanid = cfg.get("vlanid")
             interfaces.append(
                 InterfaceData(
-                    name=row.get("name") or row.get("id") or "",
+                    name=name,
                     description=row.get("alias") or None,
                     admin_status=AdminStatus.UP
                     if row.get("admin_status", row.get("status")) in ("up", "enable", True)
@@ -78,6 +106,9 @@ class FortigateAdapter:
                     oper_status=OperStatus.UP if row.get("link") else OperStatus.DOWN,
                     speed_mbps=int(row["speed"]) if str(row.get("speed", "")).isdigit() else None,
                     mac_address=row.get("mac") or None,
+                    interface_type=cfg.get("type") or None,
+                    parent_name=cfg.get("parent"),
+                    vlan_id=int(vlanid) if vlanid else None,
                 )
             )
         return interfaces

@@ -36,6 +36,37 @@ interface Props {
 
 const labelColor = (theme: "dark" | "light") => (theme === "dark" ? "#e2e8f0" : "#0f172a");
 
+// Deterministische Startposition je Knoten-ID: gleiche Daten → gleiches Layout (statt
+// Zufall bei jedem F5). cose verfeinert von dort aus reproduzierbar.
+function seededPosition(id: string): { x: number; y: number } {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const a = (h >>> 0) / 4294967295;
+  const b = ((Math.imul(h, 2654435761) >>> 0)) / 4294967295;
+  return { x: 200 + a * 700, y: 100 + b * 500 };
+}
+
+const POS_KEY = "netbuddy-topo-positions";
+
+function loadPositions(): Record<string, { x: number; y: number }> {
+  try {
+    return JSON.parse(localStorage.getItem(POS_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
+function savePositions(cy: cytoscape.Core) {
+  const pos: Record<string, { x: number; y: number }> = loadPositions();
+  cy.nodes(":childless").forEach((n) => {
+    if (!n.data("ephemeral")) pos[n.id()] = { ...n.position() };
+  });
+  localStorage.setItem(POS_KEY, JSON.stringify(pos));
+}
+
 /** Zoom-/pan-barer Cytoscape-Graph; Standorte sind Container (Compound-Knoten). */
 export function TopologyGraph({
   topology,
@@ -113,21 +144,17 @@ export function TopologyGraph({
           },
         },
         { selector: 'node[ntype = "endpoint"]', style: { shape: "diamond", width: 30, height: 30 } },
-        // Icon als zentriertes Hintergrundbild (nur Geräte, nicht der Site-Container).
-        ...Object.entries(NODE_ICON)
-          .filter(([ntype]) => ntype !== "site")
-          .map(([ntype, uri]) => ({
-            selector: `node[ntype = "${ntype}"]:childless`,
-            style: {
-              "background-image": uri,
-              "background-fit": "none" as const,
-              "background-clip": "none" as const,
-              "background-width": "62%",
-              "background-height": "62%",
-              "background-position-x": "50%",
-              "background-position-y": "50%",
-            },
-          })),
+        // Icon als Hintergrundbild: die SVGs bringen Maße + Innenabstand mit → "contain"
+        // skaliert sauber ohne Beschnitt. Leere Standorte (childless) bekommen den Pin.
+        ...Object.entries(NODE_ICON).map(([ntype, uri]) => ({
+          selector: `node[ntype = "${ntype}"]:childless`,
+          style: {
+            "background-image": uri,
+            "background-fit": "contain" as const,
+          },
+        })),
+        // Container (Standorte mit Inhalt) tragen kein Icon — nur Rahmen + Label.
+        { selector: "node:parent", style: { "background-image": "none" } },
         {
           selector: "edge",
           style: {
@@ -158,10 +185,41 @@ export function TopologyGraph({
           style: { "line-color": "#f59e0b", label: "data(elabel)", "font-size": 9, color: labelColor(theme) },
         },
       ],
-      layout: { name: "cose", animate: false },
+      layout: { name: "preset" },
       wheelSensitivity: 0.2,
     });
     cyRef.current = cy;
+
+    // Stabiles Layout: gespeicherte Positionen anwenden; nur unbekannte Knoten bekommen
+    // eine deterministische Seed-Position. cose läuft NUR, wenn neue Knoten dazukamen
+    // (randomize:false → verfeinert reproduzierbar ab den gesetzten Positionen).
+    const saved = loadPositions();
+    let hasNew = false;
+    cy.nodes(":childless").forEach((n) => {
+      const p = saved[n.id()];
+      if (p) {
+        n.position(p);
+      } else {
+        n.position(seededPosition(n.id()));
+        hasNew = true;
+      }
+    });
+    if (hasNew) {
+      const layout = cy.layout({ name: "cose", animate: false, randomize: false } as never);
+      layout.on("layoutstop", () => {
+        savePositions(cy);
+        cy.fit(undefined, 60); // dynamischer Zoom: passt sich der Gerätemenge an
+      });
+      layout.run();
+    } else {
+      cy.fit(undefined, 60);
+    }
+    cy.on("dragfree", "node", () => savePositions(cy));
+    // Doppelklick auf den Hintergrund = Ansicht wieder einpassen (bei vielen Geräten).
+    cy.on("dbltap", (evt) => {
+      if (evt.target === cy) cy.fit(undefined, 60);
+    });
+
     return () => cy.destroy();
   }, [topology]);
 

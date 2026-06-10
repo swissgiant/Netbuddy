@@ -53,15 +53,24 @@ def _platform_for(adapter_id: str) -> str:
         raise ValueError(f"Keine Scrapli-Plattform für adapter_id {adapter_id!r}") from exc
 
 
-
-
 def _transport_and_port(credential: Credential) -> tuple[str, int]:
-    """Transport + Port aus der Credential: Telnet-Flag in `extra`, Port-Default 23 für Telnet."""
+    """Transport + Port aus der Credential.
+
+    Der Port entscheidet: 22 → SSH, 23 → Telnet (klassische Zuordnung). Bei anderen
+    Ports gewinnt das explizite `extra["transport"]` ("ssh"/"telnet", aus der
+    GUI-Protokollauswahl); ohne Angabe Default SSH.
+    """
     extra = credential.extra or {}
-    if str(extra.get("transport", "")).lower() == "telnet":
-        port = credential.ssh_port if credential.ssh_port != 22 else 23
+    explicit = str(extra.get("transport", "")).lower()
+    port = credential.ssh_port
+    if explicit == "telnet":
+        return "asynctelnet", (port if port != 22 else 23)
+    if explicit == "ssh":
+        return "asyncssh", port
+    if port == 23:
         return "asynctelnet", port
-    return "asyncssh", credential.ssh_port
+    return "asyncssh", port
+
 
 def onboarding_params(device: Device, credential: Credential) -> ConnectionParams:
     """Wie :func:`params_from_credential`, aber erzwingt die `generic`-Plattform.

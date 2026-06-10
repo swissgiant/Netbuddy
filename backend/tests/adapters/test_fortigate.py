@@ -26,6 +26,7 @@ _ROUTES: dict[str, Any] = {
                 "mac": "00:11:22:33:44:55",
             },
             "internal1": {"name": "internal1", "status": "down", "link": False, "speed": "0"},
+            "VLAN-120": {"name": "VLAN-120", "status": "up", "link": True, "speed": "0"},
         }
     },
     "/api/v2/monitor/network/arp": {
@@ -33,6 +34,13 @@ _ROUTES: dict[str, Any] = {
             {"ip": "10.120.10.51", "mac": "b0:4f:13:39:0e:c0", "interface": "internal1"},
             {"ip": "10.120.10.53", "mac": "64:9d:99:2f:89:66", "interface": "internal1"},
             {"ip": "10.120.10.99", "mac": ""},  # unvollständig → verworfen
+        ]
+    },
+    "/api/v2/cmdb/system/interface": {
+        "results": [
+            {"name": "wan1", "type": "physical"},
+            {"name": "internal1", "type": "physical"},
+            {"name": "VLAN-120", "type": "vlan", "interface": "internal1", "vlanid": 120},
         ]
     },
     "/api/v2/monitor/vpn/ipsec": {
@@ -133,3 +141,14 @@ async def test_vpn_tunnels() -> None:
     assert by_name["to-grosuplje"].remote_subnets == ["10.121.0.0/16"]
     assert by_name["to-grosuplje"].local_subnets == ["10.120.0.0/16"]
     assert by_name["to-partner-x"].is_up is False  # keine Phase 2 up
+
+
+async def test_interface_tree_from_cmdb() -> None:
+    interfaces = await _adapter().get_interfaces()
+    by_name = {i.name: i for i in interfaces}
+    vlan = by_name["VLAN-120"]
+    assert vlan.parent_name == "internal1"  # hängt unter dem physischen Port
+    assert vlan.vlan_id == 120
+    assert vlan.interface_type == "vlan"
+    assert by_name["wan1"].parent_name is None
+    assert by_name["wan1"].interface_type == "physical"

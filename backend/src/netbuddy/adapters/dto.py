@@ -30,6 +30,8 @@ class InterfaceData(BaseModel):
     speed_mbps: int | None = None
     mtu: int | None = None
     interface_type: str | None = None
+    parent_name: str | None = None  # Baum: übergeordnetes Interface (FW-VLAN unter Port)
+    vlan_id: int | None = None  # bei VLAN-Interfaces (z.B. FortiGate)
 
 
 class LldpNeighborData(BaseModel):

@@ -57,6 +57,8 @@ def _apply_interface(iface: Interface, data: InterfaceData, now: datetime) -> No
     iface.speed_mbps = data.speed_mbps
     iface.mtu = data.mtu
     iface.interface_type = data.interface_type
+    iface.parent_name = data.parent_name
+    iface.vlan_id = data.vlan_id
     iface.last_polled = now
 
 

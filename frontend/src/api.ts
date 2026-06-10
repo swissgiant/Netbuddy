@@ -62,6 +62,7 @@ export interface Credential {
   username: string | null;
   ssh_port: number;
   base_url: string | null;
+  kind: "ssh" | "telnet" | "api";
   created_at: string;
 }
 export interface CredentialCreate {
@@ -114,6 +115,8 @@ export interface Interface {
   speed_mbps: number | null;
   mtu: number | null;
   interface_type: string | null;
+  parent_name: string | null;
+  vlan_id: number | null;
   last_polled: string | null;
 }
 export interface LldpNeighborRow {
@@ -330,6 +333,7 @@ export interface DeviceCredentialRow {
   credential_id: string;
   protocol: string;
   credential_name: string;
+  kind: "ssh" | "telnet" | "api";
 }
 export const fetchDeviceCredentials = () => http<DeviceCredentialRow[]>("/device-credentials");
 export const linkCredential = (deviceId: string, credentialId: string, protocol = "ssh") =>

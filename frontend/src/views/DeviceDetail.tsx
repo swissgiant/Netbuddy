@@ -133,6 +133,29 @@ export function DeviceDetail({ device }: { device: Device }) {
   const logical = interfaces.filter((i) => !isPhysical(i.name));
   const upCount = physical.filter((i) => i.oper_status === "up").length;
 
+  // Baumansicht (z.B. FortiGate): VLAN-Interfaces hängen unter ihrem physischen Port.
+  const hasTree = interfaces.some((i) => i.parent_name);
+  const treeRows: { iface: Interface; depth: number }[] = [];
+  if (hasTree) {
+    const byParent = new Map<string, Interface[]>();
+    interfaces.forEach((i) => {
+      if (i.parent_name) {
+        byParent.set(i.parent_name, [...(byParent.get(i.parent_name) ?? []), i]);
+      }
+    });
+    const known = new Set(interfaces.map((i) => i.name));
+    const roots = interfaces
+      .filter((i) => !i.parent_name || !known.has(i.parent_name))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    const walk = (iface: Interface, depth: number) => {
+      treeRows.push({ iface, depth });
+      (byParent.get(iface.name) ?? [])
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+        .forEach((child) => walk(child, depth + 1));
+    };
+    roots.forEach((r) => walk(r, 0));
+  }
+
   return (
     <div className="detail">
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
@@ -206,7 +229,33 @@ export function DeviceDetail({ device }: { device: Device }) {
         ))}
       </div>
 
-      {tab === "ports" && (
+      {tab === "ports" && hasTree && (
+        <table>
+          <thead>
+            <tr><th>Interface</th><th>Typ</th><th>VLAN</th><th>Status</th><th>Beschreibung</th></tr>
+          </thead>
+          <tbody>
+            {treeRows.map(({ iface, depth }) => (
+              <tr key={iface.id}>
+                <td style={{ paddingLeft: 10 + depth * 22 }}>
+                  {depth > 0 && <span className="muted">└ </span>}
+                  {iface.name}
+                </td>
+                <td className="muted">{iface.interface_type ?? "—"}</td>
+                <td>{iface.vlan_id ?? <span className="muted">—</span>}</td>
+                <td>
+                  <span className={`vstat ${iface.oper_status === "up" ? "ok" : "error"}`}>
+                    {iface.oper_status}
+                  </span>
+                </td>
+                <td className="muted">{iface.description ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {tab === "ports" && !hasTree && (
         <>
           {physical.length === 0 ? (
             <p className="muted">Noch keine Interfaces — „⟳ Discover" ausführen.</p>

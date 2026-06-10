@@ -1,6 +1,5 @@
 import re
 import uuid
-from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -44,8 +43,18 @@ class CredentialCreate(BaseModel):
         return url
 
 
+def credential_kind(credential: Credential) -> str:
+    """Anzeige-Typ: api (base_url) / telnet (Port 23 oder explizites Flag) / ssh."""
+    if credential.base_url:
+        return "api"
+    explicit = str((credential.extra or {}).get("transport", "")).lower()
+    if explicit == "telnet" or (not explicit and credential.ssh_port == 23):
+        return "telnet"
+    return "ssh"
+
+
 class CredentialRead(BaseModel):
-    """Read-Sicht ohne Geheimnisse (SSH- und API-Credentials)."""
+    """Read-Sicht ohne Geheimnisse (SSH-, Telnet- und API-Credentials)."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -54,12 +63,19 @@ class CredentialRead(BaseModel):
     username: str | None  # API-Credentials haben keinen Username
     ssh_port: int
     base_url: str | None  # gesetzt = API-Credential
+    kind: str = "ssh"  # "ssh" | "telnet" | "api" (Anzeige)
     created_at: datetime
 
 
+def _to_read(credential: Credential) -> CredentialRead:
+    read = CredentialRead.model_validate(credential)
+    read.kind = credential_kind(credential)
+    return read
+
+
 @router.post("", response_model=CredentialRead, status_code=status.HTTP_201_CREATED)
-async def create_credential(body: CredentialCreate, session: SessionDep) -> Credential:
-    """Legt eine SSH-Credential an (Passwörter verschlüsselt)."""
+async def create_credential(body: CredentialCreate, session: SessionDep) -> CredentialRead:
+    """Legt eine Credential an (SSH/Telnet/API; Geheimnisse verschlüsselt)."""
     credential = Credential(
         name=body.name,
         username=body.username,
@@ -72,15 +88,15 @@ async def create_credential(body: CredentialCreate, session: SessionDep) -> Cred
     )
     session.add(credential)
     await session.flush()
-    return credential
+    return _to_read(credential)
 
 
 @router.get("", response_model=list[CredentialRead])
-async def list_credentials(session: SessionDep) -> Sequence[Credential]:
+async def list_credentials(session: SessionDep) -> list[CredentialRead]:
     """Listet aktive Credentials (ohne Geheimnisse)."""
     stmt = select(Credential).where(Credential.deleted_at.is_(None)).order_by(Credential.name)
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return [_to_read(c) for c in result.scalars().all()]
 
 
 @router.delete("/{credential_id}", status_code=status.HTTP_204_NO_CONTENT)

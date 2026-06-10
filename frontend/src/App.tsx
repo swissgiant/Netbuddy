@@ -14,7 +14,7 @@ type View = "topology" | "devices" | "discovery" | "sites" | "credentials" | "us
 
 const NAV: { key: View; label: string; adminOnly?: boolean }[] = [
   { key: "topology", label: "🌐 Topologie" },
-  { key: "devices", label: "🖧 Geräte" },
+  { key: "devices", label: "🖥️ Geräte" },
   { key: "discovery", label: "🔍 Discovery" },
   { key: "sites", label: "📍 Standorte" },
   { key: "credentials", label: "🔑 Credentials" },

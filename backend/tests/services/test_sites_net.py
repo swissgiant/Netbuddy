@@ -164,6 +164,9 @@ async def test_topology_vpn_edge_between_sites(
     assert len(vpn_edges) == 1
     assert vpn_edges[0]["label"] == "to-grosuplje"
     assert vpn_edges[0]["up"] is True
+    # Kante geht von der FIREWALL aus zum Remote-Standort
+    assert vpn_edges[0]["source"] == f"device:{fw.id}"
+    assert vpn_edges[0]["target"] == f"site:{grosuplje.id}"
     # Geräte liegen im Standort-Container
     fw_node = next(n for n in topo["nodes"] if n["id"] == f"device:{fw.id}")
     assert fw_node["parent"] == f"site:{sulgen.id}"

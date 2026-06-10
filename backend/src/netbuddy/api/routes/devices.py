@@ -205,24 +205,35 @@ async def delete_device(device_id: uuid.UUID, session: SessionDep, user: Current
 
 class DeviceCredentialLink(BaseModel):
     credential_id: uuid.UUID
-    protocol: CredentialProtocol = CredentialProtocol.SSH
+    protocol: CredentialProtocol | None = None  # None = aus der Credential ableiten
 
 
 @router.post("/{device_id}/credentials", status_code=status.HTTP_201_CREATED)
 async def link_credential(
     device_id: uuid.UUID, body: DeviceCredentialLink, session: SessionDep
 ) -> DeviceCredentialLink:
-    """Verknüpft eine Credential (Protokoll) mit einem Gerät (idempotent)."""
+    """Verknüpft eine Credential mit einem Gerät (idempotent).
+
+    Das Protokoll wird aus der Credential abgeleitet (base_url → api, sonst ssh) —
+    eine API-Credential erscheint damit nicht mehr fälschlich als „(ssh)"."""
     await get_device(device_id, session)
-    existing = await session.get(DeviceCredential, (device_id, body.credential_id, body.protocol))
+    credential = await session.get(Credential, body.credential_id)
+    if credential is None or credential.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Credential nicht gefunden"
+        )
+    protocol = body.protocol or (
+        CredentialProtocol.API if credential.base_url else CredentialProtocol.SSH
+    )
+    existing = await session.get(DeviceCredential, (device_id, body.credential_id, protocol))
     if existing is None:
         session.add(
             DeviceCredential(
-                device_id=device_id, credential_id=body.credential_id, protocol=body.protocol
+                device_id=device_id, credential_id=body.credential_id, protocol=protocol
             )
         )
         await session.flush()
-    return body
+    return DeviceCredentialLink(credential_id=body.credential_id, protocol=protocol)
 
 
 @router.delete("/{device_id}/credentials/{credential_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -269,17 +280,25 @@ class ValidationCheckRead(BaseModel):
     checked_at: datetime
 
 
-async def _ssh_credential(device_id: uuid.UUID, session: SessionDep) -> Credential | None:
+async def _device_credential(device: Device, session: SessionDep) -> Credential | None:
+    """Beste Credential fürs Gerät: API-Adapter → Credential mit base_url, CLI → ohne."""
     stmt = (
         select(Credential)
         .join(DeviceCredential, DeviceCredential.credential_id == Credential.id)
         .where(
-            DeviceCredential.device_id == device_id,
-            DeviceCredential.protocol == CredentialProtocol.SSH,
+            DeviceCredential.device_id == device.id,
+            DeviceCredential.deleted_at.is_(None),
             Credential.deleted_at.is_(None),
         )
     )
-    return (await session.execute(stmt)).scalars().first()
+    creds = list((await session.execute(stmt)).scalars())
+    if not creds:
+        return None
+    wants_api = adapter_kind(device.adapter_id) == "api"
+    for cred in creds:
+        if bool(cred.base_url) == wants_api:
+            return cred
+    return creds[0]
 
 
 @router.post("/{device_id}/validate", response_model=DeviceValidationReport)
@@ -295,7 +314,7 @@ async def validate_device_endpoint(
     (fortigate/unifi/…) über die Live-Verbindung ohne Roh-Capture. ⚠️ echter Geräte-Zugriff.
     """
     device = await get_device(device_id, session)
-    credential = await _ssh_credential(device_id, session)
+    credential = await _device_credential(device, session)
     if credential is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -383,7 +402,7 @@ async def discover_device_endpoint(
 ) -> DiscoveryRun:
     """Liest read-only live aus und schreibt das Inventar (Interfaces/LLDP/MAC) in die DB."""
     device = await get_device(device_id, session)
-    credential = await _ssh_credential(device_id, session)
+    credential = await _device_credential(device, session)
     if credential is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -416,6 +435,8 @@ class InterfaceRead(BaseModel):
     speed_mbps: int | None
     mtu: int | None
     interface_type: str | None
+    parent_name: str | None
+    vlan_id: int | None
     last_polled: datetime | None
 
 
@@ -533,7 +554,7 @@ async def suggest_profile_endpoint(
     """Liest read-only die Geräte-Hilfe (`show ?`), findet Kandidaten-Befehle je Capability und
     holt deren Output → Profil-Entwurf für ein neues/unbekanntes Gerät. ⚠️ echter Geräte-Zugriff."""
     device = await get_device(device_id, session)
-    credential = await _ssh_credential(device_id, session)
+    credential = await _device_credential(device, session)
     if credential is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -560,7 +581,7 @@ async def backup_device_endpoint(
 ) -> BackupResult:
     """Sichert read-only die laufende Konfiguration (nur bei Änderung neu gespeichert)."""
     device = await get_device(device_id, session)
-    credential = await _ssh_credential(device_id, session)
+    credential = await _device_credential(device, session)
     if credential is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -612,7 +633,7 @@ class LldpStatusResult(BaseModel):
 
 async def _lldp_prereqs(device_id: uuid.UUID, session: SessionDep) -> tuple[Device, Credential]:
     device = await get_device(device_id, session)
-    credential = await _ssh_credential(device_id, session)
+    credential = await _device_credential(device, session)
     if credential is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

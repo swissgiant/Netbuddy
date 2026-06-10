@@ -1,11 +1,13 @@
 // Data-URI-SVG-Icons je Knoten-Typ für den Cytoscape-Graph (weißer Strich auf farbigem Knoten).
-// Bewusst dieselbe Bildsprache wie die Inline-Icons in `icons.tsx`.
+// Wichtig: explizite width/height + Padding IM viewBox — ohne Maße kann Cytoscape die
+// natürliche Größe nicht bestimmen und rendert beschnitten/überskaliert.
 
 const svg = (body: string): string =>
   "data:image/svg+xml," +
   encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" ` +
-      `stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="-5 -5 34 34" ` +
+      `fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" ` +
+      `stroke-linejoin="round">${body}</svg>`,
   );
 
 export const NODE_ICON: Record<string, string> = {
@@ -22,6 +24,9 @@ export const NODE_ICON: Record<string, string> = {
       '<path d="M12 13V8m0 0 3 2.5M12 8 9 10.5M17 10V5m0 0 2.5 1.8M17 5l-2.5 1.8"/>',
   ),
   ap: svg('<path d="M5 12a7 7 0 0 1 14 0M8 12a4 4 0 0 1 8 0M12 14v6"/>'),
-  // Standort = Karten-Pin (passt zum „📍 Standorte"-Menü, klarer als ein Haus).
-  site: svg('<path d="M12 21s6.5-5.5 6.5-11A6.5 6.5 0 1 0 5.5 10c0 5.5 6.5 11 6.5 11z"/><circle cx="12" cy="10" r="2.4"/>'),
+  // Standort = Karten-Pin (für leere Standorte ohne Container-Inhalt).
+  site: svg(
+    '<path d="M12 21s6.5-5.5 6.5-11A6.5 6.5 0 1 0 5.5 10c0 5.5 6.5 11 6.5 11z"/>' +
+      '<circle cx="12" cy="10" r="2.4"/>',
+  ),
 };
