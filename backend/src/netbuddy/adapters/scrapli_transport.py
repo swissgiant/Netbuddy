@@ -35,12 +35,23 @@ class _CommandResult(Protocol):
 class _AsyncDriver(Protocol):
     """Strukturelle Sicht auf die von uns genutzten Scrapli-Async-Methoden."""
 
+    timeout_ops: float
+
     async def open(self) -> None: ...
     async def close(self) -> None: ...
     async def send_command(self, command: str) -> _CommandResult: ...
+    async def send_interactive(self, interact_events: list[tuple[str, str]]) -> _CommandResult: ...
 
 
 DriverFactory = Callable[[ConnectionParams], _AsyncDriver]
+
+
+# Toleranteres Prompt-Pattern für den GenericDriver: Dell OS6 promptet z.B. "(BLS-SW-51) >"
+# (Klammern + LEERZEICHEN — das scrapli-Default-Pattern kennt keine Spaces → Timeout).
+_GENERIC_PROMPT = r"^[a-zA-Z0-9.\-_@()/:\[\]\s]{1,63}[#>$]\s*$"
+# Telnet-Login: Dell OS6 fragt mit "User:" / "User Name:" — das scrapli-Default kennt nur
+# "username:"/"login:".
+_TELNET_LOGIN = r"^(.*username:)|(.*login:)|(.*user name:)|(.*user:)\s*$"
 
 
 def _build_async_scrapli(params: ConnectionParams) -> _AsyncDriver:
@@ -55,6 +66,8 @@ def _build_async_scrapli(params: ConnectionParams) -> _AsyncDriver:
             auth_password=password,
             transport=params.transport,
             auth_strict_key=False,
+            comms_prompt_pattern=_GENERIC_PROMPT,
+            auth_telnet_login_pattern=_TELNET_LOGIN,
         )
     return AsyncScrapli(
         host=params.host,
@@ -94,8 +107,33 @@ class ScrapliTransport:
         self._paging_command = params.paging_command
         self._params = params
 
+    async def _enter_enable(self) -> None:
+        """Privileged-Exec betreten (Dell OS6): `enable`, ggf. mit Enable-/Login-Passwort.
+
+        Erst ohne Passwort versuchen (`enable` → direkt `#`), bei Timeout die Passwort-
+        Variante — beide über scraplis `send_interactive` (normaler send_command würde
+        am `Password:`-Prompt hängen, der kein CLI-Prompt ist).
+        """
+        p = self._params
+        password = (
+            p.enable_password.get_secret_value()
+            if p.enable_password
+            else (p.password.get_secret_value() if p.password else "")
+        )
+        previous_timeout = self._driver.timeout_ops
+        self._driver.timeout_ops = 8
+        try:
+            await self._driver.send_interactive([("enable", "#")])
+        except Exception:
+            self._driver.timeout_ops = previous_timeout
+            await self._driver.send_interactive([("enable", "assword:"), (password, "#")])
+        finally:
+            self._driver.timeout_ops = previous_timeout
+
     async def open(self) -> None:
         await self._driver.open()
+        if self._params.enable_required:
+            await self._enter_enable()
         # Pager direkt am Treiber abschalten (am Read-only-Guard vorbei: reine Session-
         # Einstellung). Ohne das hängt der GenericDriver bei langen Ausgaben am `--More--`.
         if self._paging_command:

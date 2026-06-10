@@ -1,8 +1,8 @@
 # Dell OS6 (N-Series / PowerConnect) — read-only.
-# System-Info gegen ECHTEN Capture validiert (BLS-SW-51 / N2248PX-ON / 6.6.3.15);
-# interfaces/lldp/mac sind doku-/research-abgeleitet und werden per Live-Probe bestätigt.
+# LIVE validiert via Telnet (BLS-SW-52 / N2248PX-ON / 6.6.3.15): sysinfo, interfaces (51),
+# mac (193), arp (20), lldp (Summary-Format, echtes Capture). Enable-Mode nötig (Pager).
 adapter_id: dell_os6
-provenance: "Dell OS6 — sysinfo lab-validated (N2248PX-ON 6.6.3.15); interfaces/lldp/mac unvalidated"
+provenance: "Dell OS6 — live-validated via telnet (N2248PX-ON 6.6.3.15): sysinfo/interfaces/mac/arp/lldp"
 
 backup_command: "show running-config"
 
@@ -32,16 +32,16 @@ capabilities:
       speed_mbps: { from: speed, via: [leading_int] }
 
   read_lldp:
-    command: "show lldp remote-device detail"
-    parser: "textfsm:dell_os6_show_lldp_remote-device_detail.textfsm"
+    # Live-Format (BLS-SW-52 via Telnet): OS6 kennt nur die Summary-Tabelle ohne Argument
+    # ("detail" verlangt ein Interface). Keine Mgmt-Adresse in der Summary — die kommt
+    # über den ARP-Fallback der Vorschläge (OS6-ARP liest seit S30/S35).
+    command: "show lldp remote-device all"
+    parser: "textfsm:dell_os6_show_lldp_remote-device_all.textfsm"
     fields:
       local_interface: local_interface
       remote_chassis_id: chassis_id
       remote_port_id: port_id
-      remote_port_description: { from: port_desc, via: [strip_or_none] }
       remote_system_name: { from: system_name, via: [strip_or_none] }
-      remote_system_description: { from: system_desc, via: [strip_or_none] }
-      mgmt_address: { from: mgmt_address, via: [ip_or_none] }
 
   read_arp:
     command: "show arp"

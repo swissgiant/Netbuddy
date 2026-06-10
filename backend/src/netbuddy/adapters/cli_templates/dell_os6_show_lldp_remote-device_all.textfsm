@@ -1,0 +1,11 @@
+Value LOCAL_INTERFACE ([A-Za-z]{2}\d\S*)
+Value REM_ID (\d+)
+Value CHASSIS_ID (\S+)
+Value PORT_ID (\S+)
+Value SYSTEM_NAME (.*?)
+
+Start
+  ^Interface\s+RemID -> Next
+  ^-+ -> Next
+  ^${LOCAL_INTERFACE}\s+${REM_ID}\s+${CHASSIS_ID}\s+${PORT_ID}\s+${SYSTEM_NAME}\s*$$ -> Record
+  ^${LOCAL_INTERFACE}\s+${REM_ID}\s+${CHASSIS_ID}\s+${PORT_ID}\s*$$ -> Record

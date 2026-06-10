@@ -282,6 +282,12 @@ class ValidationCheckRead(BaseModel):
 
 async def _device_credential(device: Device, session: SessionDep) -> Credential | None:
     """Beste Credential fürs Gerät: API-Adapter → Credential mit base_url, CLI → ohne."""
+    if not device.adapter_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{device.hostname}: kein Profil/Adapter zugewiesen — bitte in der "
+            "Geräteliste eines auswählen (z.B. dell_os6).",
+        )
     stmt = (
         select(Credential)
         .join(DeviceCredential, DeviceCredential.credential_id == Credential.id)
@@ -294,7 +300,10 @@ async def _device_credential(device: Device, session: SessionDep) -> Credential 
     creds = list((await session.execute(stmt)).scalars())
     if not creds:
         return None
-    wants_api = adapter_kind(device.adapter_id) == "api"
+    try:
+        wants_api = adapter_kind(device.adapter_id) == "api"
+    except UnknownAdapterError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     for cred in creds:
         if bool(cred.base_url) == wants_api:
             return cred

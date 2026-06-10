@@ -1,0 +1,12 @@
+LLDP Remote Device Summary
+
+Local
+Interface RemID   Chassis ID          Port ID           System Name
+--------- ------- ------------------- ----------------- ------------------
+Gi1/0/19  11      D0:21:F9:60:B5:0B   D0:21:F9:60:B5:0B BLS-AP-CH-30
+Gi1/0/36  12      D0:21:F9:60:95:67   D0:21:F9:60:95:67 BLS-AP-CH-17
+Gi1/0/37  6       D0:21:F9:60:62:77   D0:21:F9:60:62:77 BLS-AP-CH-25
+Gi1/0/41  8       D0:21:F9:60:98:A7   D0:21:F9:60:98:A7 BLS-AP-CH-65
+Gi1/0/46  7       D0:21:F9:60:89:B3   D0:21:F9:60:89:B3 BLS-AP-CH-20
+Gi1/0/48  13      D0:21:F9:60:A0:7F   D0:21:F9:60:A0:7F BLS-AP-CH-36
+Tw1/0/4   1       8C:47:BE:BF:F6:C1   ethernet1/1/26    SW2

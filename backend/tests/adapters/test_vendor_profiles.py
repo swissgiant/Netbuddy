@@ -51,7 +51,11 @@ async def test_dell_os6() -> None:
     assert next(i for i in interfaces if i.name == "Gi1/0/1").oper_status.value == "down"
     assert next(i for i in interfaces if i.name == "Te1/0/1").speed_mbps == 10000
     neighbors = await a.get_lldp_neighbors()
-    assert any(n.remote_system_name == "BLS-AP-CU-07" for n in neighbors)
+    # echtes Summary-Format (Live-Capture BLS-SW-52): APs + Core-Uplink
+    assert any(n.remote_system_name == "BLS-AP-CH-30" for n in neighbors)
+    sw2 = next(n for n in neighbors if n.remote_system_name == "SW2")
+    assert sw2.local_interface == "Tw1/0/4"
+    assert sw2.remote_port_id == "ethernet1/1/26"
 
 
 async def test_fs_ruijie() -> None:

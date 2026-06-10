@@ -26,6 +26,8 @@ class _FakeDriver:
     opened: bool = False
     closed: bool = False
     commands: list[str] = field(default_factory=list)
+    interactions: list[list[tuple[str, str]]] = field(default_factory=list)
+    timeout_ops: float = 30.0
 
     async def open(self) -> None:
         self.opened = True
@@ -36,6 +38,10 @@ class _FakeDriver:
     async def send_command(self, command: str) -> _Result:
         self.commands.append(command)
         return _Result(result=self.responses.get(command, ""))
+
+    async def send_interactive(self, interact_events: list[tuple[str, str]]) -> _Result:
+        self.interactions.append(interact_events)
+        return _Result(result="")
 
 
 def _params() -> ConnectionParams:
@@ -108,3 +114,20 @@ async def test_send_config_blocked_over_telnet() -> None:
     transport = ScrapliTransport(params, driver_factory=lambda _p: driver)
     with pytest.raises(TransportError, match="nur über SSH"):
         await transport.send_config(["configure terminal", "lldp enable", "exit"])
+
+
+async def test_enable_required_runs_interactive_enable() -> None:
+    driver = _FakeDriver(responses={"terminal length 0": ""})
+    params = ConnectionParams(
+        host="10.0.0.1",
+        username="svc",
+        platform="generic",
+        enable_required=True,
+        paging_command="terminal length 0",
+    )
+    transport = ScrapliTransport(params, driver_factory=lambda _p: driver)
+    async with transport:
+        pass
+    # enable lief interaktiv VOR dem Paging-Befehl
+    assert driver.interactions == [[("enable", "#")]]
+    assert driver.commands == ["terminal length 0"]

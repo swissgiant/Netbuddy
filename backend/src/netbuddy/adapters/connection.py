@@ -12,6 +12,10 @@ _SCRAPLI_PLATFORM = {
     "fs_ruijie": "generic",
 }
 
+# Diese Adapter brauchen Privileged-Exec (`enable`), bevor Pager-Abschaltung/Reads sauber
+# laufen (Dell OS6: `terminal length 0` existiert nur im Enable-Mode, User-Exec paged).
+_ENABLE_REQUIRED = {"dell_os6"}
+
 # Paging beim Öffnen abschalten — der GenericDriver kennt Dells/FS' Prompt nicht und würde
 # sonst bei langen Ausgaben am `--More--`-Pager hängen (ScrapliTimeout). Core-Treiber (Cisco)
 # erledigen das selbst, daher hier nur die generic-Vendors. Reine Session-Einstellung, keine
@@ -44,6 +48,8 @@ class ConnectionParams(BaseModel):
     transport: str = "asyncssh"
     # Befehl zum Abschalten des Pagers beim Öffnen (None = Treiber regelt es selbst).
     paging_command: str | None = None
+    # Vor dem Paging-Befehl in den Privileged-Mode wechseln (`enable`, z.B. Dell OS6).
+    enable_required: bool = False
 
 
 def _platform_for(adapter_id: str) -> str:
@@ -115,4 +121,5 @@ def params_from_credential(device: Device, credential: Credential) -> Connection
         platform=_platform_for(device.adapter_id),
         transport=transport,
         paging_command=_PAGING_DISABLE.get(device.adapter_id),
+        enable_required=device.adapter_id in _ENABLE_REQUIRED,
     )
