@@ -4,8 +4,8 @@ import { fetchAdapters, fetchTopology, resolveHosts, searchEndpoints } from "../
 import type { EndpointHighlight } from "../TopologyGraph";
 import { TopologyGraph } from "../TopologyGraph";
 
-const NODE_LAYERS = ["site", "switch", "firewall", "router", "ap", "other"] as const;
-const EDGE_LAYERS = ["member", "lldp"] as const;
+const NODE_LAYERS = ["switch", "firewall", "router", "ap", "other"] as const;
+const EDGE_LAYERS = ["lldp", "vpn"] as const;
 
 export function TopologyView({ theme }: { theme: "dark" | "light" }) {
   const [topology, setTopology] = useState<Topology | null>(null);
@@ -128,7 +128,7 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
         {EDGE_LAYERS.map((t) => (
           <label key={t} style={{ display: "block" }}>
             <input type="checkbox" checked={edgeLayers.has(t)} onChange={() => toggle(edgeLayers, setEdgeLayers, t)} />{" "}
-            {t === "member" ? "Standort-Zugehörigkeit" : "LLDP-Links"}
+            {t === "vpn" ? "VPN-Tunnel (Site↔Site)" : "LLDP-Links"}
           </label>
         ))}
 

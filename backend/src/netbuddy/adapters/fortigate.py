@@ -9,6 +9,7 @@ from netbuddy.adapters.dto import (
     LldpNeighborData,
     MacEntryData,
     SystemInfo,
+    VpnTunnelData,
 )
 from netbuddy.adapters.registry import register_api_adapter
 from netbuddy.db.models import AdminStatus, DeviceType, OperStatus
@@ -21,7 +22,8 @@ class FortigateAdapter:
     Die API liegt **auf der Firewall selbst** (kein Controller) — `base_url` = die FortiGate.
     Bietet `system_info`, `interfaces`, `arp` (Gateway = beste ARP-Quelle des Standorts für
     die Namensauflösung!) und `lldp` (FortiOS ≥ 7.0). MAC-Table ist hier nicht relevant.
-    **Unvalidiert** — Feld-Mapping nach FortiOS-Doku, bis echter API-Token vorliegt.
+    Live-validiert gegen FG200F / FortiOS 7.4.12 (BLS-FW1): system_info, interfaces (31),
+    arp (273), vpn-tunnels (10 inkl. Selektoren); lldp lieferte dort 0 Zeilen (LLDP aus).
     """
 
     adapter_id: ClassVar[str] = "fortigate"
@@ -31,9 +33,12 @@ class FortigateAdapter:
             Capability.READ_INTERFACES,
             Capability.READ_ARP,
             Capability.READ_LLDP,
+            Capability.READ_VPN_TUNNELS,
         }
     )
-    provenance: ClassVar[str] = "FortiOS REST-API — unvalidiert (kein API-Token)"
+    provenance: ClassVar[str] = (
+        "FortiOS REST-API — live-validated (FG200F 7.4.12): sysinfo/interfaces/arp/vpn"
+    )
 
     def __init__(
         self,
@@ -127,3 +132,36 @@ class FortigateAdapter:
                 )
             )
         return entries
+
+    async def get_vpn_tunnels(self) -> list[VpnTunnelData]:
+        """IPsec-Tunnel inkl. Selektoren (`monitor/vpn/ipsec`) — Basis der Site-zu-Site-Kanten.
+
+        FortiOS liefert je Phase-1 die Phase-2-Selektoren (proxyid) mit Quell-/Ziel-Subnetzen
+        und Status; ein Tunnel gilt als up, wenn mindestens eine Phase 2 up ist.
+        """
+        payload = await self._client.get_json("/api/v2/monitor/vpn/ipsec")
+        results = payload.get("results", []) if isinstance(payload, dict) else payload
+        tunnels: list[VpnTunnelData] = []
+        for row in results or []:
+            proxy = row.get("proxyid") or []
+            local: list[str] = []
+            remote: list[str] = []
+            any_up = False
+            for p2 in proxy:
+                any_up = any_up or p2.get("status") == "up"
+                for src in p2.get("proxy_src") or []:
+                    if src.get("subnet"):
+                        local.append(str(src["subnet"]))
+                for dst in p2.get("proxy_dst") or []:
+                    if dst.get("subnet"):
+                        remote.append(str(dst["subnet"]))
+            tunnels.append(
+                VpnTunnelData(
+                    name=str(row.get("name") or row.get("p1name") or "?"),
+                    remote_gateway=row.get("rgwy") or None,
+                    is_up=any_up,
+                    local_subnets=sorted(set(local)),
+                    remote_subnets=sorted(set(remote)),
+                )
+            )
+        return tunnels

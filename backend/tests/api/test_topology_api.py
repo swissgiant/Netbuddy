@@ -46,10 +46,10 @@ async def test_topology_nodes_and_edges(api_client: AsyncClient) -> None:
     assert types[f"device:{sw1.json()['id']}"] == "switch"
     assert types[f"device:{fw.json()['id']}"] == "firewall"
 
-    # Jedes Gerät hat eine member-Kante zum Standort
-    member_edges = [e for e in topo["edges"] if e["type"] == "member"]
-    assert len(member_edges) == 3
-    assert all(e["target"] == f"site:{site_id}" for e in member_edges)
+    # Compound-Modell: Geräte liegen IM Standort-Container (parent), keine member-Kanten mehr
+    parents = {n["id"]: n.get("parent") for n in topo["nodes"]}
+    assert parents[f"device:{sw1.json()['id']}"] == f"site:{site_id}"
+    assert all(e["type"] != "member" for e in topo["edges"])
 
     # sw2 + fw existieren als Knoten
     assert f"device:{sw2.json()['id']}" in types

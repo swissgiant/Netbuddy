@@ -36,7 +36,7 @@ interface Props {
 
 const labelColor = (theme: "dark" | "light") => (theme === "dark" ? "#e2e8f0" : "#0f172a");
 
-/** Zoom-/pan-barer Cytoscape-Graph; Layer werden per Sichtbarkeit gefiltert. */
+/** Zoom-/pan-barer Cytoscape-Graph; Standorte sind Container (Compound-Knoten). */
 export function TopologyGraph({
   topology,
   visibleNodeTypes,
@@ -57,10 +57,22 @@ export function TopologyGraph({
       container: containerRef.current,
       elements: [
         ...topology.nodes.map((n) => ({
-          data: { id: n.id, label: n.label, ntype: n.type },
+          data: {
+            id: n.id,
+            label: n.label,
+            ntype: n.type,
+            ...(n.parent ? { parent: n.parent } : {}),
+          },
         })),
         ...topology.edges.map((e) => ({
-          data: { id: `${e.source}->${e.target}:${e.type}`, source: e.source, target: e.target, etype: e.type },
+          data: {
+            id: `${e.source}->${e.target}:${e.type}`,
+            source: e.source,
+            target: e.target,
+            etype: e.type,
+            elabel: e.label ?? "",
+            up: e.up !== false, // null/true → up-Optik
+          },
         })),
       ],
       style: [
@@ -78,26 +90,44 @@ export function TopologyGraph({
             height: 40,
           },
         },
-        // Farbe je Knoten-Typ via Selektoren (typsicher, ohne Funktions-Mapper).
         ...Object.entries(NODE_COLOR).map(([ntype, color]) => ({
           selector: `node[ntype = "${ntype}"]`,
           style: { "background-color": color },
         })),
-        { selector: 'node[ntype = "endpoint"]', style: { shape: "diamond", width: 30, height: 30 } },
-        // Icon als zentriertes Hintergrundbild mit Rand (fit:none + Prozent → kein Clipping/
-        // Rand-an-Rand). Weißer Strich auf der Typ-Farbe.
-        ...Object.entries(NODE_ICON).map(([ntype, uri]) => ({
-          selector: `node[ntype = "${ntype}"]`,
+        // Standort = Container („Wolke"): halbtransparent, gestrichelt, Label oben links.
+        {
+          selector: "node:parent",
           style: {
-            "background-image": uri,
-            "background-fit": "none" as const,
-            "background-clip": "none" as const,
-            "background-width": "62%",
-            "background-height": "62%",
-            "background-position-x": "50%",
-            "background-position-y": "50%",
+            shape: "round-rectangle",
+            "background-color": NODE_COLOR.site,
+            "background-opacity": 0.08,
+            "border-width": 2,
+            "border-style": "dashed",
+            "border-color": NODE_COLOR.site,
+            label: "data(label)",
+            "text-valign": "top",
+            "text-halign": "center",
+            "text-margin-y": -6,
+            "font-weight": "bold",
+            padding: "24px",
           },
-        })),
+        },
+        { selector: 'node[ntype = "endpoint"]', style: { shape: "diamond", width: 30, height: 30 } },
+        // Icon als zentriertes Hintergrundbild (nur Geräte, nicht der Site-Container).
+        ...Object.entries(NODE_ICON)
+          .filter(([ntype]) => ntype !== "site")
+          .map(([ntype, uri]) => ({
+            selector: `node[ntype = "${ntype}"]:childless`,
+            style: {
+              "background-image": uri,
+              "background-fit": "none" as const,
+              "background-clip": "none" as const,
+              "background-width": "62%",
+              "background-height": "62%",
+              "background-position-x": "50%",
+              "background-position-y": "50%",
+            },
+          })),
         {
           selector: "edge",
           style: {
@@ -108,9 +138,24 @@ export function TopologyGraph({
           },
         },
         { selector: 'edge[etype = "lldp"]', style: { "line-color": "#94a3b8", "line-style": "dashed" } },
+        // VPN: kräftige Kante zwischen Standorten, Label = Tunnelname, rot wenn down.
+        {
+          selector: 'edge[etype = "vpn"]',
+          style: {
+            width: 3,
+            "line-color": "#16a34a",
+            "line-style": "solid",
+            label: "data(elabel)",
+            "font-size": 9,
+            color: labelColor(theme),
+            "text-background-color": theme === "dark" ? "#0f172a" : "#f8fafc",
+            "text-background-opacity": 0.8,
+          },
+        },
+        { selector: 'edge[etype = "vpn"][!up]', style: { "line-color": "#dc2626", "line-style": "dotted" } },
         {
           selector: 'edge[etype = "endpoint"]',
-          style: { "line-color": "#f59e0b", label: "data(label)", "font-size": 9, color: labelColor(theme) },
+          style: { "line-color": "#f59e0b", label: "data(elabel)", "font-size": 9, color: labelColor(theme) },
         },
       ],
       layout: { name: "cose", animate: false },
@@ -120,11 +165,12 @@ export function TopologyGraph({
     return () => cy.destroy();
   }, [topology]);
 
-  // Layer-Sichtbarkeit anwenden.
+  // Layer-Sichtbarkeit anwenden (Site-Container bleiben immer sichtbar — sie tragen die Geräte).
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
     cy.nodes().forEach((n) => {
+      if (n.isParent() || n.data("ntype") === "site") return;
       const show = n.data("ephemeral") || visibleNodeTypes.has(n.data("ntype"));
       n.style("display", show ? "element" : "none");
     });
@@ -157,7 +203,7 @@ export function TopologyGraph({
           target: `device:${e.deviceId}`,
           etype: "endpoint",
           ephemeral: true,
-          label: e.port,
+          elabel: e.port,
         },
       });
       ids.push(e.id);
@@ -178,7 +224,7 @@ export function TopologyGraph({
     cyRef.current?.nodes().style("font-size", fontSize);
   }, [fontSize]);
   useEffect(() => {
-    cyRef.current?.edges().style({ width: edgeWidth, "line-color": edgeColor });
+    cyRef.current?.edges('[etype = "lldp"]').style({ width: edgeWidth, "line-color": edgeColor });
   }, [edgeWidth, edgeColor]);
 
   return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;

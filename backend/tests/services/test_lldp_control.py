@@ -1,5 +1,12 @@
 from netbuddy.adapters.capabilities import Capability
-from netbuddy.adapters.dto import ArpData, InterfaceData, LldpNeighborData, MacEntryData, SystemInfo
+from netbuddy.adapters.dto import (
+    ArpData,
+    InterfaceData,
+    LldpNeighborData,
+    MacEntryData,
+    SystemInfo,
+    VpnTunnelData,
+)
 from netbuddy.adapters.profile import LldpControlSpec
 from netbuddy.db.models import Device, DeviceType
 from netbuddy.services.lldp_control import enable_lldp, is_physical, read_lldp_enabled
@@ -37,6 +44,9 @@ class _FakeAdapter:
         return []
 
     async def get_arp(self) -> list[ArpData]:
+        return []
+
+    async def get_vpn_tunnels(self) -> list[VpnTunnelData]:
         return []
 
     async def get_config(self) -> str:

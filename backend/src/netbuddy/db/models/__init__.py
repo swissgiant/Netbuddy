@@ -14,8 +14,10 @@ from netbuddy.db.models.interface import AdminStatus, Interface, OperStatus
 from netbuddy.db.models.lldp_neighbor import LldpNeighbor
 from netbuddy.db.models.mac_entry import MacAddressEntry, MacEntryType
 from netbuddy.db.models.site import Site
+from netbuddy.db.models.site_subnet import SiteSubnet
 from netbuddy.db.models.user import AuthSession, User, UserRole
 from netbuddy.db.models.validation import ValidationCheck
+from netbuddy.db.models.vpn_tunnel import VpnTunnel
 
 __all__ = [
     "AdminStatus",
@@ -37,10 +39,12 @@ __all__ = [
     "MacEntryType",
     "OperStatus",
     "Site",
+    "SiteSubnet",
     "SnmpAuthProtocol",
     "SnmpPrivProtocol",
     "SnmpVersion",
     "User",
     "UserRole",
     "ValidationCheck",
+    "VpnTunnel",
 ]

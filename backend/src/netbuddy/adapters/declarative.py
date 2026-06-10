@@ -10,6 +10,7 @@ from netbuddy.adapters.dto import (
     LldpNeighborData,
     MacEntryData,
     SystemInfo,
+    VpnTunnelData,
 )
 from netbuddy.adapters.mapping import build_dto
 from netbuddy.adapters.parsers import parse
@@ -100,6 +101,9 @@ class DeclarativeAdapter:
         spec, rows = await self._list_rows(Capability.READ_MAC_TABLE)
         items = [build_dto(MacEntryData, spec.fields, row) for row in rows]
         return self._drop_empty(items, spec.drop_when_empty)
+
+    async def get_vpn_tunnels(self) -> list[VpnTunnelData]:
+        raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_VPN_TUNNELS)
 
     async def get_arp(self) -> list[ArpData]:
         spec, rows = await self._list_rows(Capability.READ_ARP)

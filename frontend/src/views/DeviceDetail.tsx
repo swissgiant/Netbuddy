@@ -8,6 +8,7 @@ import type {
   LldpStatus,
   MacEntry,
   ValidationReport,
+  VpnTunnel,
 } from "../api";
 import {
   backupDevice,
@@ -17,12 +18,14 @@ import {
   fetchInterfaces,
   fetchLldpNeighbors,
   fetchMacTable,
+  fetchVpnTunnels,
   lldpStatus,
+  updateVpnTunnel,
   validateDevice,
 } from "../api";
 import { DeviceIcon } from "../icons";
 
-type Tab = "ports" | "mac" | "lldp" | "arp" | "validation";
+type Tab = "ports" | "mac" | "lldp" | "arp" | "vpn" | "validation";
 
 // Logische/virtuelle Interfaces gehören nicht aufs Faceplate.
 const LOGICAL = /^(vlan|vl|lo|loopback|po|port-?channel|null|tun|mgmt|stack|cpu|bundle)/i;
@@ -47,18 +50,21 @@ export function DeviceDetail({ device }: { device: Device }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lldpCtl, setLldpCtl] = useState<LldpStatus | null>(null);
+  const [tunnels, setTunnels] = useState<VpnTunnel[]>([]);
 
   const loadInventory = useCallback(async () => {
-    const [i, m, l, a] = await Promise.all([
+    const [i, m, l, a, v] = await Promise.all([
       fetchInterfaces(device.id),
       fetchMacTable(device.id),
       fetchLldpNeighbors(device.id),
       fetchArp(device.id),
+      fetchVpnTunnels(device.id).catch(() => []),
     ]);
     setInterfaces(i);
     setMacs(m);
     setLldp(l);
     setArp(a);
+    setTunnels(v);
   }, [device.id]);
 
   useEffect(() => {
@@ -189,6 +195,9 @@ export function DeviceDetail({ device }: { device: Device }) {
           ["mac", `MAC (${macs.length})`],
           ["lldp", `LLDP (${lldp.length})`],
           ["arp", `ARP (${arp.length})`],
+          ...(device.device_type === "firewall" || tunnels.length > 0
+            ? ([["vpn", `VPN (${tunnels.length})`]] as [Tab, string][])
+            : []),
           ["validation", "Validierung"],
         ] as [Tab, string][]).map(([k, lbl]) => (
           <button key={k} className={tab === k ? "tab active" : "tab"} onClick={() => setTab(k)}>
@@ -292,6 +301,50 @@ export function DeviceDetail({ device }: { device: Device }) {
             ))}
           </tbody>
         </table>
+      )}
+
+      {tab === "vpn" && (
+        <>
+          <table>
+            <thead>
+              <tr>
+                <th>Tunnel</th><th>Status</th><th>Remote-Gateway</th>
+                <th>Remote-Subnetze</th><th>berücksichtigen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tunnels.map((t) => (
+                <tr key={t.id} style={t.relevant ? undefined : { opacity: 0.5 }}>
+                  <td>{t.name}</td>
+                  <td>
+                    <span className={`vstat ${t.is_up ? "ok" : "error"}`}>
+                      {t.is_up ? "up" : "down"}
+                    </span>
+                  </td>
+                  <td className="muted">{t.remote_gateway ?? "—"}</td>
+                  <td className="muted">{t.remote_subnets.join(", ") || "—"}</td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={t.relevant}
+                      title="aus = Partner-/Lieferanten-Tunnel, fließt nicht in die Topologie ein"
+                      onChange={async (e) => {
+                        await updateVpnTunnel(device.id, t.id, e.target.checked);
+                        setTunnels(tunnels.map((x) =>
+                          x.id === t.id ? { ...x, relevant: e.target.checked } : x,
+                        ));
+                      }}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="muted" style={{ fontSize: 12 }}>
+            Haken raus = Tunnel zu Partnern/Lieferanten — wird in der Topologie (und später bei
+            der VLAN-Orchestrierung) nicht berücksichtigt. Die Einstellung überlebt Discovery-Läufe.
+          </p>
+        </>
       )}
 
       {tab === "validation" && (

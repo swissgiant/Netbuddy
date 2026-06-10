@@ -7,6 +7,7 @@ from netbuddy.adapters.dto import (
     LldpNeighborData,
     MacEntryData,
     SystemInfo,
+    VpnTunnelData,
 )
 
 
@@ -46,5 +47,7 @@ class SwitchAdapter(Protocol):
     async def get_mac_table(self) -> list[MacEntryData]: ...
 
     async def get_arp(self) -> list[ArpData]: ...
+
+    async def get_vpn_tunnels(self) -> list[VpnTunnelData]: ...
 
     async def get_config(self) -> str: ...

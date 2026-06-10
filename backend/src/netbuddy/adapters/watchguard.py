@@ -9,6 +9,7 @@ from netbuddy.adapters.dto import (
     LldpNeighborData,
     MacEntryData,
     SystemInfo,
+    VpnTunnelData,
 )
 from netbuddy.adapters.registry import register_api_adapter
 
@@ -62,3 +63,6 @@ class WatchGuardAdapter:
 
     async def get_config(self) -> str:
         raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_CONFIG)
+
+    async def get_vpn_tunnels(self) -> list[VpnTunnelData]:
+        raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_VPN_TUNNELS)

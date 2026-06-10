@@ -9,6 +9,7 @@ from netbuddy.adapters.dto import (
     LldpNeighborData,
     MacEntryData,
     SystemInfo,
+    VpnTunnelData,
 )
 from netbuddy.adapters.registry import register_api_adapter
 from netbuddy.db.models import AdminStatus, DeviceType, MacEntryType, OperStatus
@@ -129,3 +130,6 @@ class UnifiAdapter:
 
     async def get_arp(self) -> list[ArpData]:
         raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_ARP)
+
+    async def get_vpn_tunnels(self) -> list[VpnTunnelData]:
+        raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_VPN_TUNNELS)

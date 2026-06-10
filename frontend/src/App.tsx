@@ -4,16 +4,18 @@ import { authLogout, fetchMe } from "./api";
 import { applyTheme, initialTheme, type Theme } from "./theme";
 import { CredentialsView } from "./views/CredentialsView";
 import { DevicesView } from "./views/DevicesView";
+import { DiscoveryView } from "./views/DiscoveryView";
 import { LoginView } from "./views/LoginView";
 import { SitesView } from "./views/SitesView";
 import { TopologyView } from "./views/TopologyView";
 import { UsersView } from "./views/UsersView";
 
-type View = "topology" | "devices" | "sites" | "credentials" | "users";
+type View = "topology" | "devices" | "discovery" | "sites" | "credentials" | "users";
 
 const NAV: { key: View; label: string; adminOnly?: boolean }[] = [
   { key: "topology", label: "🌐 Topologie" },
   { key: "devices", label: "🖧 Geräte" },
+  { key: "discovery", label: "🔍 Discovery" },
   { key: "sites", label: "📍 Standorte" },
   { key: "credentials", label: "🔑 Credentials" },
   { key: "users", label: "👤 Benutzer", adminOnly: true },
@@ -72,6 +74,7 @@ export default function App() {
       <main className="main">
         {view === "topology" && <TopologyView theme={theme} />}
         {view === "devices" && <DevicesView />}
+        {view === "discovery" && <DiscoveryView />}
         {view === "sites" && <SitesView />}
         {view === "credentials" && <CredentialsView />}
         {view === "users" && <UsersView me={user} />}

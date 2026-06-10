@@ -35,6 +35,22 @@ _ROUTES: dict[str, Any] = {
             {"ip": "10.120.10.99", "mac": ""},  # unvollständig → verworfen
         ]
     },
+    "/api/v2/monitor/vpn/ipsec": {
+        "results": [
+            {
+                "name": "to-grosuplje",
+                "rgwy": "203.0.113.7",
+                "proxyid": [
+                    {
+                        "status": "up",
+                        "proxy_src": [{"subnet": "10.120.0.0/16"}],
+                        "proxy_dst": [{"subnet": "10.121.0.0/16"}],
+                    }
+                ],
+            },
+            {"name": "to-partner-x", "rgwy": "198.51.100.9", "proxyid": []},
+        ]
+    },
     "/api/v2/monitor/network/lldp/neighbors": {
         "results": [
             {
@@ -105,5 +121,15 @@ def test_registered_as_firewall_api_adapter() -> None:
             Capability.READ_INTERFACES,
             Capability.READ_ARP,
             Capability.READ_LLDP,
+            Capability.READ_VPN_TUNNELS,
         }
     )
+
+
+async def test_vpn_tunnels() -> None:
+    tunnels = await _adapter().get_vpn_tunnels()
+    by_name = {t.name: t for t in tunnels}
+    assert by_name["to-grosuplje"].is_up is True
+    assert by_name["to-grosuplje"].remote_subnets == ["10.121.0.0/16"]
+    assert by_name["to-grosuplje"].local_subnets == ["10.120.0.0/16"]
+    assert by_name["to-partner-x"].is_up is False  # keine Phase 2 up

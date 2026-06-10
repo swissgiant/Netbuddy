@@ -24,6 +24,7 @@ _METHODS: dict[Capability, tuple[str, bool]] = {
     Capability.READ_LLDP: ("get_lldp_neighbors", True),
     Capability.READ_MAC_TABLE: ("get_mac_table", True),
     Capability.READ_ARP: ("get_arp", True),
+    Capability.READ_VPN_TUNNELS: ("get_vpn_tunnels", True),
 }
 
 

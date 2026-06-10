@@ -17,6 +17,7 @@ from netbuddy.db.models import (
 )
 from netbuddy.services.discovery import run_discovery
 from netbuddy.services.oui import vendor_for_mac
+from netbuddy.services.sites_net import site_for_ip
 
 # system_description-Schlüsselwort → adapter_id (für die Adapter-Schätzung beim Auto-Anlegen).
 _ADAPTER_HINTS: list[tuple[str, str]] = [
@@ -154,7 +155,8 @@ async def crawl(
                 vendor=adapter_id.split("_")[0],
                 adapter_id=adapter_id,
                 device_type=guess_device_type(adapter_id, neighbor.remote_system_description),
-                site_id=device.site_id,
+                # Standort: IP-Segment-Match gewinnt, sonst die Site des Seed-Geräts.
+                site_id=await site_for_ip(session, mgmt) or device.site_id,
             )
             session.add(new_device)
             await session.flush()

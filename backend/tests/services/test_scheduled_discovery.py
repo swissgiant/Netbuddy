@@ -10,6 +10,7 @@ from netbuddy.adapters.dto import (
     LldpNeighborData,
     MacEntryData,
     SystemInfo,
+    VpnTunnelData,
 )
 from netbuddy.db.models import (
     Credential,
@@ -41,6 +42,9 @@ class _FakeAdapter:
         return []
 
     async def get_arp(self) -> list[ArpData]:
+        return []
+
+    async def get_vpn_tunnels(self) -> list[VpnTunnelData]:
         return []
 
     async def get_config(self) -> str:

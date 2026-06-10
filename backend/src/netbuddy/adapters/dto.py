@@ -60,3 +60,13 @@ class MacEntryData(BaseModel):
     interface: str
     vlan_id: int | None = None
     entry_type: MacEntryType = MacEntryType.DYNAMIC
+
+
+class VpnTunnelData(BaseModel):
+    """Ein Site-to-Site-VPN-Tunnel einer Firewall (IPsec-Selektoren = Subnetz-Listen)."""
+
+    name: str
+    remote_gateway: str | None = None
+    is_up: bool = False
+    local_subnets: list[str] = []
+    remote_subnets: list[str] = []

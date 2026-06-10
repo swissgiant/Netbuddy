@@ -20,6 +20,7 @@ from netbuddy.db.models import (
     Interface,
     LldpNeighbor,
     MacAddressEntry,
+    VpnTunnel,
 )
 from netbuddy.services.hosts import normalize_mac
 from netbuddy.services.ifname import normalize_interface_name
@@ -177,6 +178,37 @@ async def run_discovery(
         except Exception as exc:
             errors.append({"capability": "read_arp", "error": f"{type(exc).__name__}: {exc}"})
 
+    if Capability.READ_VPN_TUNNELS in caps:
+        try:
+            tunnels = await adapter.get_vpn_tunnels()
+            # Upsert über (device_id, name): das Admin-Flag `relevant` (Partner-Tunnel
+            # ausblenden) muss Discovery-Läufe überleben — kein blindes Ersetzen.
+            existing_tunnels = {
+                t.name: t
+                for t in (
+                    await session.execute(select(VpnTunnel).where(VpnTunnel.device_id == device.id))
+                ).scalars()
+            }
+            seen_names = set()
+            for tun in tunnels:
+                seen_names.add(tun.name)
+                row = existing_tunnels.get(tun.name)
+                if row is None:
+                    row = VpnTunnel(device_id=device.id, name=tun.name)
+                    session.add(row)
+                row.remote_gateway = tun.remote_gateway
+                row.is_up = tun.is_up
+                row.local_subnets = tun.local_subnets
+                row.remote_subnets = tun.remote_subnets
+            for name, row in existing_tunnels.items():
+                if name not in seen_names:
+                    await session.delete(row)
+            await session.flush()
+        except Exception as exc:
+            errors.append(
+                {"capability": "read_vpn_tunnels", "error": f"{type(exc).__name__}: {exc}"}
+            )
+
     attempted = sum(
         1
         for c in (
@@ -185,6 +217,7 @@ async def run_discovery(
             Capability.READ_LLDP,
             Capability.READ_MAC_TABLE,
             Capability.READ_ARP,
+            Capability.READ_VPN_TUNNELS,
         )
         if c in caps
     )

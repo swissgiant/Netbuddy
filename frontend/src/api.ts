@@ -4,12 +4,14 @@ export interface TopologyNode {
   id: string;
   label: string;
   type: "site" | "switch" | "firewall" | "router" | "ap" | "other";
-  site_id: string | null;
+  parent: string | null;
 }
 export interface TopologyEdge {
   source: string;
   target: string;
-  type: "member" | "lldp";
+  type: "lldp" | "vpn";
+  label?: string | null;
+  up?: boolean | null;
 }
 export interface Topology {
   nodes: TopologyNode[];
@@ -73,12 +75,18 @@ export interface CredentialCreate {
   extra?: Record<string, unknown>;
 }
 
+export interface SiteSubnet {
+  id: string;
+  cidr: string;
+  description: string | null;
+}
 export interface Site {
   id: string;
   name: string;
   code: string | null;
   description: string | null;
   mgmt_ip_template: string | null;
+  subnets: SiteSubnet[];
 }
 
 export interface SuggestedDevice {
@@ -218,6 +226,30 @@ export const createSite = (
 export const updateSite = (id: string, body: Partial<Omit<Site, "id">>) =>
   http<Site>(`/sites/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 export const deleteSite = (id: string) => http<void>(`/sites/${id}`, { method: "DELETE" });
+export const addSubnet = (siteId: string, cidr: string, description?: string) =>
+  http<SiteSubnet>(`/sites/${siteId}/subnets`, {
+    method: "POST",
+    body: JSON.stringify({ cidr, description }),
+  });
+export const deleteSubnet = (siteId: string, subnetId: string) =>
+  http<void>(`/sites/${siteId}/subnets/${subnetId}`, { method: "DELETE" });
+
+export interface VpnTunnel {
+  id: string;
+  name: string;
+  remote_gateway: string | null;
+  is_up: boolean;
+  relevant: boolean;
+  local_subnets: string[];
+  remote_subnets: string[];
+}
+export const fetchVpnTunnels = (deviceId: string) =>
+  http<VpnTunnel[]>(`/devices/${deviceId}/vpn-tunnels`);
+export const updateVpnTunnel = (deviceId: string, tunnelId: string, relevant: boolean) =>
+  http<VpnTunnel>(`/devices/${deviceId}/vpn-tunnels/${tunnelId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ relevant }),
+  });
 
 export const fetchSuggestions = () => http<SuggestedDevice[]>("/discovery/suggestions");
 

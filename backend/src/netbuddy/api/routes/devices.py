@@ -34,6 +34,7 @@ from netbuddy.db.models import (
     MacEntryType,
     OperStatus,
     ValidationCheck,
+    VpnTunnel,
 )
 from netbuddy.services.audit import audit
 from netbuddy.services.backup import BackupResult, backup_device, diff_latest
@@ -42,9 +43,21 @@ from netbuddy.services.hosts import normalize_mac
 from netbuddy.services.lldp_control import LldpEnableResult, enable_lldp, read_lldp_enabled
 from netbuddy.services.onboarding import ProfileDraft, suggest_profile
 from netbuddy.services.oui import vendor_for_mac
+from netbuddy.services.sites_net import site_for_ip
 from netbuddy.services.validation import DeviceValidationReport
 
 router = APIRouter(prefix="/devices", tags=["devices"])
+
+
+def _unreachable(device: Device, exc: Exception) -> HTTPException:
+    """Verbindungsfehler → lesbare 502 statt rohem 500-Traceback im GUI."""
+    return HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=(
+            f"{device.hostname} ({device.mgmt_ip}) nicht erreichbar: "
+            f"{type(exc).__name__}: {exc}. SSH aktiv? IP/Port korrekt?"
+        ),
+    )
 
 
 class DeviceRead(BaseModel):
@@ -123,6 +136,8 @@ class DeviceCreate(BaseModel):
 
 
 async def _create_device(body: DeviceCreate, session: SessionDep) -> Device:
+    # Standort automatisch aus den Site-IP-Segmenten ableiten, wenn keiner angegeben ist.
+    site_id = body.site_id or await site_for_ip(session, str(body.mgmt_ip))
     device = Device(
         hostname=body.hostname,
         mgmt_ip=str(body.mgmt_ip),
@@ -130,7 +145,7 @@ async def _create_device(body: DeviceCreate, session: SessionDep) -> Device:
         adapter_id=body.adapter_id,
         device_type=body.device_type,
         model=body.model,
-        site_id=body.site_id,
+        site_id=site_id,
     )
     session.add(device)
     await session.flush()
@@ -288,7 +303,14 @@ async def validate_device_endpoint(
     except UnknownAdapterError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    report, raw_by_command = await validator(device, credential)
+    try:
+        report, raw_by_command = await validator(device, credential)
+    except (TimeoutError, OSError) as exc:
+        raise _unreachable(device, exc) from exc
+    except Exception as exc:
+        if type(exc).__name__.startswith("Scrapli"):
+            raise _unreachable(device, exc) from exc
+        raise
 
     # Letzten Lauf ersetzen.
     await session.execute(delete(ValidationCheck).where(ValidationCheck.device_id == device_id))
@@ -353,8 +375,15 @@ async def discover_device_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Keine SSH-Credential für dieses Gerät verknüpft",
         )
-    async with live_adapter(device, credential) as adapter:
-        return await run_discovery(session, device, adapter, triggered_by="api")
+    try:
+        async with live_adapter(device, credential) as adapter:
+            return await run_discovery(session, device, adapter, triggered_by="api")
+    except (TimeoutError, OSError) as exc:
+        raise _unreachable(device, exc) from exc
+    except Exception as exc:
+        if type(exc).__name__.startswith("Scrapli"):
+            raise _unreachable(device, exc) from exc
+        raise
 
 
 # --- Aggregat-Lesesichten ---------------------------------------------------------------------
@@ -620,3 +649,56 @@ async def lldp_enable_endpoint(
         {"interfaces": result.interfaces_configured, "enabled_after": result.enabled_after},
     )
     return result
+
+
+# --- VPN-Tunnel (Firewalls): Liste + „berücksichtigen"-Schalter -------------------------------
+
+
+class VpnTunnelRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    remote_gateway: str | None
+    is_up: bool
+    relevant: bool
+    local_subnets: list[str]
+    remote_subnets: list[str]
+
+
+@router.get("/{device_id}/vpn-tunnels", response_model=list[VpnTunnelRead])
+async def list_vpn_tunnels(device_id: uuid.UUID, session: SessionDep) -> Sequence[VpnTunnel]:
+    """VPN-Tunnel einer Firewall (aus der Discovery), inkl. Relevanz-Flag."""
+    await get_device(device_id, session)
+    stmt = select(VpnTunnel).where(VpnTunnel.device_id == device_id).order_by(VpnTunnel.name)
+    return (await session.execute(stmt)).scalars().all()
+
+
+class VpnTunnelUpdate(BaseModel):
+    relevant: bool
+
+
+@router.patch("/{device_id}/vpn-tunnels/{tunnel_id}", response_model=VpnTunnelRead)
+async def update_vpn_tunnel(
+    device_id: uuid.UUID,
+    tunnel_id: uuid.UUID,
+    body: VpnTunnelUpdate,
+    session: SessionDep,
+    user: CurrentUserDep,
+) -> VpnTunnel:
+    """Schaltet einen Tunnel für die Topologie ein/aus (Partner-/Lieferanten-Tunnel raus)."""
+    tunnel = await session.get(VpnTunnel, tunnel_id)
+    if tunnel is None or tunnel.device_id != device_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tunnel nicht gefunden")
+    tunnel.relevant = body.relevant
+    await session.flush()
+    device = await get_device(device_id, session)
+    await audit(
+        session,
+        user,
+        "device.vpn_tunnel_toggle",
+        device.hostname,
+        {"tunnel": tunnel.name, "relevant": body.relevant},
+    )
+    await session.refresh(tunnel)
+    return tunnel
