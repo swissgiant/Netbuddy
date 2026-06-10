@@ -1,15 +1,18 @@
-Value Required LOCAL_INTERFACE (eth-\S+)
-Value CHASSIS_ID (\S+)
-Value PORT_ID (\S+)
-Value PORT_DESC (.*?)
-Value SYSTEM_NAME (.*?)
-Value SYSTEM_DESC (.*?)
+Value Filldown LOCAL_INTERFACE (\S+)
+Value Required CHASSIS_ID (\S+)
+Value PORT_ID (.+?)
+Value SYSTEM_NAME (.+?)
+Value SYSTEM_DESC (.+?)
+Value PORT_DESC (.+?)
+Value MGMT_ADDRESS (\d+\.\d+\.\d+\.\d+)
 
 Start
-  ^LLDP Neighbor\s*$$ -> Continue.Record
-  ^\s+Local Interface\s+:\s+${LOCAL_INTERFACE}\s*$$
-  ^\s+Chassis ID\s+:\s+${CHASSIS_ID}\s*$$
-  ^\s+Port ID\s+:\s+${PORT_ID}\s*$$
-  ^\s+Port Description\s+:\s+${PORT_DESC}\s*$$
-  ^\s+System Name\s+:\s+${SYSTEM_NAME}\s*$$
-  ^\s+System Description\s+:\s+${SYSTEM_DESC}\s*$$
+  ^Local Port .+ has \d+ neighbor -> Continue.Record
+  ^Local Port ${LOCAL_INTERFACE} has \d+ neighbor
+  ^Neighbor Index -> Continue.Record
+  ^Chassis ID\s+:\s+${CHASSIS_ID}\s*$$
+  ^Port ID\s+:\s+${PORT_ID}\s*$$
+  ^System Name\s+:\s+${SYSTEM_NAME}\s*$$
+  ^System Description\s+:\s+${SYSTEM_DESC}\s*$$
+  ^Port Description\s+:\s+${PORT_DESC}\s*$$
+  ^Management Address\s+:\s+${MGMT_ADDRESS}\s*$$

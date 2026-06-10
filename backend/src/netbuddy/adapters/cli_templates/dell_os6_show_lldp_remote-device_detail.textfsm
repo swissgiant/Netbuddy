@@ -4,6 +4,7 @@ Value PORT_ID (\S+)
 Value SYSTEM_NAME (.*?)
 Value SYSTEM_DESC (.*?)
 Value PORT_DESC (.*?)
+Value MGMT_ADDRESS (\d+\.\d+\.\d+\.\d+)
 
 Start
   ^LLDP Remote Device Detail\s*$$ -> Continue.Record
@@ -13,3 +14,4 @@ Start
   ^System Name:\s+${SYSTEM_NAME}\s*$$
   ^System Description:\s+${SYSTEM_DESC}\s*$$
   ^Port Description:\s+${PORT_DESC}\s*$$
+  ^\s+Address:\s+${MGMT_ADDRESS}\s*$$

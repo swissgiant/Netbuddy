@@ -1,0 +1,4 @@
+Protocol  Address          Age(min)  Hardware         Type  Interface
+Internet  10.120.20.1      0         00d0.f822.33cd   arpa  VLAN 1
+Internet  10.120.20.15     3         b4fb.e411.2233   arpa  VLAN 1
+Internet  10.120.20.77     12        4cd7.1710.6a7a   arpa  GigabitEthernet 0/2

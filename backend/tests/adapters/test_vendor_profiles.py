@@ -76,5 +76,13 @@ async def test_fs_centec() -> None:
     admin_down = next(i for i in interfaces if i.name == "eth-0-3")
     assert admin_down.oper_status.value == "down"  # "admin down" → down
     neighbors = await a.get_lldp_neighbors()
-    assert neighbors[0].local_interface == "eth-0-1"  # lokaler Port aus Block-Header
-    assert neighbors[0].remote_system_name == "core-sw-01"
+    # echtes Centec-Block-Format (Capture bls-sw-53): Filldown-Port, Doppel-Advertisement der PCs
+    assert neighbors[0].local_interface == "eth-0-20"
+    assert neighbors[1].remote_system_name == "PC-3NRJKX3"
+    assert neighbors[1].mgmt_address is None  # "0.0.0.0" wird via ip_or_none verworfen
+    sw2 = next(n for n in neighbors if n.remote_system_name == "SW2")
+    assert sw2.local_interface == "eth-0-53"
+    assert sw2.mgmt_address == "192.168.245.11"
+    arp = await a.get_arp()
+    assert arp[0].ip_address == "10.120.10.1"
+    assert arp[0].mac_address == "649d.992f.0001"

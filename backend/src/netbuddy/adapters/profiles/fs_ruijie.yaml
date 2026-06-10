@@ -41,6 +41,16 @@ capabilities:
       remote_port_description: { from: port_desc, via: [strip_or_none] }
       remote_system_name: { from: system_name, via: [strip_or_none] }
       remote_system_description: { from: system_desc, via: [strip_or_none] }
+      mgmt_address: { from: mgmt_address, via: [ip_or_none] }
+
+  read_arp:
+    command: "show arp"
+    parser: "textfsm:fs_ruijie_show_arp.textfsm"
+    drop_when_empty: [mac_address]
+    fields:
+      ip_address: ip_address
+      mac_address: mac
+      interface: { from: interface, via: [strip_or_none] }
 
   read_mac_table:
     command: "show mac-address-table"

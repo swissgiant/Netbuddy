@@ -1,0 +1,11 @@
+Value IP_ADDRESS (\d+\.\d+\.\d+\.\d+)
+Value MAC (\S+)
+Value INTERFACE (\S+)
+Value PHYSICAL_PORT (\S+)
+Value STATE (\S+)
+
+Start
+  ^\s*IPv4 Address\s+MAC -> Next
+  ^-+ -> Next
+  ^\s*${IP_ADDRESS}\s+${MAC}\s+${INTERFACE}\s+${PHYSICAL_PORT}\s+${STATE}\s*$$ -> Record
+  ^\s*${IP_ADDRESS}\s+${MAC}\s+${INTERFACE}\s*$$ -> Record

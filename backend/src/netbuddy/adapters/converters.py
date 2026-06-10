@@ -69,12 +69,21 @@ def _leading_int(value: Any) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _ip_or_none(value: Any) -> str | None:
+    """IP-Adresse oder None; verwirft Platzhalter wie ``0.0.0.0`` (PCs melden das via LLDP)."""
+    text = _strip_or_none(value)
+    if text is None or text == "0.0.0.0":
+        return None
+    return text
+
+
 # Converter ohne Argumente.
 _SIMPLE: dict[str, Converter] = {
     "strip_or_none": _strip_or_none,
     "first": _first,
     "first_word": _first_word,
     "int_or_none": _int_or_none,
+    "ip_or_none": _ip_or_none,
     "kbit_to_mbps": _kbit_to_mbps,
     "leading_int": _leading_int,
     "lower": _lower,

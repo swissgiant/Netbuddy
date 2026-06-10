@@ -1,0 +1,9 @@
+Value IP_ADDRESS (\d+\.\d+\.\d+\.\d+)
+Value MAC (\S+)
+Value INTERFACE (\S+)
+Value TYPE (\S+)
+
+Start
+  ^\s*IP Address\s+MAC Address -> Next
+  ^-+ -> Next
+  ^\s*${IP_ADDRESS}\s+${MAC}\s+${INTERFACE}\s+${TYPE} -> Record

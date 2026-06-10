@@ -1,0 +1,35 @@
+-------------------------------------------------------------------------------
+Port                           : 1/1/1
+Neighbor Entries               : 1
+Neighbor Entries Deleted       : 0
+Neighbor Entries Dropped       : 0
+Neighbor Entries Aged-Out      : 2
+Neighbor Chassis-Name          : core-sw-01
+Neighbor Chassis-Description   : Dell EMC Networking OS10 Enterprise
+Neighbor Chassis-ID            : 8c:47:be:bf:f6:c1
+Neighbor Management-Address    : 10.120.10.48
+Chassis Capabilities Available : Bridge, Router
+Chassis Capabilities Enabled   : Bridge, Router
+Neighbor Mac-Address           : 8c:47:be:bf:f6:c2
+Neighbor Port-ID               : ethernet1/1/30
+Neighbor Port-Desc             : downlink-to-aruba
+TTL                            : 120
+Neighbor CPE                   :
+
+-------------------------------------------------------------------------------
+Port                           : 1/1/24
+Neighbor Entries               : 1
+Neighbor Entries Deleted       : 0
+Neighbor Entries Dropped       : 0
+Neighbor Entries Aged-Out      : 0
+Neighbor Chassis-Name          : BLS-AP-CU-07
+Neighbor Chassis-Description   : U7 Pro
+Neighbor Chassis-ID            : b4:fb:e4:11:22:33
+Neighbor Management-Address    : 10.123.12.7
+Chassis Capabilities Available : Bridge, WLAN
+Chassis Capabilities Enabled   : Bridge, WLAN
+Neighbor Mac-Address           : b4:fb:e4:11:22:33
+Neighbor Port-ID               : eth0
+Neighbor Port-Desc             : eth0
+TTL                            : 120
+Neighbor CPE                   :

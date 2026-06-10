@@ -5,6 +5,7 @@ Lldp neighbor-information of port [GigabitEthernet 0/1]
   Chassis id                 : 00d0.f822.33cd
   System name                : core-sw-01
   System description         : FS Data Center Switch
+  Management address         : 10.120.10.48
   Port ID type               : Interface name
   Port id                    : GigabitEthernet 0/24
   Port description           : uplink-from-core

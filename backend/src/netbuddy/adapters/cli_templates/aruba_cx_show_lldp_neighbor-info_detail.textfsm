@@ -1,0 +1,17 @@
+Value Required LOCAL_PORT (\S+)
+Value CHASSIS_ID (\S+)
+Value PORT_ID (.+?)
+Value PORT_DESC (.*?)
+Value SYSTEM_NAME (.*?)
+Value SYSTEM_DESC (.*?)
+Value MGMT_ADDRESS (\d+\.\d+\.\d+\.\d+)
+
+Start
+  ^Port\s+:\s+\S+\s*$$ -> Continue.Record
+  ^Port\s+:\s+${LOCAL_PORT}\s*$$
+  ^Neighbor Chassis-Name\s+:\s+${SYSTEM_NAME}\s*$$
+  ^Neighbor Chassis-Description\s+:\s+${SYSTEM_DESC}\s*$$
+  ^Neighbor Chassis-ID\s+:\s+${CHASSIS_ID}\s*$$
+  ^Neighbor Management-Address\s+:\s+${MGMT_ADDRESS}\s*$$
+  ^Neighbor Port-ID\s+:\s+${PORT_ID}\s*$$
+  ^Neighbor Port-Desc\s+:\s+${PORT_DESC}\s*$$

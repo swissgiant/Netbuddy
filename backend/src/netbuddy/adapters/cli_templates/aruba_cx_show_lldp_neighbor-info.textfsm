@@ -1,9 +1,0 @@
-Value LOCAL_PORT (\S+)
-Value CHASSIS_ID (\S+)
-Value PORT_ID (\S+)
-Value SYSTEM_NAME (.+?)
-
-Start
-  ^LOCAL-PORT -> Next
-  ^-+ -> Next
-  ^${LOCAL_PORT}\s+${CHASSIS_ID}\s+${PORT_ID}\s+\S+\s+${SYSTEM_NAME}\s*$$ -> Record

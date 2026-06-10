@@ -1,15 +1,59 @@
-LLDP Neighbor
-  Local Interface    : eth-0-1
-  Chassis ID         : 4816.bea4.d709
-  Port ID            : eth-0-9
-  Port Description   : uplink-from-core
-  System Name        : core-sw-01
-  System Description : Centec Networks OS
+Local Port eth-0-19 has 0 neighbor(s)
 
-LLDP Neighbor
-  Local Interface    : eth-0-2
-  Chassis ID         : b4fb.e411.2233
-  Port ID            : swp3
-  Port Description   : server-nic
-  System Name        : srv-host-09
-  System Description : Linux
+Local Port eth-0-20 has 2 neighbor(s)
+
+Remote LLDP Information of port eth-0-20
+============================================================
+Neighbor Index : 1
+Chassis ID type: Locally assigned
+Chassis ID     : PC-3NRJKX3
+Port ID type   : Mac address
+Port ID        : 4c:d7:17:10:6a:7a
+
+TTL : 3601
+Expired time: 2816
+
+Neighbor Index : 2
+Chassis ID type: Locally assigned
+Chassis ID     : pc-3nrjkx3
+Port ID type   : Locally assigned
+Port ID        : port-001
+
+TTL : 120
+Expired time: 93
+
+System Name        : PC-3NRJKX3
+System Description : Latitude Dell Inc.,Latitude 5540,0C05
+Management Address  : 0.0.0.0
+
+Local Port eth-0-53 has 1 neighbor(s)
+
+Remote LLDP Information of port eth-0-53
+============================================================
+Neighbor Index : 1
+Chassis ID type: Mac address
+Chassis ID     : 8c:47:be:bf:f6:c1
+Port ID type   : Interface Name
+Port ID        : ethernet1/1/25
+
+TTL : 120
+Expired time: 93
+
+System Name        : SW2
+System Description : Dell EMC Networking OS10 Enterprise.
+Copyright (c) 1999-2021 by Dell Inc. All Rights Reserved.
+System Description: OS10 Enterprise.
+OS Version: 10.5.2.6.
+System Type: S5248F-ON
+Port Description   : ethernet1/1/25
+
+System Capabilities:
+    Repeater             : Enabled
+    Bridge               : Enabled
+    Router               : Enabled
+
+Management Address  : 192.168.245.11
+Interface Numbering : 2
+Interface Number    : 9
+
+Local Port eth-0-54 has 0 neighbor(s)

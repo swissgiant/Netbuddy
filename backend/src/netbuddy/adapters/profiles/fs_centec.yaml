@@ -1,8 +1,9 @@
 # FS.com FSOS — Centec-Familie (z.B. S5800/48MBQ, Interfaces "eth-0-x").
 # Live validiert gegen bls-sw-53 / S5800-48MBQ / FSOS 7.0.4.5: system_info, interfaces (54),
-# mac (206). LLDP-Parser ungeprüft, weil das Gerät real 0 Nachbarn meldet ("has 0 neighbor(s)").
+# mac (206), lldp (echtes Block-Format inkl. System Name + Management Address, S30).
+# ARP: Befehl + Header live bestätigt; Tabelle am L2-Testgerät leer → Zeilen-Fixture synthetisch.
 adapter_id: fs_centec
-provenance: "FS.com Centec/FSOS — live-validated (S5800-48MBQ 7.0.4.5): sysinfo/interfaces/mac; lldp ungeprüft (0 Nachbarn am Testgerät)"
+provenance: "FS.com Centec/FSOS — live-validated (S5800-48MBQ 7.0.4.5): sysinfo/interfaces/mac/lldp; arp header-validated"
 
 backup_command: "show running-config"
 
@@ -52,6 +53,16 @@ capabilities:
       remote_port_description: { from: port_desc, via: [strip_or_none] }
       remote_system_name: { from: system_name, via: [strip_or_none] }
       remote_system_description: { from: system_desc, via: [strip_or_none] }
+      mgmt_address: { from: mgmt_address, via: [ip_or_none] }
+
+  read_arp:
+    command: "show ip arp"
+    parser: "textfsm:fs_centec_show_ip_arp.textfsm"
+    drop_when_empty: [mac_address]
+    fields:
+      ip_address: ip_address
+      mac_address: mac
+      interface: { from: interface, via: [strip_or_none] }
 
   read_mac_table:
     command: "show mac address-table"

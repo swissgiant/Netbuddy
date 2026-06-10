@@ -10,6 +10,9 @@ System Description: Dell EMC Networking OS10
 Port Description: downlink-to-access
 System Capabilities Supported: bridge router
 System Capabilities Enabled: bridge router
+Management Address:
+    Type: IPv4
+    Address: 10.120.10.48
 Time to Live: 113 seconds
 
 LLDP Remote Device Detail

@@ -25,25 +25,41 @@ capabilities:
       oper_status:
         from: status
         via:
+          - lower  # AOS-CX schreibt je nach Version "up"/"Up"
           - lookup:
               table: { up: up, down: down }
               default: unknown
       admin_status:
         from: enabled
         via:
+          - lower  # "yes"/"Yes" case-unabhängig
           - lookup:
               table: { "yes": up, "no": down }
               default: unknown
       interface_type: { from: type, via: [strip_or_none] }
 
   read_lldp:
-    command: "show lldp neighbor-info"
-    parser: "textfsm:aruba_cx_show_lldp_neighbor-info.textfsm"
+    # detail statt Kurztabelle: nur das Detail-Format liefert die Management-Adresse
+    # (für Autodiscovery-Crawl + ARP-lose Nachbar-IP).
+    command: "show lldp neighbor-info detail"
+    parser: "textfsm:aruba_cx_show_lldp_neighbor-info_detail.textfsm"
     fields:
       local_interface: local_port
       remote_chassis_id: chassis_id
       remote_port_id: port_id
+      remote_port_description: { from: port_desc, via: [strip_or_none] }
       remote_system_name: { from: system_name, via: [strip_or_none] }
+      remote_system_description: { from: system_desc, via: [strip_or_none] }
+      mgmt_address: { from: mgmt_address, via: [ip_or_none] }
+
+  read_arp:
+    command: "show arp"
+    parser: "textfsm:aruba_cx_show_arp.textfsm"
+    drop_when_empty: [mac_address]
+    fields:
+      ip_address: ip_address
+      mac_address: mac
+      interface: { from: interface, via: [strip_or_none] }
 
   read_mac_table:
     command: "show mac-address-table"

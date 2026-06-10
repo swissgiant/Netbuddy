@@ -1,0 +1,4 @@
+ Protocol    Address          Age (min)  Hardware Addr   Interface
+ Internet    10.120.10.1      5          649d.992f.0001  vlan10
+ Internet    10.120.10.48     0          8c47.bebf.f6c1  vlan10
+ Internet    10.120.10.99     12         4cd7.1710.6a7a  eth-0-20
