@@ -247,6 +247,14 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - **Bugfix dabei:** Seed-/CLI-Skripte ohne `deleted_at`-Filter erwischten ein soft-gelöschtes FW-Duplikat (BLS-FW-CU) — Tunnel umgehängt; Lehre: `.first()` auf Device-Queries immer mit `deleted_at.is_(None)`.
 - Migrationen `d8cfa495b306` (site_subnet+vpn_tunnel) + `878bb2414311` (relevant). **188 Tests grün.**
 
+### Session 33+34 — Telnet, API-Validate, Interface-Baum, Topologie-Stabilität (Alex' Funde im Akkord)
+- **Telnet (read-only):** Protokoll folgt dem **Port** (22=SSH, 23=Telnet automatisch; abweichender Port → Protokoll-Auswahl im Formular; `extra.transport` als Override). Writes bleiben SSH-only (send_config lehnt Telnet ab). OS6-Fleet ist Telnet-only (Port 23 offen, 22 refused).
+- **Kind-Badges:** Credentials + Geräte-Verknüpfungen zeigen den echten Typ (ssh/telnet/api) — API-Credential erschien vorher als „(ssh)". `link_credential` leitet Protokoll aus der Credential ab; validate/discover wählen die zur Adapter-Art passende Credential (`_device_credential`).
+- **Validate für API-Adapter** (Forti-400 gefixt): Branch über `adapter_kind`, Checks mit „API: <capability>"-Label.
+- **FortiGate Interface-BAUM:** `Interface.parent_name`+`vlan_id` (Migration `8c7971315c66`), fortigate merged `cmdb/system/interface` (type/interface/vlanid) in die Monitor-Liste; GUI rendert Baum (VLAN unter physischem Port) statt Faceplate, wenn Eltern existieren.
+- **Topologie:** stabiles Layout (Positions-Persistenz in localStorage + deterministisches Seeding — F5 würfelt nicht mehr; gezogene Positionen bleiben), **VPN-Kanten gehen von der Firewall aus** zum Remote-Standort, Auto-Fit nach Layout (dynamischer Zoom je Gerätemenge) + Doppelklick=Einpassen. **Icons endgültig gefixt**: SVGs mit expliziten Maßen + Innen-Padding, `background-fit: contain` (kein Beschnitt mehr); leere Standorte = Pin; Nav-Emoji „Geräte" ausgerichtet.
+- VPN-Toggle: GUI optimistisch + Fehleranzeige (Backend war korrekt, Fehler wurden verschluckt). **192 Tests grün.**
+
 ### Pragmatische Entscheidungen (Detail siehe Session-3-Status)
 - StrEnum + `values_callable=enum_values` → lowercase Enum-Werte in PG, passend zu den server_defaults
 - Explizite `DROP TYPE`-Schleife im `downgrade()` (Alembic vergisst Enums)
