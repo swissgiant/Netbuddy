@@ -53,7 +53,7 @@ def _build_async_scrapli(params: ConnectionParams) -> _AsyncDriver:
             port=params.port,
             auth_username=params.username,
             auth_password=password,
-            transport="asyncssh",
+            transport=params.transport,
             auth_strict_key=False,
         )
     return AsyncScrapli(
@@ -65,7 +65,7 @@ def _build_async_scrapli(params: ConnectionParams) -> _AsyncDriver:
         auth_secondary=(
             params.enable_password.get_secret_value() if params.enable_password else ""
         ),
-        transport="asyncssh",
+        transport=params.transport,
         auth_strict_key=False,
     )
 
@@ -132,6 +132,11 @@ class ScrapliTransport:
         Berechtigung verantwortlich (LLDP-Endpoint mit Backup + Audit), nicht dieser Transport.
         """
         p = self._params
+        if p.transport != "asyncssh":
+            raise TransportError(
+                "Schreibzugriffe sind nur über SSH möglich — auf dem Gerät SSH aktivieren "
+                "(Telnet bleibt read-only)."
+            )
         password = p.password.get_secret_value() if p.password else None
         async with asyncssh.connect(
             p.host,

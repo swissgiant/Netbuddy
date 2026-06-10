@@ -98,3 +98,13 @@ async def test_adapter_runs_against_fake_driver_end_to_end() -> None:
         "GigabitEthernet1/0/2",
     ]
     assert driver.commands == ["show version", "show interfaces"]
+
+
+async def test_send_config_blocked_over_telnet() -> None:
+    driver = _FakeDriver()
+    params = ConnectionParams(
+        host="10.0.0.1", username="svc", platform="generic", transport="asynctelnet"
+    )
+    transport = ScrapliTransport(params, driver_factory=lambda _p: driver)
+    with pytest.raises(TransportError, match="nur über SSH"):
+        await transport.send_config(["configure terminal", "lldp enable", "exit"])

@@ -39,6 +39,9 @@ class ConnectionParams(BaseModel):
     password: SecretStr | None = None
     enable_password: SecretStr | None = None
     platform: str
+    # Scrapli-Transport: "asyncssh" (Default) oder "asynctelnet" (alte Geräte ohne SSH,
+    # z.B. Dell OS6 in Werkskonfig). Gesteuert über Credential.extra["transport"]="telnet".
+    transport: str = "asyncssh"
     # Befehl zum Abschalten des Pagers beim Öffnen (None = Treiber regelt es selbst).
     paging_command: str | None = None
 
@@ -50,15 +53,26 @@ def _platform_for(adapter_id: str) -> str:
         raise ValueError(f"Keine Scrapli-Plattform für adapter_id {adapter_id!r}") from exc
 
 
+
+
+def _transport_and_port(credential: Credential) -> tuple[str, int]:
+    """Transport + Port aus der Credential: Telnet-Flag in `extra`, Port-Default 23 für Telnet."""
+    extra = credential.extra or {}
+    if str(extra.get("transport", "")).lower() == "telnet":
+        port = credential.ssh_port if credential.ssh_port != 22 else 23
+        return "asynctelnet", port
+    return "asyncssh", credential.ssh_port
+
 def onboarding_params(device: Device, credential: Credential) -> ConnectionParams:
     """Wie :func:`params_from_credential`, aber erzwingt die `generic`-Plattform.
 
     Für assistiertes Onboarding eines (noch) unbekannten Geräts: funktioniert ohne dass
     `device.adapter_id` schon einem Vendor zugeordnet ist.
     """
+    transport, port = _transport_and_port(credential)
     return ConnectionParams(
         host=str(device.mgmt_ip),
-        port=credential.ssh_port,
+        port=port,
         username=credential.username or "",
         password=SecretStr(credential.password) if credential.password is not None else None,
         enable_password=(
@@ -67,6 +81,7 @@ def onboarding_params(device: Device, credential: Credential) -> ConnectionParam
             else None
         ),
         platform="generic",
+        transport=transport,
         paging_command="terminal length 0",
     )
 
@@ -77,9 +92,10 @@ def params_from_credential(device: Device, credential: Credential) -> Connection
     Reine Mapping-Funktion, kein I/O. Das Passwort wird durch den
     ``EncryptedString``-Spaltentyp beim Lesen bereits entschlüsselt.
     """
+    transport, port = _transport_and_port(credential)
     return ConnectionParams(
         host=str(device.mgmt_ip),
-        port=credential.ssh_port,
+        port=port,
         username=credential.username or "",
         password=SecretStr(credential.password) if credential.password is not None else None,
         enable_password=(
@@ -88,5 +104,6 @@ def params_from_credential(device: Device, credential: Credential) -> Connection
             else None
         ),
         platform=_platform_for(device.adapter_id),
+        transport=transport,
         paging_command=_PAGING_DISABLE.get(device.adapter_id),
     )

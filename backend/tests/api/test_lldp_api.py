@@ -99,3 +99,29 @@ async def test_lldp_enable_requires_credential(api_client: AsyncClient) -> None:
     )
     resp = await api_client.post(f"/devices/{dev.json()['id']}/lldp/enable")
     assert resp.status_code == 400
+
+
+async def test_vpn_tunnel_toggle(api_client, db_session) -> None:  # type: ignore[no-untyped-def]
+    from netbuddy.db.models import Device, DeviceType, VpnTunnel
+
+    fw = Device(
+        hostname="fw-x",
+        mgmt_ip="10.0.0.99",
+        vendor="fortinet",
+        device_type=DeviceType.FIREWALL,
+        adapter_id="fortigate",
+    )
+    db_session.add(fw)
+    await db_session.flush()
+    tunnel = VpnTunnel(device_id=fw.id, name="to-partner", is_up=True)
+    db_session.add(tunnel)
+    await db_session.flush()
+
+    resp = await api_client.patch(
+        f"/devices/{fw.id}/vpn-tunnels/{tunnel.id}", json={"relevant": False}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["relevant"] is False
+
+    listed = (await api_client.get(f"/devices/{fw.id}/vpn-tunnels")).json()
+    assert listed[0]["relevant"] is False

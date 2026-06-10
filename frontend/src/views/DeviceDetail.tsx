@@ -328,11 +328,18 @@ export function DeviceDetail({ device }: { device: Device }) {
                       type="checkbox"
                       checked={t.relevant}
                       title="aus = Partner-/Lieferanten-Tunnel, fließt nicht in die Topologie ein"
-                      onChange={async (e) => {
-                        await updateVpnTunnel(device.id, t.id, e.target.checked);
-                        setTunnels(tunnels.map((x) =>
-                          x.id === t.id ? { ...x, relevant: e.target.checked } : x,
-                        ));
+                      onChange={(e) => {
+                        const next = e.target.checked;
+                        // optimistisch umschalten; bei Fehler zurückrollen + Meldung zeigen
+                        setTunnels((prev) =>
+                          prev.map((x) => (x.id === t.id ? { ...x, relevant: next } : x)),
+                        );
+                        updateVpnTunnel(device.id, t.id, next).catch((err) => {
+                          setTunnels((prev) =>
+                            prev.map((x) => (x.id === t.id ? { ...x, relevant: !next } : x)),
+                          );
+                          setError(String(err));
+                        });
                       }}
                     />
                   </td>

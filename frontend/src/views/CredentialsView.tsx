@@ -9,6 +9,7 @@ export function CredentialsView() {
   const [kind, setKind] = useState<Kind>("ssh");
   const [form, setForm] = useState<CredentialCreate>({ name: "", ssh_port: 22 });
   const [siteOrOrg, setSiteOrOrg] = useState("");
+  const [telnet, setTelnet] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reload = () => {
@@ -23,11 +24,19 @@ export function CredentialsView() {
     try {
       const body: CredentialCreate =
         kind === "ssh"
-          ? { name: form.name, username: form.username, password: form.password, enable_password: form.enable_password, ssh_port: form.ssh_port }
+          ? {
+              name: form.name,
+              username: form.username,
+              password: form.password,
+              enable_password: form.enable_password,
+              ssh_port: telnet && form.ssh_port === 22 ? 23 : form.ssh_port,
+              extra: telnet ? { transport: "telnet" } : {},
+            }
           : { name: form.name, base_url: form.base_url, api_token: form.api_token, extra: siteOrOrg ? { site: siteOrOrg, org_id: siteOrOrg } : {} };
       await createCredential(body);
       setForm({ name: "", ssh_port: 22 });
       setSiteOrOrg("");
+      setTelnet(false);
       reload();
     } catch (e) {
       setError(String(e));
@@ -62,6 +71,9 @@ export function CredentialsView() {
               <input placeholder="password" type="password" value={form.password ?? ""} onChange={(e) => set("password", e.target.value)} />
               <input placeholder="enable (opt.)" type="password" value={form.enable_password ?? ""} onChange={(e) => set("enable_password", e.target.value)} />
               <input placeholder="ssh_port" style={{ width: 90 }} value={form.ssh_port ?? 22} onChange={(e) => set("ssh_port", e.target.value)} />
+              <label className="muted" style={{ fontSize: 12 }} title="Für alte Geräte ohne SSH (z.B. Dell OS6 ab Werk). Unverschlüsselt — nur read-only, Schreibzugriffe bleiben gesperrt.">
+                <input type="checkbox" checked={telnet} onChange={(e) => setTelnet(e.target.checked)} /> Telnet statt SSH
+              </label>
             </>
           ) : (
             <>
