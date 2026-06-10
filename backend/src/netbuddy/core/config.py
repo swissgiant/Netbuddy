@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
     # Intervall des geplanten Discovery-Laufs (Minuten); 0 = aus.
     scheduled_discovery_minutes: int = 30
+    # Nach jedem geplanten Lauf die ARP-Daten zu Hosts korrelieren (Reverse-DNS).
+    scheduled_resolve_hosts: bool = True
 
 
 @lru_cache(maxsize=1)

@@ -16,6 +16,7 @@ from netbuddy.db.models import (
     LldpNeighbor,
 )
 from netbuddy.services.discovery import run_discovery
+from netbuddy.services.oui import vendor_for_mac
 
 # system_description-Schlüsselwort → adapter_id (für die Adapter-Schätzung beim Auto-Anlegen).
 _ADAPTER_HINTS: list[tuple[str, str]] = [
@@ -34,15 +35,43 @@ _ADAPTER_HINTS: list[tuple[str, str]] = [
     ("unifi", "unifi"),
 ]
 
+# OUI-Hersteller (aus der chassis_id-MAC) → adapter_id. Nur eindeutige Zuordnungen —
+# FS (Centec vs. Ruijie) und Dell (OS10 vs. OS6) sind per MAC nicht unterscheidbar.
+_OUI_ADAPTER_HINTS: list[tuple[str, str]] = [
+    ("fortinet", "fortigate"),
+    ("ubiquiti", "unifi"),
+]
+
+# adapter_id → Gerätetyp; alles andere bleibt SWITCH.
+_DEVICE_TYPE_FOR_ADAPTER: dict[str, DeviceType] = {"fortigate": DeviceType.FIREWALL}
+
 AdapterProvider = Callable[[Device, Credential], AbstractAsyncContextManager[SwitchAdapter]]
 
 
-def guess_adapter(system_description: str | None, default: str | None) -> str | None:
+def guess_adapter(
+    system_description: str | None, default: str | None, *, chassis_id: str | None = None
+) -> str | None:
+    """Rät das Profil aus der LLDP-system_description, sonst aus dem MAC-OUI der chassis_id."""
     desc = (system_description or "").lower()
     for needle, adapter_id in _ADAPTER_HINTS:
         if needle in desc:
             return adapter_id
+    if chassis_id:
+        vendor = (vendor_for_mac(chassis_id) or "").lower()
+        for needle, adapter_id in _OUI_ADAPTER_HINTS:
+            if needle in vendor:
+                return adapter_id
     return default
+
+
+def guess_device_type(adapter_id: str | None, system_description: str | None) -> DeviceType:
+    """Gerätetyp fürs Auto-Anlegen: Firewalls/APs nicht mehr pauschal als Switch eintragen."""
+    if adapter_id in _DEVICE_TYPE_FOR_ADAPTER:
+        return _DEVICE_TYPE_FOR_ADAPTER[adapter_id]
+    desc = (system_description or "").lower()
+    if "access point" in desc or desc.startswith(("u6", "u7", "uap")):
+        return DeviceType.AP
+    return DeviceType.SWITCH
 
 
 class CrawlAdded(BaseModel):
@@ -112,7 +141,11 @@ async def crawl(
         for neighbor in await _new_neighbors(session, device.id, known_ips):
             mgmt = neighbor.remote_mgmt_address
             assert mgmt is not None  # durch _new_neighbors gefiltert
-            adapter_id = guess_adapter(neighbor.remote_system_description, default_adapter_id)
+            adapter_id = guess_adapter(
+                neighbor.remote_system_description,
+                default_adapter_id,
+                chassis_id=neighbor.remote_chassis_id,
+            )
             if adapter_id is None:
                 continue  # ohne Adapter-Zuordnung nicht erreichbar → überspringen
             new_device = Device(
@@ -120,7 +153,7 @@ async def crawl(
                 mgmt_ip=mgmt,
                 vendor=adapter_id.split("_")[0],
                 adapter_id=adapter_id,
-                device_type=DeviceType.SWITCH,
+                device_type=guess_device_type(adapter_id, neighbor.remote_system_description),
                 site_id=device.site_id,
             )
             session.add(new_device)

@@ -8,6 +8,7 @@ from netbuddy.api.deps import HostResolverDep, LiveAdapterDep, SessionDep
 from netbuddy.db.models import ArpEntry, Credential, Device, Interface, LldpNeighbor
 from netbuddy.services.crawl import CrawlReport, crawl, guess_adapter
 from netbuddy.services.hosts import correlate_hosts, normalize_mac
+from netbuddy.services.mac_suggest import MacSuggestedDevice, suggest_devices_from_mac_table
 from netbuddy.services.oui import vendor_for_mac
 
 router = APIRouter(prefix="/discovery", tags=["discovery"])
@@ -78,6 +79,16 @@ async def list_suggestions(session: SessionDep) -> list[SuggestedDevice]:
                 existing.mgmt_address = resolve_ip(n.remote_mgmt_address, n.remote_chassis_id)
 
     return list(by_chassis.values())
+
+
+@router.get("/mac-suggestions", response_model=list[MacSuggestedDevice])
+async def list_mac_suggestions(session: SessionDep) -> list[MacSuggestedDevice]:
+    """Geräte-Verdachte aus den MAC-Tabellen (OUI → Infrastruktur-Hersteller).
+
+    Findet Switches/Firewalls/APs, die **kein LLDP sprechen** (z.B. FS-Werkskonfig) —
+    deren MAC steht trotzdem in den MAC-Tabellen der inventarisierten Nachbarn.
+    """
+    return await suggest_devices_from_mac_table(session)
 
 
 class CrawlRequest(BaseModel):

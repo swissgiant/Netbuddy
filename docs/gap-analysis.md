@@ -38,10 +38,8 @@
 *Warum blockierend (für Zielsäule 2):* Ohne mgmt_address kann der Crawl Nachbarn hinter diesen Switches nicht automatisch anlegen; ohne ARP keine Name↔IP↔MAC-Auflösung für Endgeräte an einem Großteil der Flotte — `GET /search` per Name läuft dort ins Leere.
 *Was zu tun ist:* TextFSM-Templates + Capability-Blöcke für die 4 fehlenden Profile (`show ip arp` / `show arp`, LLDP-Detail-Mgmt-Address); Fixtures aus echten Captures, live gegen bls-sw-53 und Dell OS6 validieren.
 
-**B7 — Packaging: Profile, TextFSM-Templates und oui.csv nicht im Build deklariert.**
-*Was fehlt:* `backend/pyproject.toml` hat keine include/package-data-Direktive für `src/netbuddy/adapters/{profiles/,cli_templates/,data/}` (~1,5 MB). Im editable Install unsichtbar, im gebauten Wheel/Docker-Image fehlen die Dateien → Adapter-Registry tot, App startet kaputt.
-*Warum blockierend:* Latenter Totalausfall, der erst beim Deployment auffällt — billig zu fixen, teuer zu ignorieren.
-*Was zu tun ist:* Include-Konfiguration fürs uv-Build-Backend + Test: `uv build && unzip -l dist/*.whl | grep -E 'profiles|cli_templates|oui.csv'` und ein Smoke-Test, der aus dem Wheel `load_profiles_from_package()` aufruft.
+**B7 — Packaging: ~~Profile/Templates/oui.csv fehlen im Build~~ — GEPRÜFT: FEHLALARM.**
+*Nachverifiziert (S30):* `uv build` + Wheel-Inspektion zeigt 6 profiles/*.yaml, 27 cli_templates/*.textfsm und data/oui.csv im Wheel — das uv-Build-Backend nimmt alle Dateien unter `src/netbuddy/` automatisch mit. Kein Handlungsbedarf; bei einem Wechsel des Build-Backends erneut prüfen (`uv build` und Wheel-Inhalt auf profiles/cli_templates/oui.csv greppen).
 
 **B8 — Kein Production-Deployment (Dockerfiles, TLS, Worker, Migrations).**
 *Was fehlt:* `docker/docker-compose.yml` enthält nur Dev-Infra (postgres, redis, adminer). Kein Backend-/Frontend-Dockerfile, kein Reverse-Proxy/TLS (Credentials + Session-Tokens gehen plaintext), ARQ-Worker nicht als Service orchestriert (manueller Start, kein Restart), `alembic upgrade head` läuft nicht im Entrypoint (`api/main.py` lifespan macht es nicht), Session-Cookie ohne `secure=True` (`api/routes/auth.py:42`), Fernet-Key-Generierung undokumentiert (`.env.example` mit Platzhalter → Crash beim ersten Credential-Write).

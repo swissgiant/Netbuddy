@@ -213,6 +213,17 @@ export const deleteSite = (id: string) => http<void>(`/sites/${id}`, { method: "
 
 export const fetchSuggestions = () => http<SuggestedDevice[]>("/discovery/suggestions");
 
+export interface MacSuggestedDevice {
+  mac: string;
+  vendor: string;
+  ip_address: string | null;
+  name: string | null;
+  guessed_adapter: string | null;
+  seen_on: string[];
+}
+export const fetchMacSuggestions = () =>
+  http<MacSuggestedDevice[]>("/discovery/mac-suggestions");
+
 export interface LocateResult {
   kind: "host" | "mac" | "lldp";
   match: string;

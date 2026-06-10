@@ -4,6 +4,7 @@ import type {
   Device,
   DeviceCreate,
   DeviceCredentialRow,
+  MacSuggestedDevice,
   Site,
   SuggestedDevice,
 } from "../api";
@@ -15,6 +16,7 @@ import {
   fetchCredentials,
   fetchDeviceCredentials,
   fetchDevices,
+  fetchMacSuggestions,
   fetchSites,
   fetchSuggestions,
   linkCredential,
@@ -42,6 +44,7 @@ export function DevicesView() {
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [adapterIds, setAdapterIds] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<SuggestedDevice[]>([]);
+  const [macSuggestions, setMacSuggestions] = useState<MacSuggestedDevice[]>([]);
   const [links, setLinks] = useState<DeviceCredentialRow[]>([]);
   const [form, setForm] = useState<DeviceCreate>(EMPTY);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +60,7 @@ export function DevicesView() {
     fetchCredentials().then(setCredentials).catch(() => {});
     fetchAdapters().then((a) => setAdapterIds(a.map((x) => x.adapter_id).sort())).catch(() => {});
     fetchSuggestions().then(setSuggestions).catch(() => {});
+    fetchMacSuggestions().then(setMacSuggestions).catch(() => {});
     fetchDeviceCredentials().then(setLinks).catch(() => {});
   };
   useEffect(reload, []);
@@ -95,6 +99,28 @@ export function DevicesView() {
         vendor: "",
         adapter_id: s.guessed_adapter ?? "",
         device_type: "switch",
+      });
+      reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  // 1-Klick-Anlage aus einem MAC-Tabellen-Verdacht (OUI): IP kommt aus ARP/DNS.
+  const addFromMacSuggestion = async (s: MacSuggestedDevice) => {
+    setError(null);
+    let ip = s.ip_address ?? "";
+    if (!ip) {
+      ip = prompt(`Management-IP für ${s.name ?? s.vendor} (${s.mac})? (kein ARP-Eintrag)`) ?? "";
+      if (!ip) return;
+    }
+    try {
+      await createDevice({
+        hostname: s.name?.split(".")[0] || s.mac,
+        mgmt_ip: ip,
+        vendor: s.vendor,
+        adapter_id: s.guessed_adapter ?? "",
+        device_type: s.guessed_adapter === "fortigate" ? "firewall" : "switch",
       });
       reload();
     } catch (e) {
@@ -197,11 +223,31 @@ export function DevicesView() {
           </button>
         </div>
         {crawlReport && (
-          <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
-            Ausgelesen: {crawlReport.discovered.length} · Neu aufgenommen: {crawlReport.added.length}
-            {crawlReport.added.length > 0 && ` (${crawlReport.added.map((a) => a.hostname).join(", ")})`}
-            {crawlReport.errors.length > 0 && ` · Fehler: ${crawlReport.errors.length}`}
-          </p>
+          <>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
+              Ausgelesen: {crawlReport.discovered.length} · Neu aufgenommen: {crawlReport.added.length}
+              {crawlReport.added.length > 0 && ` (${crawlReport.added.map((a) => a.hostname).join(", ")})`}
+              {crawlReport.errors.length > 0 && ` · Fehler: ${crawlReport.errors.length}`}
+            </p>
+            {crawlReport.errors.length > 0 && (
+              <details style={{ fontSize: 12, marginTop: 6 }}>
+                <summary style={{ cursor: "pointer" }} className="error">
+                  Fehlerdetails anzeigen
+                </summary>
+                <table style={{ marginTop: 4 }}>
+                  <thead><tr><th>Gerät</th><th>Fehler</th></tr></thead>
+                  <tbody>
+                    {crawlReport.errors.map((e, i) => (
+                      <tr key={i}>
+                        <td>{e.device}</td>
+                        <td className="muted" style={{ wordBreak: "break-all" }}>{e.error}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </details>
+            )}
+          </>
         )}
       </div>
 
@@ -239,6 +285,46 @@ export function DevicesView() {
           <p className="muted" style={{ fontSize: 12 }}>
             „+ Hinzufügen" legt das Gerät direkt an (Profil aus LLDP geraten). Standort/Adapter/IP
             sind danach in der Liste änderbar — ohne Löschen.
+          </p>
+        </div>
+      )}
+
+      {macSuggestions.length > 0 && (
+        <div className="card">
+          <h3>
+            Verdacht aus MAC-Tabellen (OUI) <span className="badge">{macSuggestions.length}</span>
+            <span className="muted" style={{ fontSize: 12, fontWeight: 400 }}>
+              {" "}— Infrastruktur-Hersteller ohne LLDP
+            </span>
+          </h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Name (DNS)</th><th>IP (ARP)</th><th>Hersteller</th><th>MAC</th>
+                <th>gesehen an</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {macSuggestions.map((s) => (
+                <tr key={s.mac}>
+                  <td>{s.name ?? <span className="muted">unbekannt</span>}</td>
+                  <td className="muted">{s.ip_address ?? "—"}</td>
+                  <td>{s.vendor}</td>
+                  <td className="muted">{s.mac}</td>
+                  <td className="muted">{s.seen_on.join(", ")}</td>
+                  <td>
+                    <button onClick={() => addFromMacSuggestion(s)}
+                      title="Als Gerät anlegen (IP aus ARP, Profil ggf. geraten)">
+                      + Hinzufügen
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="muted" style={{ fontSize: 12 }}>
+            Diese Geräte sprechen (noch) kein LLDP — erkannt am Hersteller-OUI ihrer MAC in den
+            MAC-Tabellen der Nachbarn. Nach dem Anlegen ggf. LLDP im Geräte-Detail aktivieren.
           </p>
         </div>
       )}

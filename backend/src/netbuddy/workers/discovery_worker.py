@@ -22,6 +22,7 @@ from netbuddy.core.logging import setup_logging
 from netbuddy.db.models import Credential, Device
 from netbuddy.db.session import SessionLocal
 from netbuddy.services.discovery import run_scheduled_discovery
+from netbuddy.services.hosts import correlate_hosts
 
 
 @asynccontextmanager
@@ -32,15 +33,23 @@ async def _live_adapter(device: Device, credential: Credential) -> AsyncIterator
 
 
 async def scheduled_discovery(ctx: dict[str, Any]) -> dict[str, Any]:
-    """ARQ-Job: alle aktiven Geräte mit SSH-Credential read-only discovern + persistieren."""
+    """ARQ-Job: alle aktiven Geräte mit SSH-Credential read-only discovern + persistieren.
+
+    Anschließend (Default an, `scheduled_resolve_hosts`) werden die frisch gesammelten
+    ARP-Daten zu Hosts korreliert (Reverse-DNS) — Namensauflösung läuft damit von selbst,
+    nicht nur über den GUI-Button.
+    """
     async with SessionLocal() as session:
         summary = await run_scheduled_discovery(session, _live_adapter)
+        if get_settings().scheduled_resolve_hosts:
+            summary["hosts"] = await correlate_hosts(session)
         await session.commit()
     logger.info(
-        "Scheduled discovery: {n} Geräte, {ok} ok, {err} Fehler",
+        "Scheduled discovery: {n} Geräte, {ok} ok, {err} Fehler, hosts={hosts}",
         n=summary["devices"],
         ok=len(summary["ok"]),
         err=len(summary["errors"]),
+        hosts=summary.get("hosts"),
     )
     return summary
 
