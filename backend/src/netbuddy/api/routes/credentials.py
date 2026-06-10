@@ -1,10 +1,11 @@
+import re
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 
 from netbuddy.api.deps import SessionDep
@@ -28,6 +29,19 @@ class CredentialCreate(BaseModel):
     base_url: str | None = None
     api_token: str | None = None
     extra: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("base_url")
+    @classmethod
+    def _normalize_base_url(cls, value: str | None) -> str | None:
+        """`10.0.0.1:10443` → `https://10.0.0.1:10443`; ohne Host/IP → Fehler statt 500 später."""
+        if value is None or not value.strip():
+            return None
+        url = value.strip().rstrip("/")
+        if not re.match(r"^https?://", url):
+            url = f"https://{url}"
+        if not re.match(r"^https?://[\w.\-]+(:\d+)?(/.*)?$", url):
+            raise ValueError(f"base_url sieht nicht nach einer URL aus: {value!r}")
+        return url
 
 
 class CredentialRead(BaseModel):
