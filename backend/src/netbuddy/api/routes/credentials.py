@@ -31,14 +31,15 @@ class CredentialCreate(BaseModel):
 
 
 class CredentialRead(BaseModel):
-    """Read-Sicht ohne Geheimnisse."""
+    """Read-Sicht ohne Geheimnisse (SSH- und API-Credentials)."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     name: str
-    username: str
+    username: str | None  # API-Credentials haben keinen Username
     ssh_port: int
+    base_url: str | None  # gesetzt = API-Credential
     created_at: datetime
 
 

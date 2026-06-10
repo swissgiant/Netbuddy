@@ -80,13 +80,14 @@ export function CredentialsView() {
           <button className="ghost" onClick={reload}>↻</button>
         </div>
         <table>
-          <thead><tr><th>Name</th><th>Username</th><th>SSH-Port</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Typ</th><th>Username / Base-URL</th><th>SSH-Port</th><th></th></tr></thead>
           <tbody>
             {creds.map((c) => (
               <tr key={c.id}>
                 <td>{c.name}</td>
-                <td className="muted">{c.username ?? "—"}</td>
-                <td className="muted">{c.ssh_port}</td>
+                <td><span className="badge">{c.base_url ? "API" : "SSH"}</span></td>
+                <td className="muted">{c.base_url ?? c.username ?? "—"}</td>
+                <td className="muted">{c.base_url ? "—" : c.ssh_port}</td>
                 <td><button className="danger" onClick={() => remove(c.id)}>entfernen</button></td>
               </tr>
             ))}

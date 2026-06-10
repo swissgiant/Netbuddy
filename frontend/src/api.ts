@@ -59,6 +59,7 @@ export interface Credential {
   name: string;
   username: string | null;
   ssh_port: number;
+  base_url: string | null;
   created_at: string;
 }
 export interface CredentialCreate {

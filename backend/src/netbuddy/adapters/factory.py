@@ -11,6 +11,16 @@ from netbuddy.adapters.registry import (
 from netbuddy.adapters.scrapli_transport import ScrapliTransport
 from netbuddy.db.models import Credential, Device
 
+# Vendor-korrekte Auth-Header je API-Adapter: (Header-Name, Token-Präfix).
+# Per Credential überschreibbar (`extra.auth_header` / `extra.auth_prefix`).
+_API_AUTH_DEFAULTS: dict[str, tuple[str, str]] = {
+    "fortigate": ("Authorization", "Bearer "),  # FortiOS REST-API-Admin-Token
+    "paloalto": ("X-PAN-KEY", ""),  # PAN-OS XML-/REST-API-Key
+    "cato": ("x-api-key", ""),  # Cato GraphQL
+    "meraki": ("X-Cisco-Meraki-API-Key", ""),  # Meraki Dashboard
+    "unifi": ("X-API-KEY", ""),  # UniFi Network Integration API
+}
+
 
 def connect(device: Device, credential: Credential) -> tuple[SwitchAdapter, Any]:
     """Baut einen einsatzbereiten Adapter + offenbare Ressource (async Context-Manager).
@@ -30,9 +40,16 @@ def connect(device: Device, credential: Credential) -> tuple[SwitchAdapter, Any]
             raise AdapterError(
                 f"API-Adapter {device.adapter_id!r} braucht eine base_url in der Credential"
             )
-        header_name = str(credential.extra.get("auth_header", "X-API-KEY"))
+        default_header, default_prefix = _API_AUTH_DEFAULTS.get(
+            device.adapter_id, ("X-API-KEY", "")
+        )
+        header_name = str(credential.extra.get("auth_header", default_header))
+        token_prefix = str(credential.extra.get("auth_prefix", default_prefix))
         client = HttpxApiClient(
-            credential.base_url, token=credential.api_token, header_name=header_name
+            credential.base_url,
+            token=credential.api_token,
+            header_name=header_name,
+            token_prefix=token_prefix,
         )
         adapter = get_api_adapter_class(device.adapter_id)(
             client, match_ip=str(device.mgmt_ip), options=credential.extra
