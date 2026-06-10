@@ -4,6 +4,7 @@ from netbuddy.adapters.base import (
     SwitchAdapter,
 )
 from netbuddy.adapters.capabilities import Capability
+from netbuddy.adapters.cato import CatoAdapter
 from netbuddy.adapters.connection import ConnectionParams, params_from_credential
 from netbuddy.adapters.declarative import DeclarativeAdapter
 from netbuddy.adapters.dto import (
@@ -15,6 +16,7 @@ from netbuddy.adapters.dto import (
 from netbuddy.adapters.factory import connect
 from netbuddy.adapters.fortigate import FortigateAdapter
 from netbuddy.adapters.meraki import MerakiAdapter
+from netbuddy.adapters.paloalto import PaloAltoAdapter
 from netbuddy.adapters.profile import VendorProfile, load_profile
 from netbuddy.adapters.registry import (
     UnknownAdapterError,
@@ -32,11 +34,13 @@ from netbuddy.adapters.transport import (
     TransportError,
 )
 from netbuddy.adapters.unifi import UnifiAdapter
+from netbuddy.adapters.watchguard import WatchGuardAdapter
 
 __all__ = [
     "AdapterError",
     "Capability",
     "CapabilityNotSupportedError",
+    "CatoAdapter",
     "CommandTransport",
     "ConnectionParams",
     "DeclarativeAdapter",
@@ -46,6 +50,7 @@ __all__ = [
     "MacEntryData",
     "MerakiAdapter",
     "MockTransport",
+    "PaloAltoAdapter",
     "RecordingTransport",
     "ScrapliTransport",
     "SwitchAdapter",
@@ -54,6 +59,7 @@ __all__ = [
     "UnifiAdapter",
     "UnknownAdapterError",
     "VendorProfile",
+    "WatchGuardAdapter",
     "adapter_kind",
     "available_adapters",
     "build_adapter",

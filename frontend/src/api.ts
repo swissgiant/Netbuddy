@@ -80,13 +80,15 @@ export interface Site {
 }
 
 export interface SuggestedDevice {
-  system_name: string | null;
-  chassis_id: string;
-  remote_port_id: string;
+  key: string;
+  sources: ("lldp" | "mac")[];
+  name: string | null;
+  dns_name: string | null;
+  ip_address: string | null;
+  vendor: string | null;
+  chassis_id: string | null;
   system_description: string | null;
-  mgmt_address: string | null;
   guessed_adapter: string | null;
-  guessed_vendor: string | null;
   seen_on: string[];
 }
 
@@ -212,17 +214,6 @@ export const createSite = (body: { name: string; code?: string; description?: st
 export const deleteSite = (id: string) => http<void>(`/sites/${id}`, { method: "DELETE" });
 
 export const fetchSuggestions = () => http<SuggestedDevice[]>("/discovery/suggestions");
-
-export interface MacSuggestedDevice {
-  mac: string;
-  vendor: string;
-  ip_address: string | null;
-  name: string | null;
-  guessed_adapter: string | null;
-  seen_on: string[];
-}
-export const fetchMacSuggestions = () =>
-  http<MacSuggestedDevice[]>("/discovery/mac-suggestions");
 
 export interface LocateResult {
   kind: "host" | "mac" | "lldp";

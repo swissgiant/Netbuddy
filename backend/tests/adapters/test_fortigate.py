@@ -28,6 +28,25 @@ _ROUTES: dict[str, Any] = {
             "internal1": {"name": "internal1", "status": "down", "link": False, "speed": "0"},
         }
     },
+    "/api/v2/monitor/network/arp": {
+        "results": [
+            {"ip": "10.120.10.51", "mac": "b0:4f:13:39:0e:c0", "interface": "internal1"},
+            {"ip": "10.120.10.53", "mac": "64:9d:99:2f:89:66", "interface": "internal1"},
+            {"ip": "10.120.10.99", "mac": ""},  # unvollständig → verworfen
+        ]
+    },
+    "/api/v2/monitor/network/lldp/neighbors": {
+        "results": [
+            {
+                "port": "internal1",
+                "chassis_id": "8c:47:be:bf:f6:c1",
+                "port_id": "ethernet1/1/40",
+                "system_name": "SW2",
+                "system_description": "Dell EMC Networking OS10",
+                "mgmt_address": "10.120.10.48",
+            }
+        ]
+    },
 }
 
 
@@ -58,16 +77,33 @@ async def test_interfaces() -> None:
     assert by_name["internal1"].oper_status.value == "down"
 
 
-async def test_lldp_mac_not_supported() -> None:
-    adapter = _adapter()
+async def test_arp_from_gateway() -> None:
+    arp = await _adapter().get_arp()
+    assert len(arp) == 2  # Zeile ohne MAC verworfen
+    assert arp[0].ip_address == "10.120.10.51"
+    assert arp[0].mac_address == "b0:4f:13:39:0e:c0"
+    assert arp[0].interface == "internal1"
+
+
+async def test_lldp_neighbors() -> None:
+    neighbors = await _adapter().get_lldp_neighbors()
+    assert len(neighbors) == 1
+    assert neighbors[0].remote_system_name == "SW2"
+    assert neighbors[0].mgmt_address == "10.120.10.48"
+
+
+async def test_mac_table_not_supported() -> None:
     with pytest.raises(CapabilityNotSupportedError):
-        await adapter.get_lldp_neighbors()
-    with pytest.raises(CapabilityNotSupportedError):
-        await adapter.get_mac_table()
+        await _adapter().get_mac_table()
 
 
 def test_registered_as_firewall_api_adapter() -> None:
     assert adapter_kind("fortigate") == "api"
     assert available_adapters()["fortigate"] == frozenset(
-        {Capability.READ_SYSTEM_INFO, Capability.READ_INTERFACES}
+        {
+            Capability.READ_SYSTEM_INFO,
+            Capability.READ_INTERFACES,
+            Capability.READ_ARP,
+            Capability.READ_LLDP,
+        }
     )

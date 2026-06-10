@@ -4,7 +4,6 @@ import type {
   Device,
   DeviceCreate,
   DeviceCredentialRow,
-  MacSuggestedDevice,
   Site,
   SuggestedDevice,
 } from "../api";
@@ -16,7 +15,6 @@ import {
   fetchCredentials,
   fetchDeviceCredentials,
   fetchDevices,
-  fetchMacSuggestions,
   fetchSites,
   fetchSuggestions,
   linkCredential,
@@ -44,7 +42,6 @@ export function DevicesView() {
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [adapterIds, setAdapterIds] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<SuggestedDevice[]>([]);
-  const [macSuggestions, setMacSuggestions] = useState<MacSuggestedDevice[]>([]);
   const [links, setLinks] = useState<DeviceCredentialRow[]>([]);
   const [form, setForm] = useState<DeviceCreate>(EMPTY);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +57,6 @@ export function DevicesView() {
     fetchCredentials().then(setCredentials).catch(() => {});
     fetchAdapters().then((a) => setAdapterIds(a.map((x) => x.adapter_id).sort())).catch(() => {});
     fetchSuggestions().then(setSuggestions).catch(() => {});
-    fetchMacSuggestions().then(setMacSuggestions).catch(() => {});
     fetchDeviceCredentials().then(setLinks).catch(() => {});
   };
   useEffect(reload, []);
@@ -84,41 +80,21 @@ export function DevicesView() {
     reload();
   };
 
-  // 1-Klick-Anlage aus einem LLDP-Vorschlag: Mgmt-IP + geratenes Profil übernehmen.
+  // 1-Klick-Anlage aus einem Vorschlag: IP aus LLDP/ARP/DNS, Profil geraten; Prompt als Fallback.
   const addFromSuggestion = async (s: SuggestedDevice) => {
-    setError(null);
-    let ip = s.mgmt_address ?? "";
-    if (!ip) {
-      ip = prompt(`Management-IP für ${s.system_name ?? s.chassis_id}? (LLDP meldete keine)`) ?? "";
-      if (!ip) return;
-    }
-    try {
-      await createDevice({
-        hostname: s.system_name || s.chassis_id,
-        mgmt_ip: ip,
-        vendor: "",
-        adapter_id: s.guessed_adapter ?? "",
-        device_type: "switch",
-      });
-      reload();
-    } catch (e) {
-      setError(String(e));
-    }
-  };
-
-  // 1-Klick-Anlage aus einem MAC-Tabellen-Verdacht (OUI): IP kommt aus ARP/DNS.
-  const addFromMacSuggestion = async (s: MacSuggestedDevice) => {
     setError(null);
     let ip = s.ip_address ?? "";
     if (!ip) {
-      ip = prompt(`Management-IP für ${s.name ?? s.vendor} (${s.mac})? (kein ARP-Eintrag)`) ?? "";
+      ip = prompt(
+        `Management-IP für ${s.name ?? s.vendor ?? s.key}? (in keiner Quelle gefunden — LLDP/ARP/DNS)`,
+      ) ?? "";
       if (!ip) return;
     }
     try {
       await createDevice({
-        hostname: s.name?.split(".")[0] || s.mac,
+        hostname: s.name || s.key,
         mgmt_ip: ip,
-        vendor: s.vendor,
+        vendor: s.vendor ?? "",
         adapter_id: s.guessed_adapter ?? "",
         device_type: s.guessed_adapter === "fortigate" ? "firewall" : "switch",
       });
@@ -253,68 +229,44 @@ export function DevicesView() {
 
       {suggestions.length > 0 && (
         <div className="card">
-          <h3>Vorgeschlagen (aus LLDP) <span className="badge">{suggestions.length}</span></h3>
-          <table>
-            <thead>
-              <tr>
-                <th>System-Name</th><th>Mgmt-IP</th><th>Hersteller (MAC)</th><th>Profil (geraten)</th>
-                <th>gesehen an</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {suggestions.map((s) => (
-                <tr key={s.chassis_id}>
-                  <td>{s.system_name ?? <span className="muted">{s.chassis_id}</span>}</td>
-                  <td className="muted">{s.mgmt_address ?? "—"}</td>
-                  <td className="muted">{s.guessed_vendor ?? "—"}</td>
-                  <td>
-                    {s.guessed_adapter
-                      ? <span className="badge">{s.guessed_adapter}</span>
-                      : <span className="muted">?</span>}
-                  </td>
-                  <td className="muted">{s.seen_on.join(", ")}</td>
-                  <td>
-                    <button onClick={() => addFromSuggestion(s)} title="Als Gerät anlegen (Profil geraten)">
-                      + Hinzufügen
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="muted" style={{ fontSize: 12 }}>
-            „+ Hinzufügen" legt das Gerät direkt an (Profil aus LLDP geraten). Standort/Adapter/IP
-            sind danach in der Liste änderbar — ohne Löschen.
-          </p>
-        </div>
-      )}
-
-      {macSuggestions.length > 0 && (
-        <div className="card">
           <h3>
-            Verdacht aus MAC-Tabellen (OUI) <span className="badge">{macSuggestions.length}</span>
+            Vorgeschlagene Geräte <span className="badge">{suggestions.length}</span>
             <span className="muted" style={{ fontSize: 12, fontWeight: 400 }}>
-              {" "}— Infrastruktur-Hersteller ohne LLDP
+              {" "}— aus LLDP + MAC-Tabellen (OUI), zusammengeführt
             </span>
           </h3>
           <table>
             <thead>
               <tr>
-                <th>Name (DNS)</th><th>IP (ARP)</th><th>Hersteller</th><th>MAC</th>
-                <th>gesehen an</th><th></th>
+                <th>Name</th><th>IP</th><th>Hersteller (MAC)</th><th>Profil (geraten)</th>
+                <th>Quelle</th><th>gesehen an</th><th></th>
               </tr>
             </thead>
             <tbody>
-              {macSuggestions.map((s) => (
-                <tr key={s.mac}>
-                  <td>{s.name ?? <span className="muted">unbekannt</span>}</td>
+              {suggestions.map((s) => (
+                <tr key={s.key}>
+                  <td>
+                    {s.name ?? <span className="muted">{s.chassis_id ?? s.key}</span>}
+                    {s.dns_name && s.dns_name.split(".")[0] !== s.name && (
+                      <span className="muted"> ({s.dns_name})</span>
+                    )}
+                  </td>
                   <td className="muted">{s.ip_address ?? "—"}</td>
-                  <td>{s.vendor}</td>
-                  <td className="muted">{s.mac}</td>
+                  <td className="muted">{s.vendor ?? "—"}</td>
+                  <td>
+                    {s.guessed_adapter
+                      ? <span className="badge">{s.guessed_adapter}</span>
+                      : <span className="muted">?</span>}
+                  </td>
+                  <td>
+                    {s.sources.map((src) => (
+                      <span key={src} className="badge" style={{ marginRight: 3 }}>{src}</span>
+                    ))}
+                  </td>
                   <td className="muted">{s.seen_on.join(", ")}</td>
                   <td>
-                    <button onClick={() => addFromMacSuggestion(s)}
-                      title="Als Gerät anlegen (IP aus ARP, Profil ggf. geraten)">
+                    <button onClick={() => addFromSuggestion(s)}
+                      title="Als Gerät anlegen (IP aus LLDP/ARP/DNS, Profil geraten)">
                       + Hinzufügen
                     </button>
                   </td>
@@ -323,8 +275,9 @@ export function DevicesView() {
             </tbody>
           </table>
           <p className="muted" style={{ fontSize: 12 }}>
-            Diese Geräte sprechen (noch) kein LLDP — erkannt am Hersteller-OUI ihrer MAC in den
-            MAC-Tabellen der Nachbarn. Nach dem Anlegen ggf. LLDP im Geräte-Detail aktivieren.
+            Quelle „lldp" = Nachbar meldet sich selbst; „mac" = nur am Hersteller-OUI in den
+            MAC-Tabellen erkannt (LLDP dort vermutlich aus — nach dem Anlegen im Geräte-Detail
+            aktivieren). Standort/Adapter/IP sind nach dem Anlegen in der Liste änderbar.
           </p>
         </div>
       )}

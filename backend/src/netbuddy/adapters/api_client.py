@@ -10,6 +10,18 @@ class ApiClient(Protocol):
     async def get_json(self, path: str, params: dict[str, Any] | None = None) -> Any: ...
 
 
+class TextApiClient(Protocol):
+    """Client für XML-/Text-APIs (z.B. PAN-OS) — strukturell von `HttpxApiClient` erfüllt."""
+
+    async def get_text(self, path: str, params: dict[str, Any] | None = None) -> str: ...
+
+
+class GraphqlApiClient(Protocol):
+    """Client für GraphQL-APIs (z.B. Cato) — strukturell von `HttpxApiClient` erfüllt."""
+
+    async def post_json(self, path: str, body: dict[str, Any]) -> Any: ...
+
+
 class HttpxApiClient:
     """`ApiClient` auf httpx-Basis; async Context-Manager managt den Connection-Pool.
 
@@ -42,5 +54,15 @@ class HttpxApiClient:
 
     async def get_json(self, path: str, params: dict[str, Any] | None = None) -> Any:
         response = await self._client.get(path, params=params)
+        response.raise_for_status()
+        return response.json()
+
+    async def get_text(self, path: str, params: dict[str, Any] | None = None) -> str:
+        response = await self._client.get(path, params=params)
+        response.raise_for_status()
+        return response.text
+
+    async def post_json(self, path: str, body: dict[str, Any]) -> Any:
+        response = await self._client.post(path, json=body)
         response.raise_for_status()
         return response.json()

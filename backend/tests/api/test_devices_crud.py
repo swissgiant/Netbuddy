@@ -70,10 +70,11 @@ async def test_lldp_suggestions(api_client: AsyncClient, db_session: AsyncSessio
     resp = await api_client.get("/discovery/suggestions")
     assert resp.status_code == 200
     suggestions = resp.json()
-    names = {s["system_name"] for s in suggestions}
+    names = {s["name"] for s in suggestions}
     assert "new-access-sw" in names
     assert "core-sw" not in names  # bereits im Inventar
-    sug = next(s for s in suggestions if s["system_name"] == "new-access-sw")
+    sug = next(s for s in suggestions if s["name"] == "new-access-sw")
+    assert sug["sources"] == ["lldp"]
     assert sug["seen_on"] == ["core-sw / Eth1/1/1"]
     assert sug["guessed_adapter"] == "dell_os10"  # aus "Dell OS10" geraten
 

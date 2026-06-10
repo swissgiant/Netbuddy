@@ -19,13 +19,19 @@ class FortigateAdapter:
     """Read-only-Adapter für Fortinet FortiGate über die FortiOS-REST-API (JSON).
 
     Die API liegt **auf der Firewall selbst** (kein Controller) — `base_url` = die FortiGate.
-    Firewall-Geräteklasse: bietet `system_info` + `interfaces`; LLDP/MAC sind hier nicht relevant.
+    Bietet `system_info`, `interfaces`, `arp` (Gateway = beste ARP-Quelle des Standorts für
+    die Namensauflösung!) und `lldp` (FortiOS ≥ 7.0). MAC-Table ist hier nicht relevant.
     **Unvalidiert** — Feld-Mapping nach FortiOS-Doku, bis echter API-Token vorliegt.
     """
 
     adapter_id: ClassVar[str] = "fortigate"
     capabilities_set: ClassVar[frozenset[Capability]] = frozenset(
-        {Capability.READ_SYSTEM_INFO, Capability.READ_INTERFACES}
+        {
+            Capability.READ_SYSTEM_INFO,
+            Capability.READ_INTERFACES,
+            Capability.READ_ARP,
+            Capability.READ_LLDP,
+        }
     )
     provenance: ClassVar[str] = "FortiOS REST-API — unvalidiert (kein API-Token)"
 
@@ -75,7 +81,23 @@ class FortigateAdapter:
         return self.capabilities_set
 
     async def get_lldp_neighbors(self) -> list[LldpNeighborData]:
-        raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_LLDP)
+        """LLDP-Nachbarn der Firewall (FortiOS ≥ 7.0: `monitor/network/lldp/neighbors`)."""
+        payload = await self._client.get_json("/api/v2/monitor/network/lldp/neighbors")
+        results = payload.get("results", []) if isinstance(payload, dict) else payload
+        neighbors: list[LldpNeighborData] = []
+        for row in results or []:
+            neighbors.append(
+                LldpNeighborData(
+                    local_interface=row.get("port") or row.get("interface") or "",
+                    remote_chassis_id=row.get("chassis_id", ""),
+                    remote_port_id=row.get("port_id", ""),
+                    remote_port_description=row.get("port_description") or None,
+                    remote_system_name=row.get("system_name") or None,
+                    remote_system_description=row.get("system_description") or None,
+                    mgmt_address=row.get("mgmt_address") or row.get("mgmt_ip") or None,
+                )
+            )
+        return neighbors
 
     async def get_mac_table(self) -> list[MacEntryData]:
         raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_MAC_TABLE)
@@ -84,4 +106,24 @@ class FortigateAdapter:
         raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_CONFIG)
 
     async def get_arp(self) -> list[ArpData]:
-        raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_ARP)
+        """ARP-Tabelle der Firewall — als Gateway kennt sie die IPs des ganzen Segments.
+
+        Schließt die größte Lücke der Namensauflösung: L2-Switches haben (fast) kein ARP,
+        die Firewall hat alles (`monitor/network/arp`).
+        """
+        payload = await self._client.get_json("/api/v2/monitor/network/arp")
+        results = payload.get("results", []) if isinstance(payload, dict) else payload
+        entries: list[ArpData] = []
+        for row in results or []:
+            ip = row.get("ip")
+            mac = row.get("mac")
+            if not ip or not mac:
+                continue
+            entries.append(
+                ArpData(
+                    ip_address=str(ip),
+                    mac_address=str(mac),
+                    interface=row.get("interface") or None,
+                )
+            )
+        return entries

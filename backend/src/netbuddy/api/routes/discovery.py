@@ -5,90 +5,23 @@ from pydantic import BaseModel
 from sqlalchemy import select
 
 from netbuddy.api.deps import HostResolverDep, LiveAdapterDep, SessionDep
-from netbuddy.db.models import ArpEntry, Credential, Device, Interface, LldpNeighbor
-from netbuddy.services.crawl import CrawlReport, crawl, guess_adapter
-from netbuddy.services.hosts import correlate_hosts, normalize_mac
-from netbuddy.services.mac_suggest import MacSuggestedDevice, suggest_devices_from_mac_table
-from netbuddy.services.oui import vendor_for_mac
+from netbuddy.db.models import Credential, Device
+from netbuddy.services.crawl import CrawlReport, crawl
+from netbuddy.services.hosts import correlate_hosts
+from netbuddy.services.suggest import SuggestedDevice, suggest_devices
 
 router = APIRouter(prefix="/discovery", tags=["discovery"])
 
 
-class SuggestedDevice(BaseModel):
-    """Ein über LLDP gesehener Nachbar, der noch nicht im Inventar ist (Add-Vorschlag)."""
-
-    system_name: str | None
-    chassis_id: str
-    remote_port_id: str
-    system_description: str | None
-    mgmt_address: str | None  # Management-IP aus LLDP (für 1-Klick-Anlage)
-    guessed_adapter: str | None  # aus system_description geratenes Profil (UI-Vorauswahl)
-    guessed_vendor: str | None  # aus dem OUI der chassis_id-MAC (auch ohne system_description)
-    seen_on: list[str]  # "<hostname> / <local-interface>"
-
-
 @router.get("/suggestions", response_model=list[SuggestedDevice])
 async def list_suggestions(session: SessionDep) -> list[SuggestedDevice]:
-    """Schlägt naheliegende Geräte vor: LLDP-Nachbarn bekannter Geräte, die selbst noch
-    nicht als `Device` erfasst sind (gematcht über `remote_system_name == hostname`)."""
-    devices = (
-        (await session.execute(select(Device).where(Device.deleted_at.is_(None)))).scalars().all()
-    )
-    known_hostnames = {d.hostname for d in devices}
-    device_by_id = {d.id: d for d in devices}
-    iface_by_id = {i.id: i for i in (await session.execute(select(Interface))).scalars()}
+    """EINE Vorschlagsliste für alles Gefundene, noch nicht Inventarisierte.
 
-    # MAC→IP aus der ARP-Tabelle: erlaubt, die Mgmt-IP eines Nachbarn über seine LLDP-chassis_id
-    # (= MAC) zu finden, wenn LLDP selbst keine Management-Adresse meldet.
-    arp_by_mac: dict[str, str] = {}
-    for ip, mac in (await session.execute(select(ArpEntry.ip_address, ArpEntry.mac))).all():
-        if mac:
-            arp_by_mac[mac] = ip
-
-    def resolve_ip(lldp_mgmt: str | None, chassis_id: str) -> str | None:
-        if lldp_mgmt:
-            return lldp_mgmt
-        return arp_by_mac.get(normalize_mac(chassis_id))
-
-    by_chassis: dict[str, SuggestedDevice] = {}
-    for n in (await session.execute(select(LldpNeighbor))).scalars():
-        if n.remote_system_name and n.remote_system_name in known_hostnames:
-            continue  # schon im Inventar
-        local_dev = device_by_id.get(n.local_device_id)
-        local_iface = iface_by_id.get(n.local_interface_id)
-        seen = (
-            f"{local_dev.hostname if local_dev else '?'} / "
-            f"{local_iface.name if local_iface else '?'}"
-        )
-        existing = by_chassis.get(n.remote_chassis_id)
-        if existing is None:
-            by_chassis[n.remote_chassis_id] = SuggestedDevice(
-                system_name=n.remote_system_name,
-                chassis_id=n.remote_chassis_id,
-                remote_port_id=n.remote_port_id,
-                system_description=n.remote_system_description,
-                mgmt_address=resolve_ip(n.remote_mgmt_address, n.remote_chassis_id),
-                guessed_adapter=guess_adapter(n.remote_system_description, None),
-                guessed_vendor=vendor_for_mac(n.remote_chassis_id),
-                seen_on=[seen],
-            )
-        else:
-            if seen not in existing.seen_on:
-                existing.seen_on.append(seen)
-            if existing.mgmt_address is None:
-                existing.mgmt_address = resolve_ip(n.remote_mgmt_address, n.remote_chassis_id)
-
-    return list(by_chassis.values())
-
-
-@router.get("/mac-suggestions", response_model=list[MacSuggestedDevice])
-async def list_mac_suggestions(session: SessionDep) -> list[MacSuggestedDevice]:
-    """Geräte-Verdachte aus den MAC-Tabellen (OUI → Infrastruktur-Hersteller).
-
-    Findet Switches/Firewalls/APs, die **kein LLDP sprechen** (z.B. FS-Werkskonfig) —
-    deren MAC steht trotzdem in den MAC-Tabellen der inventarisierten Nachbarn.
+    Kombiniert LLDP-Nachbarn und Infrastruktur-Verdachte aus den MAC-Tabellen (OUI),
+    gemerged über die Chassis-/Quell-MAC und angereichert mit IP (LLDP-Mgmt > ARP)
+    und DNS-Name. `sources` zeigt, woher der Fund stammt ("lldp", "mac").
     """
-    return await suggest_devices_from_mac_table(session)
+    return await suggest_devices(session)
 
 
 class CrawlRequest(BaseModel):
