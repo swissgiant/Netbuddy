@@ -24,6 +24,7 @@ import {
   validateDevice,
 } from "../api";
 import { DeviceIcon } from "../icons";
+import { Th, useSort } from "../sort";
 
 type Tab = "ports" | "mac" | "lldp" | "arp" | "vpn" | "validation";
 
@@ -128,6 +129,12 @@ export function DeviceDetail({ device }: { device: Device }) {
   const neighbor = (ifaceId: string) =>
     lldp.find((n) => n.local_interface_id === ifaceId)?.remote_system_name ?? null;
   const ifaceName = (id: string) => interfaces.find((i) => i.id === id)?.name ?? "—";
+
+  const macSort = useSort(macs, { port: (m) => ifaceName(m.interface_id) });
+  const lldpSort = useSort(lldp, { port: (n) => ifaceName(n.local_interface_id) });
+  const arpSort = useSort(arp);
+  const vpnSort = useSort(tunnels, { remote: (t) => t.remote_subnets.join(",") || null });
+  const valSort = useSort(validation?.capabilities ?? []);
 
   const physical = interfaces.filter((i) => isPhysical(i.name));
   const logical = interfaces.filter((i) => !isPhysical(i.name));
@@ -305,9 +312,16 @@ export function DeviceDetail({ device }: { device: Device }) {
 
       {tab === "mac" && (
         <table>
-          <thead><tr><th>MAC</th><th>Port</th><th>VLAN</th><th>Typ</th></tr></thead>
+          <thead>
+            <tr>
+              <Th k="mac_address" sort={macSort.sort} onSort={macSort.toggle}>MAC</Th>
+              <Th k="port" sort={macSort.sort} onSort={macSort.toggle}>Port</Th>
+              <Th k="vlan_id" sort={macSort.sort} onSort={macSort.toggle}>VLAN</Th>
+              <Th k="entry_type" sort={macSort.sort} onSort={macSort.toggle}>Typ</Th>
+            </tr>
+          </thead>
           <tbody>
-            {macs.map((m) => (
+            {macSort.sorted.map((m) => (
               <tr key={m.id}>
                 <td>{m.mac_address}</td><td>{ifaceName(m.interface_id)}</td>
                 <td>{m.vlan_id ?? "—"}</td><td className="muted">{m.entry_type}</td>
@@ -321,12 +335,17 @@ export function DeviceDetail({ device }: { device: Device }) {
         <table>
           <thead>
             <tr>
-              <th>lokaler Port</th><th>Nachbar</th><th>Hostname (DNS)</th><th>IP (ARP/Mgmt)</th>
-              <th>Hersteller (MAC)</th><th>Remote-Port</th><th>Chassis</th>
+              <Th k="port" sort={lldpSort.sort} onSort={lldpSort.toggle}>lokaler Port</Th>
+              <Th k="remote_system_name" sort={lldpSort.sort} onSort={lldpSort.toggle}>Nachbar</Th>
+              <Th k="resolved_name" sort={lldpSort.sort} onSort={lldpSort.toggle}>Hostname (DNS)</Th>
+              <Th k="resolved_ip" sort={lldpSort.sort} onSort={lldpSort.toggle}>IP (ARP/Mgmt)</Th>
+              <Th k="guessed_vendor" sort={lldpSort.sort} onSort={lldpSort.toggle}>Hersteller (MAC)</Th>
+              <Th k="remote_port_id" sort={lldpSort.sort} onSort={lldpSort.toggle}>Remote-Port</Th>
+              <Th k="remote_chassis_id" sort={lldpSort.sort} onSort={lldpSort.toggle}>Chassis</Th>
             </tr>
           </thead>
           <tbody>
-            {lldp.map((n) => (
+            {lldpSort.sorted.map((n) => (
               <tr key={n.id}>
                 <td>{ifaceName(n.local_interface_id)}</td>
                 <td>{n.remote_system_name ?? <span className="muted">?</span>}</td>
@@ -343,9 +362,15 @@ export function DeviceDetail({ device }: { device: Device }) {
 
       {tab === "arp" && (
         <table>
-          <thead><tr><th>IP</th><th>MAC</th><th>VLAN</th></tr></thead>
+          <thead>
+            <tr>
+              <Th k="ip_address" sort={arpSort.sort} onSort={arpSort.toggle}>IP</Th>
+              <Th k="mac" sort={arpSort.sort} onSort={arpSort.toggle}>MAC</Th>
+              <Th k="vlan_id" sort={arpSort.sort} onSort={arpSort.toggle}>VLAN</Th>
+            </tr>
+          </thead>
           <tbody>
-            {arp.map((a) => (
+            {arpSort.sorted.map((a) => (
               <tr key={a.id}><td>{a.ip_address}</td><td>{a.mac}</td><td>{a.vlan_id ?? "—"}</td></tr>
             ))}
           </tbody>
@@ -357,12 +382,15 @@ export function DeviceDetail({ device }: { device: Device }) {
           <table>
             <thead>
               <tr>
-                <th>Tunnel</th><th>Status</th><th>Remote-Gateway</th>
-                <th>Remote-Subnetze</th><th>berücksichtigen</th>
+                <Th k="name" sort={vpnSort.sort} onSort={vpnSort.toggle}>Tunnel</Th>
+                <Th k="is_up" sort={vpnSort.sort} onSort={vpnSort.toggle}>Status</Th>
+                <Th k="remote_gateway" sort={vpnSort.sort} onSort={vpnSort.toggle}>Remote-Gateway</Th>
+                <Th k="remote" sort={vpnSort.sort} onSort={vpnSort.toggle}>Remote-Subnetze</Th>
+                <Th k="relevant" sort={vpnSort.sort} onSort={vpnSort.toggle}>berücksichtigen</Th>
               </tr>
             </thead>
             <tbody>
-              {tunnels.map((t) => (
+              {vpnSort.sorted.map((t) => (
                 <tr key={t.id} style={t.relevant ? undefined : { opacity: 0.5 }}>
                   <td>{t.name}</td>
                   <td>
@@ -406,9 +434,16 @@ export function DeviceDetail({ device }: { device: Device }) {
       {tab === "validation" && (
         validation ? (
           <table>
-            <thead><tr><th>Capability</th><th>Status</th><th>Zeilen</th><th>Feld-Abdeckung</th></tr></thead>
+            <thead>
+              <tr>
+                <Th k="capability" sort={valSort.sort} onSort={valSort.toggle}>Capability</Th>
+                <Th k="status" sort={valSort.sort} onSort={valSort.toggle}>Status</Th>
+                <Th k="row_count" sort={valSort.sort} onSort={valSort.toggle}>Zeilen</Th>
+                <th>Feld-Abdeckung</th>
+              </tr>
+            </thead>
             <tbody>
-              {validation.capabilities.map((c) => (
+              {valSort.sorted.map((c) => (
                 <tr key={c.capability}>
                   <td>{c.capability}</td>
                   <td>

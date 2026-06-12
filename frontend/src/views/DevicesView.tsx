@@ -19,6 +19,7 @@ import {
   updateDevice,
 } from "../api";
 import { DeviceIcon } from "../icons";
+import { Th, useSort } from "../sort";
 import { DeviceDetail } from "./DeviceDetail";
 
 const DEVICE_TYPES = ["switch", "firewall", "router", "ap", "other"];
@@ -53,6 +54,10 @@ export function DevicesView() {
   useEffect(reload, []);
 
   const linksFor = (deviceId: string) => links.filter((l) => l.device_id === deviceId);
+
+  const { sorted: sortedDevices, sort, toggle } = useSort(devices, {
+    site: (d) => sites.find((s) => s.id === d.site_id)?.name ?? null,
+  });
 
   const submit = async () => {
     setError(null);
@@ -137,12 +142,18 @@ export function DevicesView() {
         <table>
           <thead>
             <tr>
-              <th></th><th>Hostname</th><th>IP</th><th>Typ</th><th>Vendor</th><th>Adapter</th>
-              <th>Standort</th><th>Credentials</th><th></th>
+              <th></th>
+              <Th k="hostname" sort={sort} onSort={toggle}>Hostname</Th>
+              <Th k="mgmt_ip" sort={sort} onSort={toggle}>IP</Th>
+              <Th k="device_type" sort={sort} onSort={toggle}>Typ</Th>
+              <Th k="vendor" sort={sort} onSort={toggle}>Vendor</Th>
+              <Th k="adapter_id" sort={sort} onSort={toggle}>Adapter</Th>
+              <Th k="site" sort={sort} onSort={toggle}>Standort</Th>
+              <th>Credentials</th><th></th>
             </tr>
           </thead>
           <tbody>
-            {devices.map((d) => {
+            {sortedDevices.map((d) => {
               const myLinks = linksFor(d.id);
               const linkedIds = new Set(myLinks.map((l) => l.credential_id));
               const open = selected === d.id;

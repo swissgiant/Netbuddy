@@ -8,6 +8,7 @@ import {
   resolveHosts,
   startCrawl,
 } from "../api";
+import { Th, useSort } from "../sort";
 
 /** Eigene Hauptkategorie: alles, was NEUE Geräte findet (getrennt vom Inventar). */
 export function DiscoveryView() {
@@ -19,6 +20,12 @@ export function DiscoveryView() {
   const [crawlReport, setCrawlReport] = useState<CrawlReport | null>(null);
   const [crawling, setCrawling] = useState(false);
   const [resolveMsg, setResolveMsg] = useState<string | null>(null);
+
+  const { sorted: sortedSuggestions, sort, toggle } = useSort(suggestions, {
+    name: (s) => s.name ?? s.chassis_id ?? s.key,
+    sources: (s) => s.sources.join(","),
+    seen: (s) => s.seen_on[0] ?? null,
+  });
 
   const reload = () => {
     fetchDevices().then(setDevices).catch((e) => setError(String(e)));
@@ -151,12 +158,17 @@ export function DiscoveryView() {
           <table>
             <thead>
               <tr>
-                <th>Name</th><th>IP</th><th>Hersteller (MAC)</th><th>Profil (geraten)</th>
-                <th>Quelle</th><th>gesehen an</th><th></th>
+                <Th k="name" sort={sort} onSort={toggle}>Name</Th>
+                <Th k="ip_address" sort={sort} onSort={toggle}>IP</Th>
+                <Th k="vendor" sort={sort} onSort={toggle}>Hersteller (MAC)</Th>
+                <Th k="guessed_adapter" sort={sort} onSort={toggle}>Profil (geraten)</Th>
+                <Th k="sources" sort={sort} onSort={toggle}>Quelle</Th>
+                <Th k="seen" sort={sort} onSort={toggle}>gesehen an</Th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {suggestions.map((s) => (
+              {sortedSuggestions.map((s) => (
                 <tr key={s.key}>
                   <td>
                     {s.name ?? <span className="muted">{s.chassis_id ?? s.key}</span>}

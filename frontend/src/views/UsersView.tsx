@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AuthUser } from "../api";
 import { createUser, deleteUser, fetchUsers } from "../api";
+import { Th, useSort } from "../sort";
 
 const ROLES = ["viewer", "operator", "admin"];
 const ROLE_HINT: Record<string, string> = {
@@ -15,6 +16,8 @@ export function UsersView({ me }: { me: AuthUser }) {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("viewer");
   const [error, setError] = useState<string | null>(null);
+
+  const { sorted: sortedUsers, sort, toggle } = useSort(users);
 
   const reload = () => {
     fetchUsers()
@@ -68,9 +71,16 @@ export function UsersView({ me }: { me: AuthUser }) {
       <div className="card">
         <h3>Vorhanden <span className="badge">{users.length}</span></h3>
         <table>
-          <thead><tr><th>Benutzername</th><th>Rolle</th><th>Aktiv</th><th></th></tr></thead>
+          <thead>
+            <tr>
+              <Th k="username" sort={sort} onSort={toggle}>Benutzername</Th>
+              <Th k="role" sort={sort} onSort={toggle}>Rolle</Th>
+              <Th k="enabled" sort={sort} onSort={toggle}>Aktiv</Th>
+              <th></th>
+            </tr>
+          </thead>
           <tbody>
-            {users.map((u) => (
+            {sortedUsers.map((u) => (
               <tr key={u.id}>
                 <td>{u.username}{u.id === me.id && <span className="muted"> (du)</span>}</td>
                 <td><span className="badge">{u.role}</span> <span className="muted">{ROLE_HINT[u.role]}</span></td>

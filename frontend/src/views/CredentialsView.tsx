@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Credential, CredentialCreate } from "../api";
 import { createCredential, deleteCredential, fetchCredentials } from "../api";
+import { Th, useSort } from "../sort";
 
 type Kind = "ssh" | "api";
 
@@ -12,6 +13,10 @@ export function CredentialsView() {
   // Protokoll folgt dem Port: 22 = SSH, 23 = Telnet; nur bei anderen Ports erscheint die Auswahl.
   const [proto, setProto] = useState<"ssh" | "telnet">("ssh");
   const [error, setError] = useState<string | null>(null);
+
+  const { sorted: sortedCreds, sort: credSort, toggle: credToggle } = useSort(creds, {
+    target: (c) => c.base_url ?? c.username ?? null,
+  });
 
   const reload = () => {
     fetchCredentials()
@@ -109,9 +114,17 @@ export function CredentialsView() {
           <button className="ghost" onClick={reload}>↻</button>
         </div>
         <table>
-          <thead><tr><th>Name</th><th>Typ</th><th>Username / Base-URL</th><th>SSH-Port</th><th></th></tr></thead>
+          <thead>
+            <tr>
+              <Th k="name" sort={credSort} onSort={credToggle}>Name</Th>
+              <Th k="kind" sort={credSort} onSort={credToggle}>Typ</Th>
+              <Th k="target" sort={credSort} onSort={credToggle}>Username / Base-URL</Th>
+              <Th k="ssh_port" sort={credSort} onSort={credToggle}>Port</Th>
+              <th></th>
+            </tr>
+          </thead>
           <tbody>
-            {creds.map((c) => (
+            {sortedCreds.map((c) => (
               <tr key={c.id}>
                 <td>{c.name}</td>
                 <td><span className="badge">{c.kind.toUpperCase()}</span></td>
