@@ -1,24 +1,24 @@
 # NetBuddy — Aktueller Stand
 
-**Stand:** Anfang Juni 2026, Phase 1 — Schema/Migration fertig, alles committed & gepusht.
+**Stand:** 19. Juni 2026, Phase 1+ — Discovery/Erkennung am echten Fleet feature-komplett; Roadmap Richtung VLAN-Write/Orchestrierung in `docs/gap-analysis.md`.
 
-Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht.
+Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `d30993b` (S36).
 
 ## Was läuft gerade
 
 | Komponente | Status |
 |---|---|
-| Docker-Dev-Stack (postgres + redis + adminer) | Seit ~2 Wochen ununterbrochen `healthy`; Endpoints lt. README |
-| Alembic-Head | `3db5f7c39230` (`arp_entry + host`, Namensauflösung) |
-| DB-Schema | Alle 7 Phase-1-Tabellen + `alembic_version` migriert |
-| Backend-Server | Nicht dauerhaft gestartet; `uv run uvicorn netbuddy.api.main:app --reload` läuft fehlerfrei |
-| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (136 Tests) |
-| CLI-Profile | cisco_ios, dell_os10, dell_os6, fs_ruijie, fs_centec, aruba_cx (sysinfo dell/fs live-validiert, Rest unvalidiert) |
-| API-Adapter | unifi, meraki, fortigate (Firewall) — JSON-API, unvalidiert |
-| Vendor-Abstraction-Layer | Deklarative YAML-Profile + `DeclarativeAdapter`; Cisco IOS als erstes Profil (read-only, gegen Mock-Transport) |
-| Echter Transport | `ScrapliTransport` (async, read-only-Guard) + `ConnectionParams` aus `Credential`; noch kein Live-Zugriff |
-| Neuer Vendor | = Profil-YAML + Fixtures + bestandener Conformance-Test, **kein Code** |
-| ARQ-Worker | geplante Discovery: `uv run arq netbuddy.workers.discovery_worker.WorkerSettings` (Intervall `scheduled_discovery_minutes`, Default 30) |
+| Docker-Dev-Stack (postgres + redis + adminer) | `healthy`; Endpoints lt. README |
+| Alembic-Head | `8c7971315c66` (`interface parent_name + vlan_id`) — 11 Migrationen |
+| `ruff` / `mypy --strict` / `pytest` | Alle drei grün (**193 Tests**) |
+| Dev-Server (laufen im Hintergrund für die GUI) | Backend `uv run uvicorn netbuddy.api.main:app` (:8000), Frontend `npm run dev` (:5173) — bewusst dauerhaft an, damit die App im Browser erreichbar ist |
+| **Live-validierte Vendor** (echtes Fleet) | **dell_os10** (Core, SSH), **dell_os6** (N2248PX, **Telnet**: enable-Mode + User:-Prompt), **fs_centec** (S5800, SSH), **fortigate** (FG200F 7.4.12, REST :10443) |
+| CLI-Profile (6) | cisco_ios, dell_os10, dell_os6, fs_ruijie, fs_centec, aruba_cx — alle mit `read_arp` + LLDP-Mgmt-IP; fs_ruijie/cisco/aruba doku-abgeleitet (unvalidiert) |
+| API-Adapter (6) | unifi, meraki, **fortigate** (sysinfo/interfaces/arp/lldp/**vpn-tunnels**, live), paloalto (PAN-OS XML), cato (GraphQL), watchguard (Skeleton ohne Caps) |
+| Transport | `ScrapliTransport` (SSH **+ Telnet** read-only; Write-Pfad SSH-only via interaktivem asyncssh); API via `HttpxApiClient` (vendor-korrekte Auth-Header) |
+| GUI (React/Vite/Cytoscape) | Topologie (Standorte=Container, VPN-Kanten ab Firewall, stabiles Layout, Auto-Zoom), Geräte (Inventar+Detail mit Faceplate/Interface-Baum/Tabs), **Discovery** (eigene Kategorie), Standorte (IP-Segmente+Namens-Regel), Credentials, Benutzer — alle Tabellen sortierbar |
+| Erster Schreibpfad (eng, freigegeben) | LLDP aktivieren (Backup→write→verify, profil-gesteuert, nur SSH) — **echter Write/VLAN noch GESPERRT bis S32-Fundament** |
+| ARQ-Worker | geplante Discovery + Host-Korrelation: `uv run arq netbuddy.workers.discovery_worker.WorkerSettings` |
 
 ## Was bereits gebaut wurde
 
