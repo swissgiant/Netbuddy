@@ -1,8 +1,20 @@
 # NetBuddy — Aktueller Stand
 
-**Stand:** 24. Juni 2026, Phase 1+ — Discovery/Erkennung am echten Fleet feature-komplett; **S38 Deployment fertig** (Prod-Docker-Stack End-to-End getestet, `docs/deployment.md`) → Ziel-VM Ubuntu 26.04 (4 vCPU/8 GB/100 GB) wird bereitgestellt. Roadmap Richtung VLAN-Write in `docs/gap-analysis.md`.
+**Stand:** 24. Juni 2026, Phase 1+ — Discovery/Erkennung am echten Fleet feature-komplett; **S39: NetBuddy läuft LIVE auf der Prod-VM** (`bls-srv-netbuddy` / 10.120.20.101, 5/5 Container healthy, HTTPS via nginx, Migrationen auto, Worker aktiv). Cert-Automatisierung gegen die interne AD-CS gebaut (`tools/`+`docker/issue_cert.sh`). Roadmap Richtung VLAN-Write in `docs/gap-analysis.md`.
 
-Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `d30993b` (S36).
+Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `47235c2` (S38).
+
+## S39 — Produktiv-Deployment LIVE + TLS-Cert-Automatisierung (24.6.2026)
+
+- **Deployt auf der Prod-VM** `bls-srv-netbuddy` / **10.120.20.101** (Ubuntu 26.04, 4 vCPU/7,2 GiB/97 G, User `msak`, passwortloses sudo, Docker 29.6.0 + Compose v5.2.0). Code per **rsync** nach `~/netbuddy` (kein GitHub-Auth auf der VM). `docker/.env.prod` mit generiertem FERNET_KEY + PG-Passwort (chmod 600), Self-signed-Cert. `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build`.
+- **Verifiziert live:** 5/5 Container (postgres/redis/backend healthy, frontend/worker up), `https://localhost/health` → ok, HTTP→HTTPS-301, SPA lädt, Alembic-Head `8c7971315c66`, Worker auf Redis (30-min-Intervall).
+- **Zugang aus WSL:** `ssh netbuddy` (Key `~/.ssh/netbuddy_deploy`, `~/.ssh/config`). **Re-Deploy:** lokal `rsync … netbuddy:~/netbuddy/` + auf VM `docker compose … up -d --build`.
+- **TLS-Cert von interner AD-CS automatisiert** (Methode aus bls-srv-vapp2-Runbook: CA bietet nur RPC-Enrollment → `certipy` statt CSR/Web-Enrollment):
+  - `tools/issue_cert.sh <FQDN> [OUTDIR]` — generisch/wiederverwendbar: certipy req (RSA-4096, Template `BLS-WebServer-RSA4096Linux`, CA `BLS-T1CA`@`BLS-SRV-T1CA`, DC 10.120.20.10) → PFX→PEM → CA-Kette via LDAPS-Simple-Bind → Fullchain+verify → schreibt `<fqdn>.{crt,key}`+root. Optionales Einbauen/Restart per Env.
+  - `docker/issue_cert.sh [FQDN]` — netbuddy-Deploy-Variante: baut direkt in `docker/certs/netbuddy.{crt,key}` ein + `docker compose restart frontend`.
+  - Beide bootstrappen `certipy-ad`+`ldap3` in ein venv, shreddern Arbeitskopien. AD-PW root-only in `/opt/urs/secrets/adpw` (NICHT in Repo/Chat).
+  - **Ausführungsort:** muss DC erreichen (LDAPS 636 + RPC) → auf der **VM** laufen lassen, nicht aus WSL (ohne VPN-Routing).
+- **Offen:** AD-PW auf der VM ablegen → `issue_cert.sh` dort laufen lassen (DNS `bls-srv-netbuddy` ist eingetragen); Erst-Admin im GUI anlegen; Prod-DB ist frisch/leer (getrennt von Dev); VM-Routing in die Standort-Mgmt-Netze + FortiGate-Token-Trusted-Host auf VM-IP. Caveat: certipy-Aufruf + ldap3-DN sind aus der Runbook-Zusammenfassung rekonstruiert, noch nicht 1:1 gegen das Original abgeglichen.
 
 ## Was läuft gerade
 
