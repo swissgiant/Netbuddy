@@ -1,6 +1,6 @@
 # NetBuddy — Aktueller Stand
 
-**Stand:** 19. Juni 2026, Phase 1+ — Discovery/Erkennung am echten Fleet feature-komplett; Roadmap Richtung VLAN-Write/Orchestrierung in `docs/gap-analysis.md`.
+**Stand:** 24. Juni 2026, Phase 1+ — Discovery/Erkennung am echten Fleet feature-komplett; **S38 Deployment fertig** (Prod-Docker-Stack End-to-End getestet, `docs/deployment.md`) → Ziel-VM Ubuntu 26.04 (4 vCPU/8 GB/100 GB) wird bereitgestellt. Roadmap Richtung VLAN-Write in `docs/gap-analysis.md`.
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `d30993b` (S36).
 
