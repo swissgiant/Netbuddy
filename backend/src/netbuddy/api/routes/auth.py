@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 
 from netbuddy.api.deps import CurrentUserDep, SessionDep
+from netbuddy.core.config import get_settings
 from netbuddy.db.models import User, UserRole
 from netbuddy.services.auth import (
     COOKIE_NAME,
@@ -39,7 +40,13 @@ class LoginResult(BaseModel):
 
 def _set_cookie(response: Response, token: str) -> None:
     response.set_cookie(
-        COOKIE_NAME, token, httponly=True, samesite="lax", max_age=12 * 3600, path="/"
+        COOKIE_NAME,
+        token,
+        httponly=True,
+        samesite="lax",
+        secure=get_settings().use_secure_cookies,  # hinter TLS: nur über HTTPS senden
+        max_age=12 * 3600,
+        path="/",
     )
 
 

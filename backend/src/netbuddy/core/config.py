@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     api_port: int = 8000
     fernet_key: SecretStr
     redis_url: str = "redis://localhost:6379"
+    # Session-Cookie nur über HTTPS senden. Default False (Dev über http://localhost);
+    # im Prod-Deployment hinter TLS auf true setzen (USE_SECURE_COOKIES=true).
+    use_secure_cookies: bool = False
     # Intervall des geplanten Discovery-Laufs (Minuten); 0 = aus.
     scheduled_discovery_minutes: int = 30
     # Nach jedem geplanten Lauf die ARP-Daten zu Hosts korrelieren (Reverse-DNS).

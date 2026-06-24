@@ -1,0 +1,85 @@
+# NetBuddy — Produktions-Stack für die On-Prem-VM.
+#   cd docker && cp .env.prod.example .env.prod  (ausfüllen)
+#   ./gen-selfsigned-cert.sh <hostname-oder-ip>
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+name: netbuddy-prod
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ../backend
+    restart: unless-stopped
+    env_file: [.env.prod]
+    environment:
+      RUN_MIGRATIONS: "1"  # nur der Web-Container migriert
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379
+      USE_SECURE_COOKIES: "true"
+      API_HOST: 0.0.0.0
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  worker:
+    build:
+      context: ../backend
+    restart: unless-stopped
+    env_file: [.env.prod]
+    environment:
+      RUN_MIGRATIONS: "0"  # Worker migriert nicht (kein Race mit dem Web-Container)
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379
+    command: ["arq", "netbuddy.workers.discovery_worker.WorkerSettings"]
+    depends_on:
+      backend: { condition: service_healthy }
+
+  frontend:
+    build:
+      context: ../frontend
+    restart: unless-stopped
+    environment:
+      BACKEND_UPSTREAM: backend:8000  # nginx-Template ersetzt ${BACKEND_UPSTREAM}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  redisdata:

@@ -41,3 +41,7 @@ secrets.yml
 
 # Logs
 *.log
+
+# Produktions-Secrets / TLS
+docker/.env.prod
+docker/certs/
