@@ -68,3 +68,14 @@ class HttpxApiClient:
         response = await self._client.post(path, json=body)
         response.raise_for_status()
         return response.json()
+
+    async def put_json(self, path: str, body: dict[str, Any]) -> Any:
+        response = await self._client.put(path, json=body)
+        response.raise_for_status()
+        return response.json()
+
+    async def delete(self, path: str) -> Any:
+        """Löscht ein cmdb-Objekt (für Rollback eines fehlgeschlagenen Write-Laufs)."""
+        response = await self._client.delete(path)
+        response.raise_for_status()
+        return response.json()

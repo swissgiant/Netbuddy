@@ -137,3 +137,65 @@ def test_phase1_has_rollback_path() -> None:
     plan = plan_site_to_site(_spec())
     p1 = _phase1(plan.firewalls[0])
     assert p1.rollback_path == "/api/v2/cmdb/vpn.ipsec/phase1-interface/GROSU-CUSANO"
+
+
+class _MockWriteClient:
+    """Fake-Write-Client: zeichnet POST/DELETE auf; kann beim n-ten POST gezielt scheitern."""
+
+    def __init__(self, fail_on: int | None = None) -> None:
+        self.posts: list[str] = []
+        self.deletes: list[str] = []
+        self._fail_on = fail_on
+        self._n = 0
+
+    async def post_json(self, path: str, body: dict[str, Any]) -> Any:
+        self._n += 1
+        if self._fail_on is not None and self._n == self._fail_on:
+            raise RuntimeError("simulierter FortiOS-Fehler")
+        self.posts.append(path)
+        return {}
+
+    async def put_json(self, path: str, body: dict[str, Any]) -> Any:
+        self.posts.append(path)
+        return {}
+
+    async def delete(self, path: str) -> Any:
+        self.deletes.append(path)
+        return {}
+
+
+async def test_apply_success() -> None:
+    from netbuddy.services.vpn_provision import apply_operations
+
+    ops = plan_site_to_site(_spec()).firewalls[0].operations
+    client = _MockWriteClient()
+    outcome = await apply_operations(client, ops)
+    assert outcome.success is True
+    assert outcome.rolled_back == []
+    assert len(client.posts) == len(ops)
+    assert client.deletes == []
+
+
+async def test_apply_failure_triggers_rollback() -> None:
+    from netbuddy.services.vpn_provision import apply_operations
+
+    ops = plan_site_to_site(_spec()).firewalls[0].operations
+    client = _MockWriteClient(fail_on=3)  # 3. Operation scheitert
+    outcome = await apply_operations(client, ops)
+    assert outcome.success is False
+    assert outcome.error is not None
+    # die 2 zuvor angelegten Ops (mit rollback_path) werden zurückgenommen
+    assert len(client.deletes) == 2
+    assert len(outcome.rolled_back) == 2
+
+
+def test_detect_lan_interface() -> None:
+    from netbuddy.services.vpn_provision import detect_lan_interface
+
+    ifs = [
+        {"name": "wan", "type": "physical", "ip": "212.103.139.234 255.255.255.248"},
+        {"name": "internal", "type": "physical", "ip": "10.121.10.1 255.255.255.0"},
+        {"name": "GRO-USA", "type": "tunnel", "ip": "10.121.10.1 255.255.255.255"},
+    ]
+    assert detect_lan_interface(ifs, "10.121.0.0/16") == "internal"
+    assert detect_lan_interface(ifs, "10.199.0.0/16") is None

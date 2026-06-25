@@ -14,8 +14,9 @@ Read-only-Discovery bleibt unberührt; dieser Modul ist der **Write**-Pfad und w
 einen autorisierten Endpoint ausgelöst.
 """
 
+import ipaddress
 import secrets
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -286,3 +287,75 @@ def plan_full_mesh(
             tunnels.append(MeshTunnel(name=tname, site_a=a.site, site_b=b.site))
 
     return VpnMeshPlan(tunnels=tunnels, psk_generated=psk is None, firewalls=list(by_dev.values()))
+
+
+# --- Anwenden (Increment 2: Write → Rollback) ------------------------------------------------
+
+
+class WriteClient(Protocol):
+    """Schreibfähiger API-Client (vom Apply genutzt; in Tests fake-bar)."""
+
+    async def post_json(self, path: str, body: dict[str, Any]) -> Any: ...
+    async def put_json(self, path: str, body: dict[str, Any]) -> Any: ...
+    async def delete(self, path: str) -> Any: ...
+
+
+class ApplyOutcome(BaseModel):
+    """Ergebnis eines Apply-Laufs auf EINER Firewall."""
+
+    success: bool
+    applied: list[str]  # Zusammenfassungen erfolgreich angewandter Operationen
+    rolled_back: list[str]  # bei Fehler zurückgenommene Operationen
+    error: str | None = None
+
+
+async def apply_operations(client: WriteClient, operations: list[FortiOp]) -> ApplyOutcome:
+    """Führt die geplanten Operationen der Reihe nach aus; bei Fehler **Rollback** in
+    umgekehrter Reihenfolge (DELETE der bereits angelegten Objekte). Read-only-Voraussetzung:
+    vorher ein Config-Backup ziehen (macht der Orchestrator/Endpoint).
+    """
+    created: list[FortiOp] = []
+    try:
+        for op in operations:
+            if op.method == "POST":
+                await client.post_json(op.path, op.body)
+            elif op.method == "PUT":
+                await client.put_json(op.path, op.body)
+            else:
+                raise ValueError(f"Unbekannte Methode: {op.method}")
+            created.append(op)
+        return ApplyOutcome(success=True, applied=[o.summary for o in created], rolled_back=[])
+    except Exception as exc:
+        rolled: list[str] = []
+        for op in reversed(created):
+            if op.rollback_path:
+                try:
+                    await client.delete(op.rollback_path)
+                    rolled.append(op.summary)
+                except Exception:
+                    pass
+        return ApplyOutcome(
+            success=False,
+            applied=[o.summary for o in created],
+            rolled_back=rolled,
+            error=f"{type(exc).__name__}: {exc}",
+        )
+
+
+def detect_lan_interface(cmdb_interfaces: list[dict[str, Any]], subnet: str) -> str | None:
+    """Findet das interne Interface, dessen IP im Standort-Subnetz liegt (für die Policy).
+
+    FortiOS liefert `ip` als ``"10.121.10.1 255.255.255.0"``. Tunnel-Interfaces werden ignoriert.
+    """
+    net = ipaddress.ip_network(subnet, strict=False)
+    for row in cmdb_interfaces:
+        parts = str(row.get("ip") or "").split()
+        if not parts or row.get("type") == "tunnel" or not row.get("name"):
+            continue
+        try:
+            addr = ipaddress.ip_address(parts[0])
+        except ValueError:
+            continue
+        if addr in net:
+            return str(row["name"])
+    return None
