@@ -27,17 +27,14 @@
 param(
     [string]$AppName        = "NetBuddy",
     [Parameter(Mandatory)] [string]$RedirectHost,          # FQDN, HTTPS, KEINE nackte IP
-    [string]$GroupPrefix    = "NetBuddy",
-    [string]$ViewerGroup    = "",                           # leer => "<Prefix>-Viewer"
-    [string]$OperatorGroup  = "",                           # leer => "<Prefix>-Operator"
-    [string]$AdminGroup     = "",                           # leer => "<Prefix>-Admin"
+    # BLS-Namenscodex: G_Netbuddy_<Rolle>. Owner = admin (höchste Rolle).
+    [string]$AdminGroup     = "G_Netbuddy_Owner",          # -> NetBuddy-Rolle "admin"
+    [string]$OperatorGroup  = "G_Netbuddy_Operator",       # -> NetBuddy-Rolle "operator"
+    [string]$ViewerGroup    = "G_Netbuddy_Viewer",         # -> NetBuddy-Rolle "viewer"
     [switch]$GrantAdminConsent
 )
 
 $ErrorActionPreference = "Stop"
-if (-not $ViewerGroup)   { $ViewerGroup   = "$GroupPrefix-Viewer" }
-if (-not $OperatorGroup) { $OperatorGroup = "$GroupPrefix-Operator" }
-if (-not $AdminGroup)    { $AdminGroup    = "$GroupPrefix-Admin" }
 
 $RedirectUri = "https://$RedirectHost/auth/callback"
 $LogoutUri   = "https://$RedirectHost/"

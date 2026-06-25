@@ -6,11 +6,11 @@ Benutzer (Username/Passwort) bleiben als **Break-Glass-Zugang** erhalten.
 
 Mapping (Hierarchie, Admin zuerst — admin ⊇ operator ⊇ viewer):
 
-| AAD-Gruppe | NetBuddy-Rolle |
+| AAD-Gruppe (BLS-Namenscodex) | NetBuddy-Rolle |
 |---|---|
-| `NetBuddy-Admin`    | admin (alles inkl. Userverwaltung + SSO-Config) |
-| `NetBuddy-Operator` | operator (lesen + discover/validate + Inventar) |
-| `NetBuddy-Viewer`   | viewer (read-only) |
+| `G_Netbuddy_Owner`    | admin (alles inkl. Userverwaltung + SSO-Config) |
+| `G_Netbuddy_Operator` | operator (lesen + discover/validate + Inventar) |
+| `G_Netbuddy_Viewer`   | viewer (read-only) |
 
 Wer in keiner der drei Gruppen ist, bekommt **keinen Zugriff**.
 
