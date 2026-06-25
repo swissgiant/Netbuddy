@@ -6,7 +6,7 @@ _SPEC = {
         "site": "Grosuplje",
         "device_id": "dev-a",
         "wan_interface": "wan1",
-        "peer_public_ip": "203.0.113.2",
+        "public_ip": "203.0.113.2",
         "local_subnets": ["10.121.0.0/16"],
         "lan_interface": "lan",
     },
@@ -14,7 +14,7 @@ _SPEC = {
         "site": "Cusano",
         "device_id": "dev-b",
         "wan_interface": "wan1",
-        "peer_public_ip": "203.0.113.1",
+        "public_ip": "203.0.113.1",
         "local_subnets": ["10.123.0.0/16"],
         "lan_interface": "internal",
     },
@@ -42,7 +42,7 @@ async def test_vpn_mesh_plan_dry_run(api_client: AsyncClient) -> None:
             "code": c,
             "device_id": f"dev-{c}",
             "wan_interface": "wan1",
-            "peer_public_ip": ip,
+            "public_ip": ip,
             "local_subnets": [sub],
         }
         for s, c, sub, ip in [

@@ -23,7 +23,7 @@ def _mesh_ends() -> list[VpnEnd]:
             code=code,
             device_id=f"dev-{code}",
             wan_interface="wan1",
-            peer_public_ip=ip,  # Platzhalter; real = öffentliche Peer-IP
+            public_ip=ip,  # eigene öffentliche IP (Platzhalter)
             local_subnets=[subnet],
         )
         for name, code, subnet, ip in sites
@@ -65,7 +65,7 @@ def _spec(**kw: Any) -> VpnTunnelSpec:
             site="Grosuplje",
             device_id="dev-a",
             wan_interface="wan1",
-            peer_public_ip="203.0.113.2",  # öffentliche IP von B
+            public_ip="203.0.113.1",  # eigene öffentliche IP von A
             local_subnets=["10.121.0.0/16"],
             lan_interface="lan",
         ),
@@ -73,7 +73,7 @@ def _spec(**kw: Any) -> VpnTunnelSpec:
             site="Cusano",
             device_id="dev-b",
             wan_interface="wan1",
-            peer_public_ip="203.0.113.1",  # öffentliche IP von A
+            public_ip="203.0.113.2",  # eigene öffentliche IP von B
             local_subnets=["10.123.0.0/16"],
             lan_interface="internal",
         ),

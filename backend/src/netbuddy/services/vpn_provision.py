@@ -33,8 +33,8 @@ class VpnEnd(BaseModel):
 
     site: str  # Standort-Label (z.B. "Grosuplje")
     device_id: str  # NetBuddy-Device-ID der Firewall
-    wan_interface: str  # lokales Egress-Interface (z.B. "wan1")
-    peer_public_ip: str  # öffentliche Gateway-IP der GEGENSEITE (remote-gw auf dieser FW)
+    wan_interface: str  # lokales Egress-Interface (z.B. "x3")
+    public_ip: str  # EIGENE öffentliche Gateway-IP — Peers nutzen sie als remote-gw
     local_subnets: list[str] = Field(min_length=1)  # Netze hinter dieser FW
     lan_interface: str | None = None  # internes Interface für die Policy (optional)
     code: str | None = None  # kurzer Standort-Code (z.B. "SUL"); für Full-Mesh-Tunnelnamen
@@ -100,7 +100,7 @@ def _ops_for_end(spec: VpnTunnelSpec, local: VpnEnd, remote: VpnEnd, psk: str) -
                 "type": "static",
                 "interface": local.wan_interface,
                 "ike-version": str(spec.ike_version),
-                "remote-gw": local.peer_public_ip,
+                "remote-gw": remote.public_ip,  # Gegenstelle = Peer-FW
                 "psksecret": psk,
                 "proposal": spec.phase1_proposal,
                 "dhgrp": spec.dh_groups,
