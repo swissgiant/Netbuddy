@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
 import type { AuthUser } from "../api";
-import { authLogin, authSetup, fetchSetupStatus } from "../api";
+import { authLogin, authSetup, fetchOidcStatus, fetchSetupStatus } from "../api";
+
+const SSO_ERRORS: Record<string, string> = {
+  token: "Microsoft-Anmeldung fehlgeschlagen.",
+  claims: "Microsoft-Konto lieferte keine Kennung.",
+  norole: "Dein Konto ist in keiner NetBuddy-Gruppe — kein Zugriff.",
+};
 
 export function LoginView({ onLogin }: { onLogin: (user: AuthUser) => void }) {
   const [setupNeeded, setSetupNeeded] = useState<boolean | null>(null);
+  const [ssoEnabled, setSsoEnabled] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -12,6 +19,11 @@ export function LoginView({ onLogin }: { onLogin: (user: AuthUser) => void }) {
     fetchSetupStatus()
       .then((s) => setSetupNeeded(s.setup_needed))
       .catch((e) => setError(String(e)));
+    fetchOidcStatus()
+      .then((s) => setSsoEnabled(s.enabled))
+      .catch(() => setSsoEnabled(false));
+    const ssoErr = new URLSearchParams(window.location.search).get("sso_error");
+    if (ssoErr) setError(SSO_ERRORS[ssoErr] ?? "SSO-Anmeldung fehlgeschlagen.");
   }, []);
 
   const submit = async () => {
@@ -54,6 +66,24 @@ export function LoginView({ onLogin }: { onLogin: (user: AuthUser) => void }) {
               <button onClick={submit} disabled={!username || !password}>
                 {setupNeeded ? "Admin anlegen" : "Anmelden"}
               </button>
+              {!setupNeeded && ssoEnabled && (
+                <>
+                  <div
+                    className="muted"
+                    style={{ textAlign: "center", fontSize: 12, margin: "4px 0" }}
+                  >
+                    oder
+                  </div>
+                  <button
+                    className="ghost"
+                    onClick={() => {
+                      window.location.href = "/auth/login/entra";
+                    }}
+                  >
+                    🪟 Mit Microsoft anmelden
+                  </button>
+                </>
+              )}
               {error && <p className="error">{error}</p>}
             </div>
           </>

@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from loguru import logger
+from starlette.middleware.sessions import SessionMiddleware
 
 from netbuddy.api.deps import authorize
 from netbuddy.api.routes import (
@@ -39,6 +40,16 @@ def create_app() -> FastAPI:
         debug=settings.debug,
         lifespan=lifespan,
         dependencies=[Depends(authorize)],  # globale RBAC-Policy (siehe api/deps.py)
+    )
+    # Kurzlebige, signierte Session nur für den OIDC-Redirect-Flow (State/Nonce); der
+    # eigentliche Login läuft weiter über das nb_session-Cookie. Secret = Fernet-Key (vorhanden).
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.fernet_key.get_secret_value(),
+        session_cookie="nb_oidc",
+        same_site="lax",
+        https_only=settings.use_secure_cookies,
+        max_age=600,
     )
     app.include_router(health.router)
     app.include_router(devices.router)

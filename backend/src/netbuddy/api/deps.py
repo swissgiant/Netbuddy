@@ -20,8 +20,17 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 # --- Auth/RBAC --------------------------------------------------------------------------------
 
-# Ohne Login erreichbar (Login/Setup selbst, Health, API-Doku).
-_PUBLIC_PATHS = {"/health", "/openapi.json", "/auth/login", "/auth/setup", "/auth/setup-status"}
+# Ohne Login erreichbar (Login/Setup selbst, Health, API-Doku, SSO-Redirect-Flow).
+_PUBLIC_PATHS = {
+    "/health",
+    "/openapi.json",
+    "/auth/login",
+    "/auth/setup",
+    "/auth/setup-status",
+    "/auth/oidc-status",
+    "/auth/login/entra",
+    "/auth/callback",
+}
 _ROLE_RANK: dict[UserRole, int] = {UserRole.VIEWER: 0, UserRole.OPERATOR: 1, UserRole.ADMIN: 2}
 
 
@@ -51,9 +60,11 @@ async def authorize(request: Request, user: CurrentUserDep) -> User | None:
         return None
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Nicht angemeldet")
-    if path.startswith("/auth/"):
+    if path.startswith("/auth/oidc-config"):
+        required = UserRole.ADMIN  # SSO-Konfiguration ist Admin-Sache
+    elif path.startswith("/auth/"):
         return user
-    if path.startswith(("/users", "/audit")):
+    elif path.startswith(("/users", "/audit")):
         required = UserRole.ADMIN
     elif request.method == "GET":
         required = UserRole.VIEWER

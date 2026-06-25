@@ -328,6 +328,33 @@ export const createUser = (username: string, password: string, role: string) =>
   http<AuthUser>("/users", { method: "POST", body: JSON.stringify({ username, password, role }) });
 export const deleteUser = (id: string) => http<void>(`/users/${id}`, { method: "DELETE" });
 
+// --- Entra-ID-(Azure-AD-)SSO -----------------------------------------------------------------
+export const fetchOidcStatus = () => http<{ enabled: boolean }>("/auth/oidc-status");
+
+export interface OidcConfig {
+  enabled: boolean;
+  tenant_id: string | null;
+  client_id: string | null;
+  redirect_uri: string | null;
+  group_admin_id: string | null;
+  group_operator_id: string | null;
+  group_viewer_id: string | null;
+  has_secret: boolean;
+}
+export interface OidcConfigUpdate {
+  enabled: boolean;
+  tenant_id: string | null;
+  client_id: string | null;
+  client_secret: string | null; // leer lassen = bestehendes Secret behalten
+  redirect_uri: string | null;
+  group_admin_id: string | null;
+  group_operator_id: string | null;
+  group_viewer_id: string | null;
+}
+export const fetchOidcConfig = () => http<OidcConfig>("/auth/oidc-config");
+export const updateOidcConfig = (body: OidcConfigUpdate) =>
+  http<OidcConfig>("/auth/oidc-config", { method: "PUT", body: JSON.stringify(body) });
+
 export interface DeviceCredentialRow {
   device_id: string;
   credential_id: string;

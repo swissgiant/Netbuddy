@@ -7,10 +7,11 @@ import { DevicesView } from "./views/DevicesView";
 import { DiscoveryView } from "./views/DiscoveryView";
 import { LoginView } from "./views/LoginView";
 import { SitesView } from "./views/SitesView";
+import { SsoView } from "./views/SsoView";
 import { TopologyView } from "./views/TopologyView";
 import { UsersView } from "./views/UsersView";
 
-type View = "topology" | "devices" | "discovery" | "sites" | "credentials" | "users";
+type View = "topology" | "devices" | "discovery" | "sites" | "credentials" | "users" | "sso";
 
 const NAV: { key: View; label: string; adminOnly?: boolean }[] = [
   { key: "topology", label: "🌐 Topologie" },
@@ -19,6 +20,7 @@ const NAV: { key: View; label: string; adminOnly?: boolean }[] = [
   { key: "sites", label: "📍 Standorte" },
   { key: "credentials", label: "🔑 Credentials" },
   { key: "users", label: "👤 Benutzer", adminOnly: true },
+  { key: "sso", label: "🔐 SSO", adminOnly: true },
 ];
 
 export default function App() {
@@ -78,6 +80,7 @@ export default function App() {
         {view === "sites" && <SitesView />}
         {view === "credentials" && <CredentialsView />}
         {view === "users" && <UsersView me={user} />}
+        {view === "sso" && <SsoView />}
       </main>
     </div>
   );

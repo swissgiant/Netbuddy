@@ -13,6 +13,7 @@ from netbuddy.db.models.host import ArpEntry, Host
 from netbuddy.db.models.interface import AdminStatus, Interface, OperStatus
 from netbuddy.db.models.lldp_neighbor import LldpNeighbor
 from netbuddy.db.models.mac_entry import MacAddressEntry, MacEntryType
+from netbuddy.db.models.oidc_config import OidcConfig
 from netbuddy.db.models.site import Site
 from netbuddy.db.models.site_subnet import SiteSubnet
 from netbuddy.db.models.user import AuthSession, User, UserRole
@@ -37,6 +38,7 @@ __all__ = [
     "LldpNeighbor",
     "MacAddressEntry",
     "MacEntryType",
+    "OidcConfig",
     "OperStatus",
     "Site",
     "SiteSubnet",

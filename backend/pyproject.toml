@@ -11,10 +11,12 @@ dependencies = [
     "alembic>=1.18.4",
     "arq>=0.28.0",
     "asyncpg>=0.31.0",
+    "authlib>=1.6.5",
     "bcrypt>=5.0.0",
     "cryptography>=48.0.0",
     "fastapi>=0.136.1",
     "httpx>=0.28.1",
+    "itsdangerous>=2.2.0",
     "loguru>=0.7.3",
     "ntc-templates>=9.1.0",
     "pydantic-settings>=2.14.1",
@@ -79,6 +81,11 @@ ignore_missing_imports = true
 # ntc-templates / textfsm ship no type stubs.
 [[tool.mypy.overrides]]
 module = ["ntc_templates.*", "textfsm.*"]
+ignore_missing_imports = true
+
+# authlib ships no complete type stubs.
+[[tool.mypy.overrides]]
+module = ["authlib.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

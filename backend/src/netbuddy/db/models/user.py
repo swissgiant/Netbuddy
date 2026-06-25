@@ -23,7 +23,11 @@ class User(TimestampMixin, SoftDeleteMixin, Base):
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
     username: Mapped[str] = mapped_column(String(128), nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Bei reinen SSO-(Entra-)Usern gibt es kein lokales Passwort → nullable.
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Entra-ID-Subject (oid-Claim): stabile, eindeutige Verknüpfung zum AAD-Konto.
+    oidc_subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="user_role", values_callable=enum_values),
         nullable=False,
@@ -37,6 +41,12 @@ class User(TimestampMixin, SoftDeleteMixin, Base):
             "username",
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "uq_app_user_oidc_subject",
+            "oidc_subject",
+            unique=True,
+            postgresql_where=text("oidc_subject IS NOT NULL AND deleted_at IS NULL"),
         ),
     )
 
