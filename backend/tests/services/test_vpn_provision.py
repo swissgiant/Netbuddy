@@ -5,8 +5,57 @@ from netbuddy.services.vpn_provision import (
     FortiOp,
     VpnEnd,
     VpnTunnelSpec,
+    plan_full_mesh,
     plan_site_to_site,
 )
+
+
+def _mesh_ends() -> list[VpnEnd]:
+    sites = [
+        ("Sulgen", "SUL", "10.120.0.0/16", "10.120.10.1"),
+        ("Grosuplje", "GRO", "10.121.0.0/16", "10.121.10.1"),
+        ("USA", "USA", "10.122.0.0/16", "10.122.10.1"),
+        ("Cusano", "CUS", "10.123.0.0/16", "10.123.10.1"),
+    ]
+    return [
+        VpnEnd(
+            site=name,
+            code=code,
+            device_id=f"dev-{code}",
+            wan_interface="wan1",
+            peer_public_ip=ip,  # Platzhalter; real = öffentliche Peer-IP
+            local_subnets=[subnet],
+        )
+        for name, code, subnet, ip in sites
+    ]
+
+
+def test_full_mesh_pair_count_and_per_fw_tunnels() -> None:
+    plan = plan_full_mesh(_mesh_ends())
+    # 4 Standorte → 6 Tunnel
+    assert len(plan.tunnels) == 6
+    # jede FW hat 3 Tunnel (= 3 phase1-interfaces)
+    for fw in plan.firewalls:
+        p1 = [o for o in fw.operations if o.path.endswith("phase1-interface")]
+        assert len(p1) == 3
+
+
+def test_full_mesh_distinct_psk_per_pair() -> None:
+    plan = plan_full_mesh(_mesh_ends())
+    psks = {
+        o.body["psksecret"]
+        for fw in plan.firewalls
+        for o in fw.operations
+        if o.path.endswith("phase1-interface")
+    }
+    assert len(psks) == 6  # je Paar ein eigenes PSK
+
+
+def test_full_mesh_needs_two_firewalls() -> None:
+    import pytest
+
+    with pytest.raises(ValueError):
+        plan_full_mesh([_mesh_ends()[0]])
 
 
 def _spec(**kw: Any) -> VpnTunnelSpec:
