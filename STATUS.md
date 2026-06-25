@@ -14,7 +14,8 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   - `docker/issue_cert.sh [FQDN]` — netbuddy-Deploy-Variante: baut direkt in `docker/certs/netbuddy.{crt,key}` ein + `docker compose restart frontend`.
   - Beide bootstrappen `certipy-ad`+`ldap3` in ein venv, shreddern Arbeitskopien. AD-PW root-only in `/opt/urs/secrets/adpw` (NICHT in Repo/Chat).
   - **Ausführungsort:** muss DC erreichen (LDAPS 636 + RPC) → auf der **VM** laufen lassen, nicht aus WSL (ohne VPN-Routing).
-- **Offen:** AD-PW auf der VM ablegen → `issue_cert.sh` dort laufen lassen (DNS `bls-srv-netbuddy` ist eingetragen); Erst-Admin im GUI anlegen; Prod-DB ist frisch/leer (getrennt von Dev); VM-Routing in die Standort-Mgmt-Netze + FortiGate-Token-Trusted-Host auf VM-IP. Caveat: certipy-Aufruf + ldap3-DN sind aus der Runbook-Zusammenfassung rekonstruiert, noch nicht 1:1 gegen das Original abgeglichen.
+- **TLS-Cert erledigt (25.6.):** DNS `bls-srv-netbuddy.bls.local` eingetragen, Cert von AD-CS `BLS-T1CA` ausgestellt + eingebaut → `https://bls-srv-netbuddy.bls.local/` **ohne Warnung** (curl verify ok, HTTP 200). Lehren: NTLM bei BLS tot (MD4) → certipy über **Kerberos** (getTGT + `req -k`), CA-Kette via LDAPS + Issuer-Walking (leaf→BLS-T1CA→BLS-RootCA). Skripte gefixt + verifiziert (Commit `33bc0bf`).
+- **Offen:** Erst-Admin im GUI anlegen; Prod-DB ist frisch/leer (getrennt von Dev); VM-Routing in die Standort-Mgmt-Netze + FortiGate-Token-Trusted-Host auf VM-IP erweitern.
 
 ## Was läuft gerade
 
