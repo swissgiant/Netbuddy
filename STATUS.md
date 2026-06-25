@@ -4,6 +4,22 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `47235c2` (S38).
 
+## S40 — Entra-ID-(Azure-AD-)SSO (25.6.2026, Commit c510aa7)
+
+- **OIDC-Login (authlib)** parallel zum lokalen Login (Break-Glass). Rolle aus **AAD-Gruppen**
+  (3 Gruppen → 3 Rollen, Hierarchie admin⊇operator⊇viewer, Admin zuerst). Overage-Fallback via
+  Graph `/me/transitiveMemberOf`. **Config in der DB** (`oidc_config`, Secret Fernet-verschlüsselt),
+  gepflegt auf neuer **Admin-Seite „🔐 SSO"** — kein Secret im Code/.env.
+- Backend: `services/oidc.py`, OIDC-Routen in `api/routes/auth.py` (`/auth/oidc-status` public,
+  `/auth/login/entra`, `/auth/callback`, `/auth/oidc-config` admin-only), Modell `oidc_config` +
+  Migration `a1b2c3d4e5f6`, `app_user` um `oidc_subject`+`email` (password_hash jetzt nullable),
+  `SessionMiddleware` für OIDC-State. Deps: authlib + itsdangerous. **204 Tests (+11)**, mypy/ruff grün.
+- Frontend: „Mit Microsoft anmelden"-Button (LoginView) + Admin-Config-Seite (SsoView).
+- Tooling: `backend/scripts/Setup-Entra-NetBuddy.ps1` (idempotente Entra-Einrichtung), `docs/sso.md`.
+- **Noch offen:** auf Prod deployen (rsync + rebuild, Migration läuft automatisch); Entra-Script
+  laufen lassen → Werte in der Admin-Seite eintragen → aktivieren. VM muss login.microsoftonline.com
+  (+ graph.microsoft.com) erreichen.
+
 ## S39 — Produktiv-Deployment LIVE + TLS-Cert-Automatisierung (24.6.2026)
 
 - **Deployt auf der Prod-VM** `bls-srv-netbuddy` / **10.120.20.101** (Ubuntu 26.04, 4 vCPU/7,2 GiB/97 G, User `msak`, passwortloses sudo, Docker 29.6.0 + Compose v5.2.0). Code per **rsync** nach `~/netbuddy` (kein GitHub-Auth auf der VM). `docker/.env.prod` mit generiertem FERNET_KEY + PG-Passwort (chmod 600), Self-signed-Cert. `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build`.
