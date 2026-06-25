@@ -88,12 +88,24 @@ class FortigateAdapter:
     async def get_interfaces(self) -> list[InterfaceData]:
         payload = await self._client.get_json("/api/v2/monitor/system/interface")
         results = payload.get("results", {}) if isinstance(payload, dict) else {}
-        # FortiOS liefert ein Dict {ifname: {...}} oder eine Liste.
+        # FortiOS: Dict {ifname: {...}} oder Liste (operative Daten: link/speed/mac).
         rows = results.values() if isinstance(results, dict) else results
-        tree = await self._interface_tree()
-        interfaces: list[InterfaceData] = []
+        monitor: dict[str, dict[str, Any]] = {}
         for row in rows:
-            name = str(row.get("name") or row.get("id") or "")
+            nm = str(row.get("name") or row.get("id") or "")
+            if nm:
+                monitor[nm] = row
+
+        # Die Konfig (`cmdb`) kennt ALLE Interfaces inkl. VLAN-/Aggregat-/Redundant-Sub-Interfaces;
+        # der Monitor-Endpoint nur die physischen. Vereinigung bilden, damit der Baum (VLAN unter
+        # Parent-Port) vollständig ist. Tunnel-Interfaces lassen wir weg (= VPN-Kanten im Graph).
+        tree = await self._interface_tree()
+        names: list[str] = [n for n, cfg in tree.items() if cfg.get("type") != "tunnel"]
+        names += [n for n in monitor if n not in tree]
+
+        interfaces: list[InterfaceData] = []
+        for name in names:
+            row = monitor.get(name, {})
             cfg = tree.get(name, {})
             vlanid = cfg.get("vlanid")
             interfaces.append(

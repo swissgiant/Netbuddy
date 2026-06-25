@@ -41,6 +41,10 @@ _ROUTES: dict[str, Any] = {
             {"name": "wan1", "type": "physical"},
             {"name": "internal1", "type": "physical"},
             {"name": "VLAN-120", "type": "vlan", "interface": "internal1", "vlanid": 120},
+            # nur in der Konfig, nicht im Monitor → muss trotzdem im Baum erscheinen
+            {"name": "VLAN-99", "type": "vlan", "interface": "internal1", "vlanid": 99},
+            # Tunnel-Interface → wird aus der Liste ausgeschlossen (= VPN-Kante)
+            {"name": "to-grosuplje", "type": "tunnel", "interface": "wan1"},
         ]
     },
     "/api/v2/monitor/vpn/ipsec": {
@@ -99,6 +103,22 @@ async def test_interfaces() -> None:
     assert by_name["wan1"].oper_status.value == "up"
     assert by_name["wan1"].speed_mbps == 1000
     assert by_name["internal1"].oper_status.value == "down"
+
+
+async def test_interface_tree_includes_config_only_vlans() -> None:
+    """VLAN-Sub-Interfaces aus der Konfig erscheinen im Baum (auch ohne Monitor-Eintrag);
+    Tunnel-Interfaces werden ausgeschlossen."""
+    interfaces = await _adapter().get_interfaces()
+    by_name = {i.name: i for i in interfaces}
+    # VLAN im Monitor + Konfig: Parent/VLAN-ID gesetzt
+    assert by_name["VLAN-120"].parent_name == "internal1"
+    assert by_name["VLAN-120"].vlan_id == 120
+    # VLAN nur in der Konfig: trotzdem im Baum, mit Parent/VLAN
+    assert "VLAN-99" in by_name
+    assert by_name["VLAN-99"].parent_name == "internal1"
+    assert by_name["VLAN-99"].vlan_id == 99
+    # Tunnel-Interface ausgeschlossen
+    assert "to-grosuplje" not in by_name
 
 
 async def test_arp_from_gateway() -> None:
