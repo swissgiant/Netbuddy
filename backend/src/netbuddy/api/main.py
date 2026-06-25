@@ -19,6 +19,7 @@ from netbuddy.api.routes import (
     sites,
     topology,
     users,
+    vpn,
 )
 from netbuddy.core.config import get_settings
 from netbuddy.core.logging import setup_logging
@@ -61,6 +62,7 @@ def create_app() -> FastAPI:
     app.include_router(device_credentials.router)
     app.include_router(auth.router)
     app.include_router(users.router)
+    app.include_router(vpn.router)
     app.include_router(audit.router)
     app.include_router(search.router)
     return app
