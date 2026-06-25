@@ -1,20 +1,20 @@
 <#
 .SYNOPSIS
-    Richtet die Entra-ID-(Azure-AD-)Seite für NetBuddy-SSO ein — idempotent.
+    Richtet die Entra-ID-(Azure-AD-)Seite fuer NetBuddy-SSO ein - idempotent.
 
 .DESCRIPTION
     Legt an / aktualisiert:
       1. App-Registrierung (Single-Tenant, Web-Plattform) mit Redirect-URI
          https://<host>/auth/callback und Logout-URL.
       2. groupMembershipClaims = "SecurityGroup" (Gruppen kommen in den ID-Token).
-      3. Microsoft Graph "User.Read" (delegiert) — für den Overage-Fallback
-         (User in >~200 Gruppen → kein groups-Claim → transitiveMemberOf via Graph).
-      4. Drei Sicherheitsgruppen für die drei NetBuddy-Rollen (viewer/operator/admin).
+      3. Microsoft Graph "User.Read" (delegiert) - fuer den Overage-Fallback
+         (User in >~200 Gruppen -> kein groups-Claim -> transitiveMemberOf via Graph).
+      4. Drei Sicherheitsgruppen fuer die drei NetBuddy-Rollen (viewer/operator/admin).
       5. Ein Client-Secret.
     Gibt am Ende ALLE Werte aus, die in der NetBuddy-Admin-Seite einzutragen sind.
 
-    Erfordert Admin-Consent für die Graph-Berechtigung (Schalter -GrantAdminConsent,
-    benötigt Privileged Role Administrator / Application Administrator).
+    Erfordert Admin-Consent fuer die Graph-Berechtigung (Schalter -GrantAdminConsent,
+    benoetigt Privileged Role Administrator / Application Administrator).
 
 .NOTES
     Projektneutral: nur -AppName / -RedirectHost / Gruppennamen anpassen.
@@ -27,7 +27,7 @@
 param(
     [string]$AppName        = "NetBuddy",
     [Parameter(Mandatory)] [string]$RedirectHost,          # FQDN, HTTPS, KEINE nackte IP
-    # BLS-Namenscodex: G_Netbuddy_<Rolle>. Owner = admin (höchste Rolle).
+    # BLS-Namenscodex: G_Netbuddy_<Rolle>. Owner = admin (hoechste Rolle).
     [string]$AdminGroup     = "G_Netbuddy_Owner",          # -> NetBuddy-Rolle "admin"
     [string]$OperatorGroup  = "G_Netbuddy_Operator",       # -> NetBuddy-Rolle "operator"
     [string]$ViewerGroup    = "G_Netbuddy_Viewer",         # -> NetBuddy-Rolle "viewer"
@@ -45,7 +45,7 @@ $ctx      = Get-MgContext
 $tenantId = $ctx.TenantId
 Write-Host "Tenant: $tenantId"
 
-# --- 1) App-Registrierung (idempotent über DisplayName) -------------------------------------
+# --- 1) App-Registrierung (idempotent ueber DisplayName) -------------------------------------
 Write-Host "`n== App-Registrierung '$AppName' ==" -ForegroundColor Cyan
 $app = Get-MgApplication -Filter "displayName eq '$AppName'" -ConsistencyLevel eventual -All | Select-Object -First 1
 
@@ -79,7 +79,7 @@ if (-not $app) {
 $app = Get-MgApplication -ApplicationId $app.Id
 $clientId = $app.AppId
 
-# Service Principal sicherstellen (für Consent + Gruppen-Zuweisung im Enterprise-App-Kontext)
+# Service Principal sicherstellen (fuer Consent + Gruppen-Zuweisung im Enterprise-App-Kontext)
 $sp = Get-MgServicePrincipal -Filter "appId eq '$clientId'" -All | Select-Object -First 1
 if (-not $sp) { $sp = New-MgServicePrincipal -AppId $clientId; Write-Host "Service Principal angelegt." }
 
@@ -107,11 +107,11 @@ $secret = Add-MgApplicationPassword -ApplicationId $app.Id -PasswordCredential @
     DisplayName = "netbuddy-sso-$(Get-Date -Format yyyyMMdd)"
     EndDateTime = (Get-Date).AddYears(2)
 }
-Write-Host "Neues Secret erzeugt (gilt 2 Jahre). NUR JETZT sichtbar — sofort notieren!"
+Write-Host "Neues Secret erzeugt (gilt 2 Jahre). NUR JETZT sichtbar - sofort notieren!"
 
 # --- 4) Admin-Consent (optional) ------------------------------------------------------------
 if ($GrantAdminConsent) {
-    Write-Host "`n== Admin-Consent für Graph User.Read ==" -ForegroundColor Cyan
+    Write-Host "`n== Admin-Consent fuer Graph User.Read ==" -ForegroundColor Cyan
     $graphSp = Get-MgServicePrincipal -Filter "appId eq '$graphAppId'" -All | Select-Object -First 1
     $existing = Get-MgOauth2PermissionGrant -All | Where-Object {
         $_.ClientId -eq $sp.Id -and $_.ResourceId -eq $graphSp.Id
@@ -141,4 +141,4 @@ Write-Host "`n=================== In die NetBuddy-Admin-Seite eintragen ========
 } | Format-List
 Write-Host "============================================================================" -ForegroundColor Green
 Write-Host "Mitglieder den Gruppen '$ViewerGroup' / '$OperatorGroup' / '$AdminGroup' zuweisen." -ForegroundColor Green
-Write-Host "Secret ist NUR HIER sichtbar — jetzt in NetBuddy speichern." -ForegroundColor Yellow
+Write-Host "Secret ist NUR HIER sichtbar - jetzt in NetBuddy speichern." -ForegroundColor Yellow
