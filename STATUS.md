@@ -4,6 +4,19 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `47235c2` (S38).
 
+## S42 — Switches validiert + Ubiquiti via Cloud-API (26.6.2026)
+
+- **Alle 9 Switches** (1× dell_os10, 8× dell_os6/Telnet, 1× fs_centec) von **Prod aus validiert**
+  (read-only) — system_info/interfaces/lldp/mac überall ok.
+- **Ubiquiti über die UniFi Site Manager Cloud-API** (`api.ui.com`): neuer Adapter `unifi_cloud`
+  (`X-API-KEY`, ein Key für alle Sites). Pro **Host/Konsole** ein An/Aus-Schalter (Modell `unifi_host`
+  + Endpoints `/unifi/sync|hosts|import`); **Steelco-Host deaktiviert** (keine Netzanbindung).
+  **83 UniFi Switches/APs** importiert (Steelco-15 + Kameras/Consoles übersprungen), Standort per IP.
+- Frontend: **UniFi-Verwaltungsseite** (Sync/Import/Host-Toggle) + **Topologie-Standortfilter**
+  (Typ-Filter gab es schon). Prod-Backend+Frontend rebuilt, Migration `b2c3d4e5f6a7`. 229 Tests.
+- Prod-Inventar jetzt **97 Geräte** (4 FW, 9 klassische Switches, 83 UniFi, …). Details: Memory
+  `project_vendor_fleet.md`.
+
 ## S41 — VPN-Generierung: Full-Mesh live ausgerollt (26.6.2026)
 
 - **Erster produktiver Firewall-Schreibpfad.** NetBuddy generiert Site-to-Site-IPsec-Tunnel
