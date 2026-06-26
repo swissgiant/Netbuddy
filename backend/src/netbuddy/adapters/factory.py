@@ -18,7 +18,8 @@ _API_AUTH_DEFAULTS: dict[str, tuple[str, str]] = {
     "paloalto": ("X-PAN-KEY", ""),  # PAN-OS XML-/REST-API-Key
     "cato": ("x-api-key", ""),  # Cato GraphQL
     "meraki": ("X-Cisco-Meraki-API-Key", ""),  # Meraki Dashboard
-    "unifi": ("X-API-KEY", ""),  # UniFi Network Integration API
+    "unifi": ("X-API-KEY", ""),  # UniFi Network Integration API (lokaler Controller)
+    "unifi_cloud": ("X-API-KEY", ""),  # UniFi Site Manager Cloud-API (api.ui.com)
 }
 
 
