@@ -317,6 +317,20 @@ class ApplyOutcome(BaseModel):
     applied: list[str]  # Zusammenfassungen erfolgreich angewandter Operationen
     rolled_back: list[str]  # bei Fehler zurückgenommene Operationen
     error: str | None = None
+    # DELETE-Pfade der angelegten Objekte (für Cross-FW-Rollback, wenn das ANDERE Ende scheitert)
+    handles: list[str] = []
+
+
+async def rollback_handles(client: WriteClient, handles: list[str]) -> list[str]:
+    """Nimmt zuvor erfolgreich angelegte Objekte zurück (umgekehrte Reihenfolge)."""
+    undone: list[str] = []
+    for path in reversed(handles):
+        try:
+            await client.delete(path)
+            undone.append(path)
+        except Exception:
+            pass
+    return undone
 
 
 async def apply_operations(client: WriteClient, operations: list[FortiOp]) -> ApplyOutcome:
@@ -339,7 +353,12 @@ async def apply_operations(client: WriteClient, operations: list[FortiOp]) -> Ap
             mkey = str(resp.get("mkey")) if isinstance(resp, dict) and resp.get("mkey") else None
             del_path = f"{op.path}/{mkey}" if mkey else op.rollback_path
             created.append((op, del_path))
-        return ApplyOutcome(success=True, applied=[o.summary for o, _ in created], rolled_back=[])
+        return ApplyOutcome(
+            success=True,
+            applied=[o.summary for o, _ in created],
+            rolled_back=[],
+            handles=[p for _, p in created if p],
+        )
     except Exception as exc:
         rolled: list[str] = []
         for op, del_path in reversed(created):
