@@ -9,9 +9,18 @@ import { LoginView } from "./views/LoginView";
 import { SitesView } from "./views/SitesView";
 import { SsoView } from "./views/SsoView";
 import { TopologyView } from "./views/TopologyView";
+import { UnifiView } from "./views/UnifiView";
 import { UsersView } from "./views/UsersView";
 
-type View = "topology" | "devices" | "discovery" | "sites" | "credentials" | "users" | "sso";
+type View =
+  | "topology"
+  | "devices"
+  | "discovery"
+  | "sites"
+  | "credentials"
+  | "unifi"
+  | "users"
+  | "sso";
 
 const NAV: { key: View; label: string; adminOnly?: boolean }[] = [
   { key: "topology", label: "🌐 Topologie" },
@@ -19,6 +28,7 @@ const NAV: { key: View; label: string; adminOnly?: boolean }[] = [
   { key: "discovery", label: "🔍 Discovery" },
   { key: "sites", label: "📍 Standorte" },
   { key: "credentials", label: "🔑 Credentials" },
+  { key: "unifi", label: "📶 UniFi", adminOnly: true },
   { key: "users", label: "👤 Benutzer", adminOnly: true },
   { key: "sso", label: "🔐 SSO", adminOnly: true },
 ];
@@ -79,6 +89,7 @@ export default function App() {
         {view === "discovery" && <DiscoveryView />}
         {view === "sites" && <SitesView />}
         {view === "credentials" && <CredentialsView />}
+        {view === "unifi" && <UnifiView />}
         {view === "users" && <UsersView me={user} />}
         {view === "sso" && <SsoView />}
       </main>

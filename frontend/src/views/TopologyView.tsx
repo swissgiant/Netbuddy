@@ -13,6 +13,8 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
   const [error, setError] = useState<string | null>(null);
   const [nodeLayers, setNodeLayers] = useState<Set<string>>(new Set(NODE_LAYERS));
   const [edgeLayers, setEdgeLayers] = useState<Set<string>>(new Set(EDGE_LAYERS));
+  // Standorte standardmäßig alle sichtbar; hier nur die AUSGEBLENDETEN merken.
+  const [excludedSites, setExcludedSites] = useState<Set<string>>(new Set());
   const [fontSize, setFontSize] = useState(10);
   const [edgeWidth, setEdgeWidth] = useState(2);
   const [edgeColor, setEdgeColor] = useState("#94a3b8");
@@ -32,6 +34,24 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
     topology?.nodes.forEach((n) => (c[n.type] = (c[n.type] ?? 0) + 1));
     return c;
   }, [topology]);
+
+  // Standort-Container (type === "site") für den Standort-Filter.
+  const sites = useMemo(
+    () => topology?.nodes.filter((n) => n.type === "site").map((n) => ({ id: n.id, label: n.label })) ?? [],
+    [topology],
+  );
+
+  // Topologie nach Standort-Auswahl filtern (Geräte folgen ihrem Standort-Container).
+  const shown = useMemo<Topology | null>(() => {
+    if (!topology) return null;
+    const visible = (siteId: string | null) => siteId == null || !excludedSites.has(siteId);
+    const nodes = topology.nodes.filter((n) =>
+      n.type === "site" ? !excludedSites.has(n.id) : visible(n.parent),
+    );
+    const ids = new Set(nodes.map((n) => n.id));
+    const edges = topology.edges.filter((e) => ids.has(e.source) && ids.has(e.target));
+    return { nodes, edges };
+  }, [topology, excludedSites]);
 
   const runSearch = async () => {
     if (!query.trim()) return;
@@ -71,6 +91,14 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
     else next.add(key);
     setter(next);
   };
+
+  const toggleExcluded = (id: string) =>
+    setExcludedSites((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   return (
     <div className="topo">
@@ -124,6 +152,22 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
           </label>
         ))}
 
+        {sites.length > 0 && (
+          <>
+            <h3>Standorte</h3>
+            {sites.map((s) => (
+              <label key={s.id} style={{ display: "block" }}>
+                <input
+                  type="checkbox"
+                  checked={!excludedSites.has(s.id)}
+                  onChange={() => toggleExcluded(s.id)}
+                />{" "}
+                {s.label}
+              </label>
+            ))}
+          </>
+        )}
+
         <h3>Layer — Verbindungen</h3>
         {EDGE_LAYERS.map((t) => (
           <label key={t} style={{ display: "block" }}>
@@ -163,9 +207,9 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
       </aside>
 
       <div className="graph">
-        {topology ? (
+        {shown ? (
           <TopologyGraph
-            topology={topology}
+            topology={shown}
             visibleNodeTypes={nodeLayers}
             visibleEdgeTypes={edgeLayers}
             theme={theme}

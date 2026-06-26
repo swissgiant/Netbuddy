@@ -372,3 +372,26 @@ export const unlinkCredential = (deviceId: string, credentialId: string, protoco
   http<void>(`/devices/${deviceId}/credentials/${credentialId}?protocol=${protocol}`, {
     method: "DELETE",
   });
+
+// --- UniFi-Cloud (Hosts/Konsolen + Import) ---------------------------------------------------
+export interface UnifiHost {
+  id: string;
+  host_id: string;
+  name: string;
+  enabled: boolean;
+}
+export interface UnifiImportSummary {
+  created: number;
+  updated: number;
+  skipped_disabled: number;
+  skipped_other: number;
+}
+export const fetchUnifiHosts = () => http<UnifiHost[]>("/unifi/hosts");
+export const syncUnifiHosts = () => http<UnifiHost[]>("/unifi/sync", { method: "POST" });
+export const toggleUnifiHost = (hostId: string, enabled: boolean) =>
+  http<UnifiHost>(`/unifi/hosts/${encodeURIComponent(hostId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ enabled }),
+  });
+export const runUnifiImport = () =>
+  http<UnifiImportSummary>("/unifi/import", { method: "POST" });
