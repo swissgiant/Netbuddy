@@ -145,7 +145,7 @@ def _ops_for_end(spec: VpnTunnelSpec, local: VpnEnd, remote: VpnEnd, psk: str) -
                         "name": p2,
                         "phase1name": name,
                         "proposal": spec.phase2_proposal,
-                        "auto-negotiate": "enable",  # Tunnel kommt sofort hoch (nicht erst bei Traffic)
+                        "auto-negotiate": "enable",  # Tunnel kommt sofort hoch
                         "src-subnet": _fortimask(lsub),
                         "dst-subnet": _fortimask(rsub),
                     },
