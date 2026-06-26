@@ -62,6 +62,9 @@ class FortiOp(BaseModel):
     body: dict[str, Any]
     summary: str  # menschenlesbare Kurzbeschreibung
     rollback_path: str | None = None  # DELETE-Pfad zum Zurücknehmen (falls anlegend)
+    # idempotent = über Tunnel geteiltes Objekt (z.B. Adress-Objekt): existiert es bereits,
+    # wird es NICHT neu angelegt und NICHT zurückgerollt (gehört evtl. einem anderen Tunnel).
+    ensure: bool = False
 
 
 class FirewallPlan(BaseModel):
@@ -130,6 +133,7 @@ def _ops_for_end(spec: VpnTunnelSpec, local: VpnEnd, remote: VpnEnd, psk: str) -
                 body={"name": an, "subnet": _fortimask(subnet)},
                 summary=f"Adress-Objekt {an} ({subnet})",
                 rollback_path=f"{_CMDB}/firewall/address/{an}",
+                ensure=True,  # geteilt über Tunnel — existiert evtl. schon
             )
         )
 
@@ -306,9 +310,19 @@ def plan_full_mesh(
 class WriteClient(Protocol):
     """Schreibfähiger API-Client (vom Apply genutzt; in Tests fake-bar)."""
 
+    async def get_json(self, path: str, params: dict[str, Any] | None = None) -> Any: ...
     async def post_json(self, path: str, body: dict[str, Any]) -> Any: ...
     async def put_json(self, path: str, body: dict[str, Any]) -> Any: ...
     async def delete(self, path: str) -> Any: ...
+
+
+async def _exists(client: WriteClient, path: str, name: str) -> bool:
+    """True, wenn ein cmdb-Objekt mit diesem Namen schon existiert (GET 200)."""
+    try:
+        await client.get_json(f"{path}/{name}")
+        return True
+    except Exception:
+        return False
 
 
 class ApplyOutcome(BaseModel):
@@ -343,8 +357,15 @@ async def apply_operations(client: WriteClient, operations: list[FortiOp]) -> Ap
     # (Name bzw. Auto-ID von Routen/Policies) lesen → vollständiger Rollback auch ohne
     # vorhersehbaren Namen. Fallback: rollback_path aus dem Plan.
     created: list[tuple[FortiOp, str | None]] = []
+    applied: list[str] = []
     try:
         for op in operations:
+            # geteilte Objekte (ensure) nur anlegen, wenn sie noch nicht existieren — und dann
+            # NICHT in die Rollback-Liste (gehören evtl. einem anderen Tunnel).
+            nm = op.body.get("name")
+            if op.ensure and nm and await _exists(client, op.path, nm):
+                applied.append(f"(vorhanden) {op.summary}")
+                continue
             if op.method == "POST":
                 resp = await client.post_json(op.path, op.body)
             elif op.method == "PUT":
@@ -354,9 +375,10 @@ async def apply_operations(client: WriteClient, operations: list[FortiOp]) -> Ap
             mkey = str(resp.get("mkey")) if isinstance(resp, dict) and resp.get("mkey") else None
             del_path = f"{op.path}/{mkey}" if mkey else op.rollback_path
             created.append((op, del_path))
+            applied.append(op.summary)
         return ApplyOutcome(
             success=True,
-            applied=[o.summary for o, _ in created],
+            applied=applied,
             rolled_back=[],
             handles=[p for _, p in created if p],
         )
@@ -371,7 +393,7 @@ async def apply_operations(client: WriteClient, operations: list[FortiOp]) -> Ap
                     pass
         return ApplyOutcome(
             success=False,
-            applied=[o.summary for o, _ in created],
+            applied=applied,
             rolled_back=rolled,
             error=f"{type(exc).__name__}: {exc}",
         )

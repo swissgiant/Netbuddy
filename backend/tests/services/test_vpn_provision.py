@@ -148,6 +148,9 @@ class _MockWriteClient:
         self._fail_on = fail_on
         self._n = 0
 
+    async def get_json(self, path: str, params: dict[str, Any] | None = None) -> Any:
+        raise RuntimeError("404 — existiert nicht")  # ensure-Objekte werden so angelegt
+
     async def post_json(self, path: str, body: dict[str, Any]) -> Any:
         self._n += 1
         if self._fail_on is not None and self._n == self._fail_on:
