@@ -4,7 +4,22 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `47235c2` (S38).
 
-## S40 — Entra-ID-(Azure-AD-)SSO (25.6.2026, Commit c510aa7)
+## S41 — VPN-Generierung: Full-Mesh live ausgerollt (26.6.2026)
+
+- **Erster produktiver Firewall-Schreibpfad.** NetBuddy generiert Site-to-Site-IPsec-Tunnel
+  (FortiGate, route-based, IKEv2, PSK auto) und rollt sie kontrolliert aus: Dry-Run-Vorschau →
+  Config-Backup → Apply → Verify → **Rollback bei Fehler** (mkey-basiert, auch Cross-FW).
+- **4 FortiGates** (je Standort) in Dev+Prod eingebunden: Sulgen (Hub, alle Server) / Grosuplje /
+  USA / Cusano. **Full-Mesh komplett**: die 2 fehlenden Spoke-Tunnel **GRO↔USA** und **USA↔CUS**
+  live angelegt — **end-to-end verifiziert** (Ping + Phase-2-Byte-Zähler > 0).
+- Code: `services/vpn_provision.py` (`plan_site_to_site`/`plan_full_mesh`/`apply_operations`/
+  `detect_lan_interface`), Endpoints `POST /vpn/plan` + `/vpn/mesh-plan` (PSK maskiert).
+  Härtungen: FortiOS-ip-netmask-Format, auto-negotiate, idempotente (ensure) Adress-Objekte.
+- **Prod-Backend rebuilt** (VPN-Endpoints live). 221 Tests, mypy/ruff grün.
+- Details/Topologie/IPs: Memory `project_firewall_vpn.md`. Offen: Token-Rotation; SSH-Zugänge für
+  aktive Ping-/CLI-Tests; VPN-GUI im Frontend; VLAN-Rollout-Pipeline.
+
+## S40 — Entra-ID-(Azure-AD-)SSO (25.6.2026, Commit c510aa7) — LIVE auf Prod, in Entra eingerichtet
 
 - **OIDC-Login (authlib)** parallel zum lokalen Login (Break-Glass). Rolle aus **AAD-Gruppen**
   (3 Gruppen → 3 Rollen, Hierarchie admin⊇operator⊇viewer, Admin zuerst). Overage-Fallback via
