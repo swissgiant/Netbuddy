@@ -85,6 +85,12 @@ def _addr_name(subnet: str) -> str:
     return "net_" + subnet.replace("/", "_").replace(".", "_").replace(":", "_")
 
 
+def _fortimask(cidr: str) -> str:
+    """CIDR → FortiOS-Format ``"ip netmask"`` (10.121.0.0/16 → '10.121.0.0 255.255.0.0')."""
+    net = ipaddress.ip_network(cidr, strict=False)
+    return f"{net.network_address} {net.netmask}"
+
+
 def _ops_for_end(spec: VpnTunnelSpec, local: VpnEnd, remote: VpnEnd, psk: str) -> list[FortiOp]:
     """Erzeugt die cmdb-Operationen für EIN Tunnel-Ende (lokal = `local`)."""
     name = spec.name
@@ -121,7 +127,7 @@ def _ops_for_end(spec: VpnTunnelSpec, local: VpnEnd, remote: VpnEnd, psk: str) -
             FortiOp(
                 method="POST",
                 path=f"{_CMDB}/firewall/address",
-                body={"name": an, "subnet": subnet},
+                body={"name": an, "subnet": _fortimask(subnet)},
                 summary=f"Adress-Objekt {an} ({subnet})",
                 rollback_path=f"{_CMDB}/firewall/address/{an}",
             )
@@ -139,8 +145,8 @@ def _ops_for_end(spec: VpnTunnelSpec, local: VpnEnd, remote: VpnEnd, psk: str) -
                         "name": p2,
                         "phase1name": name,
                         "proposal": spec.phase2_proposal,
-                        "src-subnet": lsub,
-                        "dst-subnet": rsub,
+                        "src-subnet": _fortimask(lsub),
+                        "dst-subnet": _fortimask(rsub),
                     },
                     summary=f"IPsec Phase2 {p2}: {lsub} ↔ {rsub}",
                     rollback_path=f"{_CMDB}/vpn.ipsec/phase2-interface/{p2}",
@@ -153,7 +159,11 @@ def _ops_for_end(spec: VpnTunnelSpec, local: VpnEnd, remote: VpnEnd, psk: str) -
             FortiOp(
                 method="POST",
                 path=f"{_CMDB}/router/static",
-                body={"dst": rsub, "device": name, "comment": f"NetBuddy VPN → {remote.site}"},
+                body={
+                    "dst": _fortimask(rsub),
+                    "device": name,
+                    "comment": f"NetBuddy VPN → {remote.site}",
+                },
                 summary=f"Route {rsub} → Tunnel {name}",
             )
         )
@@ -314,29 +324,34 @@ async def apply_operations(client: WriteClient, operations: list[FortiOp]) -> Ap
     umgekehrter Reihenfolge (DELETE der bereits angelegten Objekte). Read-only-Voraussetzung:
     vorher ein Config-Backup ziehen (macht der Orchestrator/Endpoint).
     """
-    created: list[FortiOp] = []
+    # je angelegtem Objekt den DELETE-Pfad merken: aus der POST-Antwort die FortiOS-`mkey`
+    # (Name bzw. Auto-ID von Routen/Policies) lesen → vollständiger Rollback auch ohne
+    # vorhersehbaren Namen. Fallback: rollback_path aus dem Plan.
+    created: list[tuple[FortiOp, str | None]] = []
     try:
         for op in operations:
             if op.method == "POST":
-                await client.post_json(op.path, op.body)
+                resp = await client.post_json(op.path, op.body)
             elif op.method == "PUT":
-                await client.put_json(op.path, op.body)
+                resp = await client.put_json(op.path, op.body)
             else:
                 raise ValueError(f"Unbekannte Methode: {op.method}")
-            created.append(op)
-        return ApplyOutcome(success=True, applied=[o.summary for o in created], rolled_back=[])
+            mkey = str(resp.get("mkey")) if isinstance(resp, dict) and resp.get("mkey") else None
+            del_path = f"{op.path}/{mkey}" if mkey else op.rollback_path
+            created.append((op, del_path))
+        return ApplyOutcome(success=True, applied=[o.summary for o, _ in created], rolled_back=[])
     except Exception as exc:
         rolled: list[str] = []
-        for op in reversed(created):
-            if op.rollback_path:
+        for op, del_path in reversed(created):
+            if del_path:
                 try:
-                    await client.delete(op.rollback_path)
+                    await client.delete(del_path)
                     rolled.append(op.summary)
                 except Exception:
                     pass
         return ApplyOutcome(
             success=False,
-            applied=[o.summary for o in created],
+            applied=[o.summary for o, _ in created],
             rolled_back=rolled,
             error=f"{type(exc).__name__}: {exc}",
         )

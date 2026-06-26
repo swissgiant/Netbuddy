@@ -110,8 +110,8 @@ def test_remote_selectors_mirror_peer_local_subnets() -> None:
     a_fw = plan.firewalls[0]
     assert _phase1(a_fw).body["remote-gw"] == "203.0.113.2"
     p2 = next(o for o in a_fw.operations if o.path.endswith("phase2-interface"))
-    assert p2.body["src-subnet"] == "10.121.0.0/16"
-    assert p2.body["dst-subnet"] == "10.123.0.0/16"
+    assert p2.body["src-subnet"] == "10.121.0.0 255.255.0.0"  # FortiOS-Format
+    assert p2.body["dst-subnet"] == "10.123.0.0 255.255.0.0"
 
 
 def test_routes_and_policies_present() -> None:
@@ -153,7 +153,7 @@ class _MockWriteClient:
         if self._fail_on is not None and self._n == self._fail_on:
             raise RuntimeError("simulierter FortiOS-Fehler")
         self.posts.append(path)
-        return {}
+        return {"mkey": body.get("name") or "auto-id"}  # FortiOS liefert mkey zurück
 
     async def put_json(self, path: str, body: dict[str, Any]) -> Any:
         self.posts.append(path)
@@ -187,6 +187,19 @@ async def test_apply_failure_triggers_rollback() -> None:
     # die 2 zuvor angelegten Ops (mit rollback_path) werden zurückgenommen
     assert len(client.deletes) == 2
     assert len(outcome.rolled_back) == 2
+
+
+async def test_apply_rollback_covers_route_and_policy_via_mkey() -> None:
+    from netbuddy.services.vpn_provision import apply_operations
+
+    ops = plan_site_to_site(_spec()).firewalls[0].operations  # inkl. Route + 2 Policies
+    assert any(o.path.endswith("router/static") for o in ops)
+    client = _MockWriteClient(fail_on=len(ops))  # letzte Operation scheitert
+    outcome = await apply_operations(client, ops)
+    assert outcome.success is False
+    # alle zuvor angelegten Objekte zurückgenommen (auch Route/Policy ohne statischen rollback_path)
+    assert len(client.deletes) == len(ops) - 1
+    assert len(outcome.rolled_back) == len(ops) - 1
 
 
 def test_detect_lan_interface() -> None:
