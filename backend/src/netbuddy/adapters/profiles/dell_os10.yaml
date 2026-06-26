@@ -6,6 +6,15 @@ provenance: "Dell OS10 — live-validated (S5248F-ON 10.5.2.6): sysinfo/interfac
 
 backup_command: "show running-configuration"
 
+# OS10: LLDP global per Default aktiv; globaler Schalter `lldp enable`. `show lldp timers`
+# antwortet nur, wenn LLDP läuft → als Status-Marker genutzt.
+lldp_control:
+  status_command: "show lldp timers"
+  enabled_marker: 'LLDP Timers'
+  config_enter: ["configure terminal"]
+  config_exit: ["end"]
+  enable_global: ["lldp enable"]
+
 capabilities:
   read_system_info:
     sources:

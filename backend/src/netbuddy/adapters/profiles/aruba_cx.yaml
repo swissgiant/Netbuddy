@@ -5,6 +5,15 @@ provenance: "ArubaOS-CX — vendor docs, unvalidated (kein Lab-Capture)"
 
 backup_command: "show running-config"
 
+# ArubaOS-CX: LLDP per Default aktiv; globaler Schalter `lldp`. Status via `show lldp configuration`
+# ("LLDP ... : Yes/Enabled"). UNVALIDIERT (kein Aruba-Lab-Gerät).
+lldp_control:
+  status_command: "show lldp configuration"
+  enabled_marker: '(?i)LLDP.*(Enabled|:\s*Yes)'
+  config_enter: ["configure terminal"]
+  config_exit: ["end"]
+  enable_global: ["lldp"]
+
 capabilities:
   read_system_info:
     sources:

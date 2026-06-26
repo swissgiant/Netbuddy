@@ -5,6 +5,15 @@ ntc_platform: cisco_ios
 
 backup_command: "show running-config"
 
+# Cisco IOS: globaler Schalter `lldp run`; `show lldp` meldet "Status: ACTIVE" wenn an,
+# sonst "% LLDP is not enabled". UNVALIDIERT (kein Cisco-Lab-Gerät).
+lldp_control:
+  status_command: "show lldp"
+  enabled_marker: 'Status: ACTIVE'
+  config_enter: ["configure terminal"]
+  config_exit: ["end"]
+  enable_global: ["lldp run"]
+
 capabilities:
   read_system_info:
     command: "show version"

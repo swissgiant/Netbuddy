@@ -6,6 +6,15 @@ provenance: "FS.com Ruijie/FSOS — sysinfo lab-validated (N8560-48BC 11.0(5)); 
 
 backup_command: "show running-config"
 
+# FS/Ruijie: globaler Schalter `lldp enable`; Status via `show lldp status`
+# ("Global status of LLDP : Enable"). UNVALIDIERT — gegen den Grosuplje-Core zu prüfen.
+lldp_control:
+  status_command: "show lldp status"
+  enabled_marker: 'Global status of LLDP\s*:\s*Enable'
+  config_enter: ["configure terminal"]
+  config_exit: ["end"]
+  enable_global: ["lldp enable"]
+
 capabilities:
   read_system_info:
     command: "show version"
