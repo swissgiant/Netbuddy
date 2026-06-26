@@ -16,6 +16,7 @@ from netbuddy.db.models.mac_entry import MacAddressEntry, MacEntryType
 from netbuddy.db.models.oidc_config import OidcConfig
 from netbuddy.db.models.site import Site
 from netbuddy.db.models.site_subnet import SiteSubnet
+from netbuddy.db.models.unifi_host import UnifiHost
 from netbuddy.db.models.user import AuthSession, User, UserRole
 from netbuddy.db.models.validation import ValidationCheck
 from netbuddy.db.models.vpn_tunnel import VpnTunnel
@@ -45,6 +46,7 @@ __all__ = [
     "SnmpAuthProtocol",
     "SnmpPrivProtocol",
     "SnmpVersion",
+    "UnifiHost",
     "User",
     "UserRole",
     "ValidationCheck",
