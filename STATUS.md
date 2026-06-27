@@ -4,6 +4,20 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `47235c2` (S38).
 
+## S45 — SSH überall + alle CLI-Switches sauber (27.6.2026)
+
+- **Grosuplje fehlkonfiguriert gefunden & gefixt:** GRO-SW-24/25/26 hatten **kein Default-Gateway**
+  → `10.121.10.1` gesetzt + gespeichert (FS via SSH, Dell .25 via Telnet-über-Jump). `.25` (Rack E,
+  Dell N2248PX) war kein Subnetz-/IP-Konflikt — PRTG nur falsch beschriftet; echte IP `10.121.10.25`.
+  `10.121.20.25` ist ein Server (PRNTSLO).
+- **SSH auf ALLEN Dell-Switches aktiviert** (12×, waren Telnet-only): `crypto key generate rsa/dsa` +
+  `ip ssh server` + gespeichert. **23/23 CLI-Switches an allen Standorten SSH-OK.**
+- **NetBuddy arbeitet jetzt vollständig über SSH:** alle dell_os6 von Telnet auf den SSH-Cred (`Dell`,
+  enable-PW übernommen) umgehängt, in Prod+Dev validiert (12/12). FS/Core ohnehin SSH.
+- **Persistenz geprüft:** alle Änderungen (Gateways, LLDP-Enable, SSH-Enable) in startup-config
+  gespeichert. LLDP auf den 6 Sulgen-FS + GRO-SW-24 nachträglich persistiert.
+- Transport erlaubt jetzt `ping`/`traceroute` (read-only-Diagnose, Commit 9594f89). Inventar: 109 Geräte.
+
 ## S44 — Slovenien: Gateway-Remediation via Jump-Host (27.6.2026)
 
 - 2 weitere FS-Centec-Switches in Grosuplje gefunden (`10.121.10.24/.26`), die von der VM **nicht
