@@ -1,6 +1,5 @@
-Vlan    MAC Address     Type     Interface
-------- ------------    -------- --------
-1       00d0.f800.1001  STATIC   GigabitEthernet 0/1
-1       00d0.f800.1002  DYNAMIC  GigabitEthernet 0/1
-10      b4fb.e411.2233  DYNAMIC  GigabitEthernet 0/2
-1       00d0.f800.1004  FILTER
+Vlan        MAC Address          Type     Interface                              Live Time
+----------  -------------------- -------- -------------------------------------- -----------------
+   1        0002.e70c.0c12       DYNAMIC  TFGigabitEthernet 0/17                 66d 07:17:05
+   1        0007.4d49.b77c       DYNAMIC  TFGigabitEthernet 0/15                 2d 08:48:34
+   1        0276.ab85.72a5       DYNAMIC  TFGigabitEthernet 0/1                  0d 00:07:59

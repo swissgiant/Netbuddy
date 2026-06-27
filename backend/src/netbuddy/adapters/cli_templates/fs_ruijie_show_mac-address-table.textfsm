@@ -1,9 +1,13 @@
 Value VLAN (\d+)
 Value MAC (\S+)
 Value TYPE (\S+)
-Value INTERFACE (.*?)
+Value INTERFACE (.+?)
 
 Start
   ^Vlan\s+MAC -> Next
   ^-+ -> Next
-  ^${VLAN}\s+${MAC}\s+${TYPE}\s+${INTERFACE}\s*$$ -> Record
+  # Datenzeile mit Live-Time-Spalte (z.B. "66d 07:17:05"); Interface kann ein Leerzeichen
+  # enthalten ("TFGigabitEthernet 0/17"), daher non-greedy bis zur Live-Time.
+  ^\s+${VLAN}\s+${MAC}\s+${TYPE}\s+${INTERFACE}\s+\d+d\s+[\d:]+\s*$$ -> Record
+  # Fallback: Zeile ohne Live-Time.
+  ^\s+${VLAN}\s+${MAC}\s+${TYPE}\s+${INTERFACE}\s*$$ -> Record

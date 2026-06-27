@@ -1,24 +1,44 @@
-Lldp neighbor-information of port [GigabitEthernet 0/1]
-  Neighbor index             : 1
-  Device type                : LLDP Device
-  Chassis ID type            : MAC address
-  Chassis id                 : 00d0.f822.33cd
-  System name                : core-sw-01
-  System description         : FS Data Center Switch
-  Management address         : 10.120.10.48
-  Port ID type               : Interface name
-  Port id                    : GigabitEthernet 0/24
-  Port description           : uplink-from-core
-  Maximum frame Size         : 1500
+----------------------------------------------------------------------------
+LLDP neighbor-information of port [TFGigabitEthernet 0/1]
+----------------------------------------------------------------------------
+  Neighbor index                    : 1
+  Device type                       : LLDP Device
+  Update time                       : 290days 19hours 13minutes 13seconds
+  Aging time                        : 1minutes 32seconds
 
-Lldp neighbor-information of port [GigabitEthernet 0/2]
-  Neighbor index             : 2
-  Device type                : LLDP Device
-  Chassis ID type            : MAC address
-  Chassis id                 : b4fb.e411.2233
-  System name                : esx-host-02
-  System description         : VMware ESXi 8.0
-  Port ID type               : Interface name
-  Port id                    : vmnic0
-  Port description           : server-uplink
-  Maximum frame Size         : 1500
+  Chassis ID type                   : MAC address
+  Chassis ID                        : d021.f960.9147
+  System name                       : BLS-AP-SLO-40
+  System description                : U6-LR, 6.7.54.15663
+  System capabilities supported     : Bridge, WLAN Access Point, Router, Station Only
+  System capabilities enabled       : Bridge, WLAN Access Point, Router
+
+  Management address subtype        : ipv4
+  Management address                : 10.121.12.40
+  Interface numbering subtype       : ifIndex
+  Interface number                  : 26
+  Object identifier                 :
+
+  Management address subtype        : ipv6
+  Management address                : fe80::d221:f9ff:fe60:9147
+  Interface numbering subtype       : ifIndex
+  Interface number                  : 2
+  Object identifier                 :
+
+  Port ID type                      : MAC address
+  Port ID                           : d021.f960.9147
+  Port description                  : eth0
+----------------------------------------------------------------------------
+LLDP neighbor-information of port [TFGigabitEthernet 0/15]
+----------------------------------------------------------------------------
+  Neighbor index                    : 1
+  Device type                       : LLDP Device
+
+  Chassis ID type                   : MAC address
+  Chassis ID                        : 1c72.1d9e.f3f7
+  System name                       :
+  System description                :
+
+  Port ID type                      : Interface name
+  Port ID                           : TFGigabitEthernet 0/17
+  Port description                  :
