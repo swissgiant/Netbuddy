@@ -18,7 +18,9 @@ _GENERIC = "generic"
 _PROMPT_END = re.compile(r"[>#]\s*$")
 
 # Nur lesende Befehle dürfen über diesen Transport laufen (read-only first).
-_READ_ONLY_PREFIXES = ("show", "display")
+# `ping`/`traceroute` sind diagnostisch (verändern keine Konfiguration) und daher erlaubt —
+# nützlich, um über einen erreichbaren Switch die Erreichbarkeit anderer Geräte zu prüfen.
+_READ_ONLY_PREFIXES = ("show", "display", "ping", "traceroute", "trace")
 # Hilfe-/Discovery-Befehle (für assistiertes Onboarding) sind ebenfalls lesend.
 _HELP_COMMANDS = {"?", "help", "list"}
 
