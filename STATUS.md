@@ -4,6 +4,13 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `47235c2` (S38).
 
+## S43 — Komplettes Switch-Fleet + LLDP-Control + Dev/Prod gespiegelt (27.6.2026)
+
+- **Alle Switches drin** (Logik von Alex): Sulgen +6 FS-Centec (`.55/.56/.57/.59/.61/.64`, identifiziert per `show version`), Grosuplje +3 Dell-OS6 (`.20/.21/.22`) + **Core gefunden** (`10.121.10.30`, FS **N8560** → `fs_ruijie`). Core via LLDP der Dell-Switches lokalisiert (Uplink `Tw1/0/4`), Mgmt-IP von Alex.
+- **LLDP**: auf 6 FS-Centec aktiviert (Backup→write→verify); `lldp_control` zu allen Switch-Profilen ergänzt (dell_os6/os10, fs_ruijie, cisco_ios, aruba_cx) — dell_os6/os10 + fs_ruijie **live verifiziert**, alle 19 CLI-Switches LLDP=an.
+- **fs_ruijie LLDP/MAC-TextFSM gefixt** gegen das echte N8560-Format (LLDP 6 Nachbarn, MAC 69 statt 0/1); Fixtures ersetzt, Conformance grün.
+- **Dev + Prod gespiegelt: je 107 Geräte** (83 unifi_cloud, 11 dell_os6, 7 fs_centec, 4 fortigate, 1 dell_os10, 1 fs_ruijie). 229 Tests grün.
+
 ## S42 — Switches validiert + Ubiquiti via Cloud-API (26.6.2026)
 
 - **Alle 9 Switches** (1× dell_os10, 8× dell_os6/Telnet, 1× fs_centec) von **Prod aus validiert**
