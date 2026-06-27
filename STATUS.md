@@ -4,6 +4,18 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `47235c2` (S38).
 
+## S44 — Slovenien: Gateway-Remediation via Jump-Host (27.6.2026)
+
+- 2 weitere FS-Centec-Switches in Grosuplje gefunden (`10.121.10.24/.26`), die von der VM **nicht
+  erreichbar** waren — Ursache: **kein Default-Gateway** (vlan1 /16, keine Route zur VM-`10.120/16`).
+- **Einmalig über den Windows-Jump-Host** `bls-srv-mgmt` (10.121.20.20, AD-User `msak`, asyncssh-Tunnel)
+  erreicht und **Default-Route `0.0.0.0/0 → 10.121.10.1`** gesetzt + gespeichert → danach **direkt
+  erreichbar**, Jump-Host nicht mehr nötig. Als `GRO-SW-24/26` (fs_centec) in Dev+Prod, validiert, LLDP an.
+- `10.121.20.25` = **Server** (`.20.x`=Server-Netz, VMware-MAC), kein Switch. `ping`/`traceroute` jetzt
+  in der read-only-Allowlist des Transports (Commit 9594f89).
+- **Offen:** ARP zeigt eine Dell-MAC auf `10.121.10.25` (evtl. 4. Dell-Switch, Telnet, von VM unerreichbar) —
+  von Alex zu bestätigen; ggf. Gateway-Fix via Telnet-über-Jump.
+
 ## S43 — Komplettes Switch-Fleet + LLDP-Control + Dev/Prod gespiegelt (27.6.2026)
 
 - **Alle Switches drin** (Logik von Alex): Sulgen +6 FS-Centec (`.55/.56/.57/.59/.61/.64`, identifiziert per `show version`), Grosuplje +3 Dell-OS6 (`.20/.21/.22`) + **Core gefunden** (`10.121.10.30`, FS **N8560** → `fs_ruijie`). Core via LLDP der Dell-Switches lokalisiert (Uplink `Tw1/0/4`), Mgmt-IP von Alex.
