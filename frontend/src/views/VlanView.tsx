@@ -65,6 +65,17 @@ export function VlanView() {
     }
   };
 
+  const saveComment = async (v: Vlan, comment: string) => {
+    if (comment === (v.description ?? "")) return;
+    setError(null);
+    try {
+      await updateVlan(v.id, { description: comment || null });
+      reload();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
   const addSubnet = async (v: Vlan) => {
     const s = subFor(v.id);
     if (!s.site_id || !s.cidr.trim()) return;
@@ -116,7 +127,7 @@ export function VlanView() {
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
           <input
-            placeholder="Beschreibung (opt.)"
+            placeholder="Kommentar / Kunde (opt.)"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
@@ -141,11 +152,20 @@ export function VlanView() {
                   onBlur={(e) => rename(v, e.target.value)}
                   title="Name bearbeiten"
                 />
-                {v.description && <span className="muted" style={{ fontSize: 12 }}>{v.description}</span>}
               </h3>
-              <button className="danger" onClick={() => removeVlan(v)}>
-                löschen
-              </button>
+              <div className="row" style={{ alignItems: "center", gap: 8 }}>
+                <span className="muted" style={{ fontSize: 12 }}>Kunde:</span>
+                <input
+                  placeholder="— derzeit frei —"
+                  defaultValue={v.description ?? ""}
+                  style={{ width: 200, fontSize: 13 }}
+                  onBlur={(e) => saveComment(v, e.target.value.trim())}
+                  title="Aktueller Kunde / Kommentar"
+                />
+                <button className="danger" onClick={() => removeVlan(v)}>
+                  löschen
+                </button>
+              </div>
             </div>
 
             <div style={{ marginTop: 8 }}>
