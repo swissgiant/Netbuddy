@@ -2,7 +2,20 @@
 
 **Stand:** 24. Juni 2026, Phase 1+ — Discovery/Erkennung am echten Fleet feature-komplett; **S39: NetBuddy läuft LIVE auf der Prod-VM** (`bls-srv-netbuddy` / 10.120.20.101, 5/5 Container healthy, HTTPS via nginx, Migrationen auto, Worker aktiv). Cert-Automatisierung gegen die interne AD-CS gebaut (`tools/`+`docker/issue_cert.sh`). Roadmap Richtung VLAN-Write in `docs/gap-analysis.md`.
 
-Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `fc452af` (S50).
+Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `8fa27cc` (S51).
+
+## S51 — #38 Test-Netze site-übergreifend (Hub-Spoke) LIVE (28.6.2026)
+
+- **Vorab Voll-Backup aller 4 FortiGates** in `ConfigBackup` (Postgres, durable) via `monitor/system/config/backup`.
+- **Cross-Site (Hub = Sulgen) für alle 3 Spokes ausgerollt + verifiziert** (FW→FW-Ping über Tunnel,
+  je 4/5 = nur SA-Warmup, dann 0%): Sulgen↔Grosuplje (10.220↔10.221, ~34ms), Sulgen↔Cusano
+  (10.220↔10.223, ~14ms), Sulgen↔USA (10.220↔10.222, ~151ms).
+- Pro Spoke-FW: **16 Test-SVIs + DHCP** (10.221/222/223.x, Parent: Grosuplje `lan2`, Cusano `wan1`,
+  USA `lan1`). Pro Strecke auf **beiden** FWs: neuer Phase2 `Testnetze`/`Testnetze-<CU/US>` + Static
+  Route + In/Out-Policies — **additiv**, Prod-Selektoren (10.12X↔10.12Y) unberührt.
+- **Offen:** Spoke↔Spoke-Test (z.B. Grosuplje↔USA direkt) braucht die fehlenden Mesh-Tunnel
+  ([[project_firewall_vpn]]) bzw. Hub-Routing; #37 Switches an den Spoke-Standorten (für lokale
+  Wired-Test-Geräte; FW-SVIs stehen schon); #34 Port→VLAN-UI.
 
 ## S50 — Test-Netze: vCenter-Integration + Sulgen-Fabric LIVE (28.6.2026)
 
