@@ -20,6 +20,7 @@ dependencies = [
     "loguru>=0.7.3",
     "ntc-templates>=9.1.0",
     "pydantic-settings>=2.14.1",
+    "pyvmomi>=8.0.3.0.1",
     "pyyaml>=6.0.3",
     "scrapli[asyncssh]>=2026.2.20",
     "sqlalchemy>=2.0.49",
