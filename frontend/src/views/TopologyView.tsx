@@ -5,10 +5,11 @@ import type { EndpointHighlight } from "../TopologyGraph";
 import { clearSavedPositions, TopologyGraph } from "../TopologyGraph";
 
 const NODE_LAYERS = ["switch", "firewall", "router", "ap", "unknown", "other"] as const;
-const EDGE_LAYERS = ["lldp", "uplink", "vpn"] as const;
+const EDGE_LAYERS = ["lldp", "uplink", "wireless", "vpn"] as const;
 const EDGE_LABEL: Record<string, string> = {
   lldp: "LLDP (Backbone)",
   uplink: "AP-/Switch-Uplinks",
+  wireless: "Mesh (drahtlos)",
   vpn: "VPN-Tunnel (Site↔Site)",
 };
 

@@ -48,6 +48,7 @@ class ApLocationInfo(BaseModel):
     source: str | None = None  # lldp | mac
     mesh: bool = False
     mesh_reason: str | None = None
+    uplink_ap_mac: str | None = None  # Eltern-AP bei Mesh (drahtloser Uplink)
 
 
 class _Loc(BaseModel):
@@ -124,16 +125,16 @@ async def _switch_locations(
 
 async def _local_ap_index(
     session: AsyncSession, local_devices: list[UnifiDevice]
-) -> dict[str, tuple[_Loc | None, bool]]:
-    """Aus lokalen Controller-Daten: AP-MAC → (Switch-Location, is_wireless/mesh).
+) -> dict[str, tuple[_Loc | None, bool, str | None]]:
+    """Aus lokalen Controller-Daten: AP-MAC → (Switch-Location, is_wireless/mesh, Eltern-AP-MAC).
 
     ``uplink_mac`` (Upstream-Switch) wird über die UniFi-Switch-Liste auf ein NetBuddy-Device
     aufgelöst (per Hostname/IP). APs an Nicht-UniFi-Switches haben ``uplink_mac=None`` → Location
     bleibt der LLDP/MAC-Heuristik überlassen, der Mesh-Status kommt trotzdem aus dem Controller.
+    Bei drahtlosem Uplink (Mesh) ist ``uplink_mac`` der **Eltern-AP** — den geben wir als dritten
+    Tupel-Wert zurück, damit die Topologie die AP→AP-Mesh-Kante zeichnen kann.
     """
-    usw = {
-        _norm_mac(d.mac): (d.name, d.ip) for d in local_devices if d.type == "usw"
-    }
+    usw = {_norm_mac(d.mac): (d.name, d.ip) for d in local_devices if d.type == "usw"}
     sdevs = (
         (
             await session.execute(
@@ -148,18 +149,19 @@ async def _local_ap_index(
     by_host = {(d.hostname or "").upper(): d for d in sdevs}
     by_ip = {str(d.mgmt_ip): d for d in sdevs}
 
-    index: dict[str, tuple[_Loc | None, bool]] = {}
+    index: dict[str, tuple[_Loc | None, bool, str | None]] = {}
     for d in local_devices:
         if d.type != "uap":
             continue
         wireless = d.uplink_type == "wireless"
         loc: _Loc | None = None
-        if d.uplink_mac:
+        parent_ap = _norm_mac(d.uplink_mac) if wireless and d.uplink_mac else None
+        if d.uplink_mac and not wireless:
             name, ip = usw.get(_norm_mac(d.uplink_mac), (None, None))
             ndev = by_host.get((name or "").upper()) or (by_ip.get(ip) if ip else None)
             if ndev is not None:
                 loc = _Loc(device_id=ndev.id, hostname=ndev.hostname, port=None, source="unifi")
-        index[_norm_mac(d.mac)] = (loc, wireless)
+        index[_norm_mac(d.mac)] = (loc, wireless, parent_ap or None)
     return index
 
 
@@ -202,12 +204,14 @@ async def build_ap_locations(
         row = existing.get(mac)
         mesh = False
         mesh_reason: str | None = None
+        uplink_ap_mac: str | None = None
 
         if mac in local_idx:
             # Autoritativ: lokaler Controller kennt den AP.
-            lloc, wireless = local_idx[mac]
+            lloc, wireless, parent_ap = local_idx[mac]
             if wireless:
                 mesh, mesh_reason, loc = True, "Uplink wireless (Mesh) laut Controller", None
+                uplink_ap_mac = parent_ap
             else:
                 loc = lloc or raw[mac]  # UniFi-Switch direkt, sonst LLDP (AP an Nicht-UniFi-Switch)
         else:
@@ -242,6 +246,7 @@ async def build_ap_locations(
                 source=disp_src,
                 mesh=mesh,
                 mesh_reason=mesh_reason,
+                uplink_ap_mac=uplink_ap_mac,
             )
         )
 
@@ -254,6 +259,7 @@ async def build_ap_locations(
             row.ap_ip = meta["ip"] or None
             row.status = meta["status"]
             row.mesh = mesh
+            row.uplink_ap_mac = uplink_ap_mac
             row.synced_at = now
             if loc is not None:  # nur überschreiben, wenn neu verortet (sonst sticky behalten)
                 row.device_id = loc.device_id

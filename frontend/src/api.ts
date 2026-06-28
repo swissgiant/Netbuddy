@@ -9,7 +9,7 @@ export interface TopologyNode {
 export interface TopologyEdge {
   source: string;
   target: string;
-  type: "lldp" | "uplink" | "inferred" | "vpn";
+  type: "lldp" | "uplink" | "inferred" | "vpn" | "wireless";
   label?: string | null;
   up?: boolean | null;
 }

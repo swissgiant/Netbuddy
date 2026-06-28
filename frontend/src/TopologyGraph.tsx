@@ -61,6 +61,10 @@ function computeStructuredPositions(topo: Topology): Record<string, XY> {
   for (const e of topo.edges)
     if ((e.type === "uplink" || e.type === "inferred") && nodeType[e.source] === "ap")
       switchOfAp[e.source] = e.target;
+  // Mesh-APs (drahtlose AP→AP-Kante) zum Switch des Eltern-APs gruppieren, damit sie nah daran liegen.
+  for (const e of topo.edges)
+    if (e.type === "wireless" && nodeType[e.source] === "ap" && switchOfAp[e.target])
+      switchOfAp[e.source] = switchOfAp[e.target];
 
   // Core-Switch-Erkennung: Ziel inferierter/Uplink-Switch-Kanten, FW-Nachbar (LLDP) oder Name.
   const fwIds = new Set(
@@ -353,6 +357,21 @@ export function TopologyGraph({
           selector: 'edge[etype = "inferred"]',
           style: { width: 1.5, "line-color": "#475569", "line-style": "dashed" },
         },
+        // Mesh: drahtlose AP→AP-Verbindung, gestrichelt + Label "Mesh".
+        {
+          selector: 'edge[etype = "wireless"]',
+          style: {
+            width: 2,
+            "line-color": "#0ea5e9",
+            "line-style": "dashed",
+            "curve-style": "bezier",
+            label: "data(elabel)",
+            "font-size": 8,
+            color: labelColor(theme),
+            "text-background-color": theme === "dark" ? "#0f172a" : "#f8fafc",
+            "text-background-opacity": 0.8,
+          },
+        },
         // VPN: kräftige Kante zwischen Standorten, Label = Tunnelname, rot wenn down.
         {
           selector: 'edge[etype = "vpn"]',
@@ -489,7 +508,7 @@ export function TopologyGraph({
     const ephem = cy.elements("[?ephemeral]");
 
     // Pfad: Uplink-/LLDP-Kanten des Treffers + deren Gegenknoten (Switch). Kanten sichtbar machen.
-    const pathEdges = matched.connectedEdges('[etype = "uplink"], [etype = "lldp"]');
+    const pathEdges = matched.connectedEdges('[etype = "uplink"], [etype = "lldp"], [etype = "wireless"]');
     pathEdges.style("display", "element");
     const pathNodes = matched.union(pathEdges.connectedNodes());
     const focus = pathNodes.union(pathEdges).union(ephem);

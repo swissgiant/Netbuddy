@@ -134,15 +134,27 @@ class FortigateAdapter:
         results = payload.get("results", []) if isinstance(payload, dict) else payload
         neighbors: list[LldpNeighborData] = []
         for row in results or []:
+            # FortiOS meldet das lokale Interface als `port_name` (z.B. "lan1") und die
+            # Management-IP des Nachbarn in `addresses` (Liste von {type, address}). Erstere
+            # ipv4-Adresse ist die mgmt-IP — daran löst die Topologie den Nachbarn aufs Gerät auf.
+            mgmt = row.get("mgmt_address") or row.get("mgmt_ip")
+            if not mgmt:
+                for addr in row.get("addresses") or []:
+                    if addr.get("type") == "ipv4" and addr.get("address"):
+                        mgmt = addr["address"]
+                        break
+            local = row.get("port_name") or row.get("interface") or row.get("port")
             neighbors.append(
                 LldpNeighborData(
-                    local_interface=row.get("port") or row.get("interface") or "",
+                    local_interface=str(local) if local else "",
                     remote_chassis_id=row.get("chassis_id", ""),
                     remote_port_id=row.get("port_id", ""),
                     remote_port_description=row.get("port_description") or None,
                     remote_system_name=row.get("system_name") or None,
-                    remote_system_description=row.get("system_description") or None,
-                    mgmt_address=row.get("mgmt_address") or row.get("mgmt_ip") or None,
+                    remote_system_description=row.get("system_desc")
+                    or row.get("system_description")
+                    or None,
+                    mgmt_address=mgmt or None,
                 )
             )
         return neighbors

@@ -39,6 +39,10 @@ class ApLocation(TimestampMixin, Base):
     # Mesh-Verdacht: online, aber an keinem Wired-Port gesehen, ODER mehrere APs an einem Port.
     mesh: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
 
+    # MAC des Eltern-APs, über den ein Mesh-AP drahtlos hochkommt (UniFi `uplink_mac`, wenn
+    # `uplink_type == wireless`). Grundlage für die gestrichelte AP→AP-Mesh-Kante in der Topologie.
+    uplink_ap_mac: Mapped[str | None] = mapped_column(String(12), nullable=True)
+
     located_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     synced_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

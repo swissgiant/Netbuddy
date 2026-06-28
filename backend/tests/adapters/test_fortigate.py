@@ -136,6 +136,30 @@ async def test_lldp_neighbors() -> None:
     assert neighbors[0].mgmt_address == "10.120.10.48"
 
 
+async def test_lldp_neighbor_mgmt_from_addresses_and_port_name() -> None:
+    """FortiOS-Variante: mgmt-IP steckt in `addresses[]`, lokales Interface in `port_name`."""
+
+    row = {
+        "port": 8,
+        "port_name": "lan1",
+        "chassis_id": "34:60:F9:2F:8C:75",
+        "port_id": "gigabitEthernet 1/0/2",
+        "system_name": "TL-SG2428P",
+        "system_desc": "JetStream 28-Port",
+        "addresses": [{"type": "ipv4", "address": "10.122.10.11"}],
+    }
+
+    class _Client:
+        async def get_json(self, path: str, params: Any = None) -> Any:
+            return {"results": [row]}
+
+    neighbors = await FortigateAdapter(_Client()).get_lldp_neighbors()
+    assert len(neighbors) == 1
+    assert neighbors[0].mgmt_address == "10.122.10.11"  # aus addresses[]
+    assert neighbors[0].local_interface == "lan1"  # port_name, nicht der int-port
+    assert neighbors[0].remote_system_description == "JetStream 28-Port"
+
+
 async def test_mac_table_not_supported() -> None:
     with pytest.raises(CapabilityNotSupportedError):
         await _adapter().get_mac_table()

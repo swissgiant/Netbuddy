@@ -138,12 +138,23 @@ async def get_topology(session: SessionDep) -> Topology:
                 add_edge(r, core.id, "lldp")
 
     # AP→Switch-Uplinks (+ persistierte UniFi-Switch→Core-Uplinks) — echte, gemessene Verortung.
-    for loc in (await session.execute(select(ApLocation))).scalars().all():
-        if loc.device_id is None or loc.device_id not in devices_by_id:
-            continue
+    # Mesh-APs (drahtloser Uplink) bekommen stattdessen eine gestrichelte Kante zum Eltern-AP.
+    ap_locs = (await session.execute(select(ApLocation))).scalars().all()
+    ap_dev_by_mac = {
+        loc.ap_mac: by_hostname.get(loc.ap_name)
+        for loc in ap_locs
+        if by_hostname.get(loc.ap_name) is not None
+    }
+    for loc in ap_locs:
         dev = by_hostname.get(loc.ap_name)
-        if dev is not None and dev.id != loc.device_id:
-            add_edge(dev.id, loc.device_id, "uplink", loc.port or None)
+        if dev is not None and loc.device_id is not None and loc.device_id in devices_by_id:
+            if dev.id != loc.device_id:
+                add_edge(dev.id, loc.device_id, "uplink", loc.port or None)
+        # Drahtlose Mesh-Verbindung zum Eltern-AP (echte UniFi-uplink_mac-Daten).
+        if dev is not None and loc.uplink_ap_mac:
+            parent = ap_dev_by_mac.get(loc.uplink_ap_mac)
+            if parent is not None and parent.id != dev.id:
+                add_edge(dev.id, parent.id, "wireless", "Mesh")
 
     # VPN-Kanten von der lokalen Firewall zur **Firewall** des Remote-Standorts (nicht zum Block).
     device_site = {d.id: d.site_id for d in devices}

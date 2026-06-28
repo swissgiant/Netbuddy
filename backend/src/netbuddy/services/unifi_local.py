@@ -226,9 +226,7 @@ class ClientLocation(BaseModel):
     oui: str | None = None
 
 
-def locate_clients(
-    devices: list[UnifiDevice], clients: list[UnifiClient]
-) -> list[ClientLocation]:
+def locate_clients(devices: list[UnifiDevice], clients: list[UnifiClient]) -> list[ClientLocation]:
     """Clients → wo sie hängen: wired auf Switch+Port, wireless am AP (Namen aufgelöst)."""
     sw = {d.mac: d for d in devices if d.type == "usw"}
     ap = {d.mac: d for d in devices if d.type == "uap"}
@@ -238,16 +236,27 @@ def locate_clients(
             d = sw.get(c.sw_mac or "")
             out.append(
                 ClientLocation(
-                    mac=c.mac, hostname=c.hostname, ip=c.ip, kind="wired",
-                    via_device=d.name if d else c.sw_mac, port=c.sw_port, site=c.site, oui=c.oui,
+                    mac=c.mac,
+                    hostname=c.hostname,
+                    ip=c.ip,
+                    kind="wired",
+                    via_device=d.name if d else c.sw_mac,
+                    port=c.sw_port,
+                    site=c.site,
+                    oui=c.oui,
                 )
             )
         else:
             d = ap.get(c.ap_mac or "")
             out.append(
                 ClientLocation(
-                    mac=c.mac, hostname=c.hostname, ip=c.ip, kind="wireless",
-                    via_device=d.name if d else c.ap_mac, site=c.site, oui=c.oui,
+                    mac=c.mac,
+                    hostname=c.hostname,
+                    ip=c.ip,
+                    kind="wireless",
+                    via_device=d.name if d else c.ap_mac,
+                    site=c.site,
+                    oui=c.oui,
                 )
             )
     return out
@@ -274,8 +283,12 @@ def find_poe_faults(devices: list[UnifiDevice]) -> list[PoeFault]:
             if p.poe_enable and not p.poe_good:
                 faults.append(
                     PoeFault(
-                        site=d.site, switch_mac=d.mac, switch_name=d.name,
-                        switch_ip=d.ip, port_idx=p.port_idx, port_name=p.name,
+                        site=d.site,
+                        switch_mac=d.mac,
+                        switch_name=d.name,
+                        switch_ip=d.ip,
+                        port_idx=p.port_idx,
+                        port_name=p.name,
                     )
                 )
     return faults
