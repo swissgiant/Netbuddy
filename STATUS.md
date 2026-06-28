@@ -2,7 +2,25 @@
 
 **Stand:** 24. Juni 2026, Phase 1+ — Discovery/Erkennung am echten Fleet feature-komplett; **S39: NetBuddy läuft LIVE auf der Prod-VM** (`bls-srv-netbuddy` / 10.120.20.101, 5/5 Container healthy, HTTPS via nginx, Migrationen auto, Worker aktiv). Cert-Automatisierung gegen die interne AD-CS gebaut (`tools/`+`docker/issue_cert.sh`). Roadmap Richtung VLAN-Write in `docs/gap-analysis.md`.
 
-Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `47235c2` (S38).
+Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `2ab0df6` (S49).
+
+## S49 — USA fixe IPs + ehrliche Topologie + VLAN-Verwaltung (28.6.2026)
+
+- **USA-TP-Link-Switche (`.10.11`/`.10.12`) nach Lockout gerettet:** statische Mgmt-IP ohne
+  Default-Gateway → off-subnet (VM/Remote-UI) nicht erreichbar. Fix über **FortiGate-CLI als
+  lockout-sicherer Jump** (`admin`@`10.122.10.1`:22 → `execute ssh msak@switch`, gleiches /16 = ARP):
+  `ip route 0.0.0.0 0.0.0.0 10.122.10.1` + gespeichert. Beide direkt erreichbar, Inventar auf fixe IPs.
+- **LLDP auf allen FortiGate-LAN-Interfaces aktiviert** (REST, 4 FortiGates; USA `lan1/2/3`). FW-LLDP-
+  Endpoint liefert jetzt Nachbarn (vorher 500). Entdeckt: USA-HA-Peer `FW_US_2`.
+- **Topologie ehrlich & vollständig (USA):** fortigate-Adapter liest mgmt-IP aus LLDP `addresses[]`
+  + lokales Interface aus `port_name` → **FW↔Switch-Kante** (`FW_US_1↔BLS-SW-US-11`). **Mesh-AP** als
+  gestrichelte Kante `BLS-AP-US-02→BLS-AP-US-01` (`ap_location.uplink_ap_mac`, Migration). **„Unbekannter
+  Switch" in USA = 0.** Frontend: wireless-Kantenstil + Layer.
+- **#36 VLAN-Verwaltung fertig + LIVE:** `vlan`/`vlan_subnet` Tabellen (Migration), `/vlans` CRUD +
+  per-Standort-Subnetz+Gateway (Validierung ID 1-4094/CIDR/GW-im-Netz), Frontend-Ansicht „🏷️ VLANs".
+  Modell: gleiche VLAN-ID überall, Subnetz pro Standort. 256 Tests grün, deployed + verifiziert.
+- **Offen:** #34 Port→VLAN (jetzt entblockt), #37 VLAN-Generierung auf Switches, #38 FW-Kopplung,
+  #39 vCenter-Portgruppen. Telnet auf Switchen noch offen (abschalten, sobald SSH überall stabil).
 
 ## S45 — SSH überall + alle CLI-Switches sauber (27.6.2026)
 
