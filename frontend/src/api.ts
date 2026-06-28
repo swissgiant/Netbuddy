@@ -237,6 +237,35 @@ export const addSubnet = (siteId: string, cidr: string, description?: string) =>
 export const deleteSubnet = (siteId: string, subnetId: string) =>
   http<void>(`/sites/${siteId}/subnets/${subnetId}`, { method: "DELETE" });
 
+// --- VLANs (zentrale Verwaltung, gleiche VLAN-ID überall, Subnetz pro Standort) ---
+export interface VlanSubnet {
+  id: string;
+  site_id: string;
+  site_name?: string | null;
+  cidr: string;
+  gateway?: string | null;
+}
+export interface Vlan {
+  id: string;
+  vlan_id: number;
+  name: string;
+  description?: string | null;
+  created_at: string;
+  subnets: VlanSubnet[];
+}
+export const fetchVlans = () => http<Vlan[]>("/vlans");
+export const createVlan = (body: { vlan_id: number; name: string; description?: string }) =>
+  http<Vlan>("/vlans", { method: "POST", body: JSON.stringify(body) });
+export const updateVlan = (id: string, body: { name?: string; description?: string | null }) =>
+  http<Vlan>(`/vlans/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const deleteVlan = (id: string) => http<void>(`/vlans/${id}`, { method: "DELETE" });
+export const setVlanSubnet = (
+  vlanId: string,
+  body: { site_id: string; cidr: string; gateway?: string },
+) => http<VlanSubnet>(`/vlans/${vlanId}/subnets`, { method: "PUT", body: JSON.stringify(body) });
+export const deleteVlanSubnet = (vlanId: string, siteId: string) =>
+  http<void>(`/vlans/${vlanId}/subnets/${siteId}`, { method: "DELETE" });
+
 export interface VpnTunnel {
   id: string;
   name: string;

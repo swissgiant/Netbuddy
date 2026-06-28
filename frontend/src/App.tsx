@@ -12,6 +12,7 @@ import { SsoView } from "./views/SsoView";
 import { TopologyView } from "./views/TopologyView";
 import { UnifiView } from "./views/UnifiView";
 import { UsersView } from "./views/UsersView";
+import { VlanView } from "./views/VlanView";
 
 type View =
   | "topology"
@@ -19,6 +20,7 @@ type View =
   | "discovery"
   | "poe"
   | "sites"
+  | "vlans"
   | "credentials"
   | "unifi"
   | "users"
@@ -30,6 +32,7 @@ const NAV: { key: View; label: string; adminOnly?: boolean }[] = [
   { key: "discovery", label: "🔍 Discovery" },
   { key: "poe", label: "🔌 PoE/AP" },
   { key: "sites", label: "📍 Standorte" },
+  { key: "vlans", label: "🏷️ VLANs" },
   { key: "credentials", label: "🔑 Credentials" },
   { key: "unifi", label: "📶 UniFi", adminOnly: true },
   { key: "users", label: "👤 Benutzer", adminOnly: true },
@@ -92,6 +95,7 @@ export default function App() {
         {view === "discovery" && <DiscoveryView />}
         {view === "poe" && <PoeView />}
         {view === "sites" && <SitesView />}
+        {view === "vlans" && <VlanView />}
         {view === "credentials" && <CredentialsView />}
         {view === "unifi" && <UnifiView />}
         {view === "users" && <UsersView me={user} />}

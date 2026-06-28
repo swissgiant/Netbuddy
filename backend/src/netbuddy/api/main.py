@@ -21,6 +21,7 @@ from netbuddy.api.routes import (
     topology,
     unifi,
     users,
+    vlans,
     vpn,
 )
 from netbuddy.core.config import get_settings
@@ -59,6 +60,7 @@ def create_app() -> FastAPI:
     app.include_router(credentials.router)
     app.include_router(adapters.router)
     app.include_router(sites.router)
+    app.include_router(vlans.router)
     app.include_router(topology.router)
     app.include_router(discovery.router)
     app.include_router(device_credentials.router)
