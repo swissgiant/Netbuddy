@@ -105,6 +105,31 @@ class LldpControlSpec(BaseModel):
     interface_exit: str = "exit"
 
 
+class PoeControlSpec(BaseModel):
+    """Optionaler PoE-Pfad: Status lesen (``show power inline``) + einen Port erholen.
+
+    Read: ``status_command`` (PoE pro Port) + ``link_command`` (Link-Status pro Port). Der
+    konkrete Ausgabe-Parser wird per ``parser`` (Code-Parser-Key, derzeit nur ``dell_os6``)
+    gewählt. Write (Recovery) ist ein **Port-Bounce** = ``recover_down`` (z.B. ``shutdown``)
+    → ``recover_wait_seconds`` warten → ``recover_up`` (z.B. ``no shutdown``); kappt Link+PoE
+    und erzwingt eine vollständige Neuverhandlung. Schreibzugriff nur über den autorisierten
+    PoE-Endpoint, nie über den read-only-Pfad.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    status_command: str = "show power inline"
+    link_command: str = "show interfaces status"
+    parser: str = "dell_os6"
+    config_enter: list[str] = Field(default_factory=lambda: ["configure"])
+    config_exit: list[str] = Field(default_factory=lambda: ["end"])
+    interface_enter: str = "interface {name}"
+    interface_exit: str = "exit"
+    recover_down: list[str] = Field(default_factory=lambda: ["shutdown"])
+    recover_up: list[str] = Field(default_factory=lambda: ["no shutdown"])
+    recover_wait_seconds: int = 5
+
+
 class VendorProfile(BaseModel):
     """Deklarative Beschreibung eines Vendor-Adapters (ein YAML pro Vendor)."""
 
@@ -115,6 +140,7 @@ class VendorProfile(BaseModel):
     provenance: str | None = None  # z.B. "vendor docs, unvalidated" / "lab-validated"
     backup_command: str | None = None  # liefert die laufende Konfig (READ_CONFIG)
     lldp_control: LldpControlSpec | None = None  # optionaler LLDP-Schreibpfad (write)
+    poe_control: PoeControlSpec | None = None  # optionaler PoE-Status-/Recovery-Pfad
     capabilities: dict[Capability, CapabilitySpec]
 
 

@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     scheduled_discovery_minutes: int = 30
     # Nach jedem geplanten Lauf die ARP-Daten zu Hosts korrelieren (Reverse-DNS).
     scheduled_resolve_hosts: bool = True
+    # Intervall des geplanten PoE-Auto-Recover (Minuten); 0 = aus (nur manuell per Button).
+    scheduled_poe_recover_minutes: int = 0
 
 
 @lru_cache(maxsize=1)

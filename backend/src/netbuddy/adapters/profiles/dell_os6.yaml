@@ -18,6 +18,18 @@ lldp_control:
   interface_enter: "interface {name}"
   interface_exit: "exit"
 
+# PoE (N2248PX-ON & andere PX-Modelle): Status pro Port via "show power inline" (Spalte
+# Status: On/Searching/Fault/Test-Fail/Off...), Link via "show interfaces status". Recovery =
+# Port-Bounce (shutdown/no shutdown), Default-Templates der PoeControlSpec passen für OS6.
+poe_control:
+  status_command: "show power inline"
+  link_command: "show interfaces status"
+  parser: "dell_os6"
+  # send_config öffnet eine eigene SSH-Shell → landet im User-Mode; erst `enable` (über SSH ohne
+  # Passwort = direkt privilegiert), dann config. Recovery = shutdown/no shutdown (Default).
+  config_enter: ["enable", "configure"]
+  config_exit: ["end"]
+
 capabilities:
   read_system_info:
     command: "show version"

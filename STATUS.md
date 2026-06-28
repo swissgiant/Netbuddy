@@ -18,6 +18,59 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   gespeichert. LLDP auf den 6 Sulgen-FS + GRO-SW-24 nachträglich persistiert.
 - Transport erlaubt jetzt `ping`/`traceroute` (read-only-Diagnose, Commit 9594f89). Inventar: 109 Geräte.
 
+## S48 — Lokaler UniFi-Controller + UniFi-Switches aufgenommen (28.6.2026)
+
+- **Lokaler UniFi-Network-Controller angebunden:** alle 4 UniFi-OS-Server über **Port 11443**
+  erreichbar+login (Credential `UnifiLocal`/User `netbuddy`, lokales Konto). Liefert pro AP echten
+  Uplink-Typ (wire/wireless=Mesh) + Uplink-Switch/Port, pro Switch PoE-Portstatus
+  (`poe_enable`/`poe_good`/`poe_power`), und Clients (`stat/sta`: wired→sw_mac/sw_port, wireless→ap_mac).
+- **`services/unifi_local.py`** gebaut (Login/Session, fetch devices+clients, `power-cycle`) + 3 Tests
+  (mypy 152 Dateien clean). **Noch nicht deployed** (Code im Working-Tree; Onboarding lief inline).
+- **8 UniFi-Switches sauber ins Prod-Inventar** (5 Cusano neu, 3 Standort-korrigiert; USA hat 0 UniFi-
+  Switches — dort hängt ein unbekannter Fremd-Switch ohne LLDP, `uplink_mac=null`). USA-FW `FW_US_1` ist drin.
+- **Prod/Dev synchronisiert:** beide **115 Geräte** (31 Switch inkl. 8 UniFi, 80 AP, 4 FW).
+- **#31/#32 erledigt + LIVE:** lokaler Controller in `endpoint_location` integriert (echtes Mesh via
+  `uplink_type`, uplink_mac→Device-Match) → **82 APs, 79 verortet, echtes Mesh=1** (statt 23 Heuristik-
+  Fehlalarme). **Client-Detection** `GET /endpoints/clients` (90 Clients: wired Switch+Port, wireless AP).
+  **UniFi-PoE-Recovery** (`power-cycle`) im Stuck/Recovery-Flow (`/poe/stuck` + `/poe/recover` +
+  `recover_one` dispatchen CLI/UniFi) + Frontend (Clients-Tabelle). 247 Tests grün. **Deployed.**
+- **Offen:** Task #28 Topologie-Darstellung; UniFi-power-cycle noch nicht live gefeuert (0 Stuck aktuell).
+
+## S47 — PoE-Recovery + AP-Verortung (Ink. 1–4) (28.6.2026)
+
+Neue Funktion „hängende APs finden & Ports erholen" + AP↔Port-Karte. **Backend grün** (ruff/mypy 150
+Dateien/242 Tests). **LIVE auf Prod deployed** (28.6., Migrationen `c3d4e5f6a7b8`+`d4e5f6a7b8c9` =
+head, HTTPS 200). Live-Daten: 82 APs, 63 mit Port, 2 offline, 0 stuck aktuell. Mesh-Flag noch
+verrauscht: APs an UniFi-PoE-Switches haben kein CLI-LLDP → werden als „online ohne Wired-Port"
+markiert (echte Mesh-Unterscheidung bräuchte lokalen Controller, Task #27).
+
+- **Schicht 1 (Inventar/Topologie):** `services/endpoint_location.py` — UniFi-Cloud (AP, online/offline,
+  MAC) × persistiertes LLDP/MAC → sticky Tabelle `ap_location` (überlebt Offline → Port bleibt bekannt).
+  Mesh-Flags: 2 APs/Port bzw. online ohne Wired-Port. Live: **62/82 APs verortet**.
+- **PoE-Scan** `services/poe.py` — vendor-agnostisch via Profil-`poe_control` (+ Parser-Key). **Nur
+  Dell N2248PX (12×) haben PoE** (FS S5800 melden „doesn't support poe", OS10/Ruijie = DC). UniFi-PoE-
+  Switches (Cusano) bräuchten lokalen Controller — laut Alex tritt das Problem dort aber NICHT auf.
+  Stuck-Kriterium: (Fault/Searching) + Link DOWN + UniFi offline (gesunde Link-UP-Geräte unangetastet).
+- **Schicht 2 (Recovery)** — Port-Bounce `shutdown`/`no shutdown` (= Alex' disable/enable) via
+  `send_config`. `poe_event`-Tabelle (Audit + Rate-Limit: max 3/30min/Port). `services/poe_recover.py`
+  (Fleet collect+recover), Endpoints `GET /endpoints/aps|/poe/devices/{id}|/poe/stuck|/poe/events`,
+  `POST /poe/devices/{id}/recover|/poe/recover`. **ARQ-Worker** `workers/poe_worker.py`
+  (`scheduled_poe_recover_minutes`, Default 0=aus). **Frontend** „🔌 PoE/AP"-Seite.
+- **Live verifiziert:** GRO-SW-22 Gi1/0/4 Bounce-Pfad funktioniert; aktueller einziger `Fault` ist ein
+  gesundes Nicht-PoE-Gerät (Link up) → korrekt KEIN Stuck. Discovery fleet-weit gelaufen (24/24 ok).
+- **Migrationen:** `ap_location` (c3d4e5f6a7b8), `poe_event` (d4e5f6a7b8c9) — auf Dev angewandt, Prod offen.
+
+## S46 — PoE-Analyse + Cleanup (27.6.2026)
+
+- **DellTelnet-Credential entfernt** (Prod + Dev soft-deleted; alle dell_os6 hängen am `Dell`-SSH-Cred).
+- **TODO (offen, bewusst vertagt):** Telnet auf den Switches **deaktivieren** — erst NACH den anderen
+  Fixes (u.a. PoE), bis dahin bleibt Telnet als Fallback an.
+- **PoE-Analyse (Dell N2248PX):** `show power inline` über alle 12 Dell-PoE-Switches.
+  `Test-Fail` = i.d.R. Nicht-PoE-Gerät (Rauschen, kein Problem). Echtes Stör-Signal = **`Fault`**
+  (PD erkannt, Power verweigert/abgeschaltet → AP ohne Strom, kein Link, kein LLDP).
+  Momentaufnahme: genau **1 Fault** = GRO-SW-22 `Gi1/0/4` (kein LLDP-Nachbar). Phänomen ist
+  intermittierend → braucht periodische Erkennung + PoE-Bounce (`power inline never`→`auto`).
+
 ## S44 — Slovenien: Gateway-Remediation via Jump-Host (27.6.2026)
 
 - 2 weitere FS-Centec-Switches in Grosuplje gefunden (`10.121.10.24/.26`), die von der VM **nicht
