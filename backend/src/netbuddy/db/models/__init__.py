@@ -21,6 +21,7 @@ from netbuddy.db.models.site_subnet import SiteSubnet
 from netbuddy.db.models.unifi_host import UnifiHost
 from netbuddy.db.models.user import AuthSession, User, UserRole
 from netbuddy.db.models.validation import ValidationCheck
+from netbuddy.db.models.vlan import Vlan, VlanSubnet
 from netbuddy.db.models.vpn_tunnel import VpnTunnel
 
 __all__ = [
@@ -54,5 +55,7 @@ __all__ = [
     "User",
     "UserRole",
     "ValidationCheck",
+    "Vlan",
+    "VlanSubnet",
     "VpnTunnel",
 ]
