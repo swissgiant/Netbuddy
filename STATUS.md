@@ -2,7 +2,25 @@
 
 **Stand:** 24. Juni 2026, Phase 1+ — Discovery/Erkennung am echten Fleet feature-komplett; **S39: NetBuddy läuft LIVE auf der Prod-VM** (`bls-srv-netbuddy` / 10.120.20.101, 5/5 Container healthy, HTTPS via nginx, Migrationen auto, Worker aktiv). Cert-Automatisierung gegen die interne AD-CS gebaut (`tools/`+`docker/issue_cert.sh`). Roadmap Richtung VLAN-Write in `docs/gap-analysis.md`.
 
-Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `3b0eb06` (S52).
+Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `3b966ad` (S53).
+
+## S53 — Test-VLANs auf die Sulgen-Access-Switches ausgerollt (29.6.2026)
+
+- **#37 Sulgen Access-Layer KOMPLETT:** alle 15 Access-Switches unter dem Core haben VLAN 101–116 +
+  Uplink-Trunk; je Switch der zugehörige **Core-Downlink-Port** getrunkt (12 auf Core2 + 1 auf Core1).
+  Pilot pro Typ verifiziert (FW→temp-SVI-Ping 5/5), dann alle 13 restlichen ausgerollt (Backup je
+  Switch vorab in ConfigBackup), alle erreichbar, Stichprobe je Typ 0% loss. Gespeichert.
+- **Vendor-Write-Eigenheiten (wichtig für Spoke-Rollout):**
+  - **dell_os6:** SSH-Login landet im **User-Exec `>`** → erst `enable` (ohne Passwort!), dann
+    `configure`; VLAN-Range `vlan 101-116` ok; Uplink `switchport mode trunk` (native 1 bleibt);
+    Save `write memory` + `y`. ⚠️ `ScrapliTransport.send_config` macht KEIN enable → eigener
+    asyncssh-Pfad mit enable nötig.
+  - **fs_centec:** Login direkt enable `#`; `configure terminal` → `vlan database` → `vlan 101-116`;
+    Trunk `switchport mode trunk` + `switchport trunk allowed vlan add 101-116`; SVI default up;
+    Save `write` ([OK]).
+  - **Jeder Access-Switch braucht BEIDES:** Core-Downlink-Port trunken **und** Switch-seitig VLAN+Uplink.
+- **Offen:** Access-Switches an den Spoke-Standorten (Grosuplje/Cusano/USA) gleich ausrollen; #34
+  Port→VLAN-UI (Endgeräte-Ports per Klick einem Test-Netz zuweisen).
 
 ## S52 — Test-Netze Full-Mesh (direkte Spoke-Tunnel) (28.6.2026)
 
