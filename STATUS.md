@@ -2,7 +2,26 @@
 
 **Stand:** 24. Juni 2026, Phase 1+ — Discovery/Erkennung am echten Fleet feature-komplett; **S39: NetBuddy läuft LIVE auf der Prod-VM** (`bls-srv-netbuddy` / 10.120.20.101, 5/5 Container healthy, HTTPS via nginx, Migrationen auto, Worker aktiv). Cert-Automatisierung gegen die interne AD-CS gebaut (`tools/`+`docker/issue_cert.sh`). Roadmap Richtung VLAN-Write in `docs/gap-analysis.md`.
 
-Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `2ab0df6` (S49).
+Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `fc452af` (S50).
+
+## S50 — Test-Netze: vCenter-Integration + Sulgen-Fabric LIVE (28.6.2026)
+
+- **vCenter-Integration (pyVmomi):** `bls-srv-vcenter2.bls.local` (10.120.20.100), Login `msak@bls.local`
+  (read+write), `pyvmomi` als Backend-Dependency (Commit fc452af). Cluster-Discovery, Portgruppen-
+  Anlage, temp. VMkernel-Test — alles über NetBuddy-Backend.
+- **Sulgen-Core-Audit:** Core = **Dell-OS10-VLT-Paar** `BLS-SW-Core2`(.48/SW2, primary/root) + neu
+  onboarded `BLS-SW-Core1`(.49/SW1, secondary, S5248F-ON). VLT gesund (kein Mismatch). ESXi
+  **dual-homed** an beide Cores (hv1=Port 1/1/35, hv2=1/1/36); FortiGate-HA (FW1+FW2) **nur an Core2**
+  (1/1/1:1, 1/1/2:1). Access-Switches dahinter single-homed (1 Uplink, fast alle an Core2) — kein
+  Config-Fehler, Hardware-Limit (1×25G).
+- **Cleanup:** VLAN 90 (Leiche) von beiden Cores entfernt; Gäste-VLAN 99 (`BLS-GuestLAN`) komplett von
+  der FortiGate abgebaut (Policy+DHCP+Adressobjekt+Interface, 0 aktive Leases) — auf Wunsch.
+- **Test-Fabric Sulgen LIVE (Pilot verifiziert, 0% loss):** vCenter 16 Portgruppen `Testnetz01–16`
+  (VLAN 101–116) auf vSwitch0 (beide Hosts) → Cores VLAN 101–116 + Trunk `allowed 101-116` (ESXi+FW-
+  Ports, native VLAN 1 unberührt) → FortiGate 16 SVIs `10.220.101–116.1/24` + DHCP `.100–.200`.
+  Schema [[project_testnet_scheme]]: 10.22X = Prod-Oktett+100, GW .1, DHCP .100-200, fix .2-99.
+- **Offen:** andere Standorte (Grosuplje 10.221 / USA 10.222 / Cusano 10.223) gleich ausrollen
+  (Switches+FW; kein vCenter dort); #38 Test-/16 in VPN-Selektoren (cross-site); #34 Port→VLAN-UI.
 
 ## S49 — USA fixe IPs + ehrliche Topologie + VLAN-Verwaltung (28.6.2026)
 
