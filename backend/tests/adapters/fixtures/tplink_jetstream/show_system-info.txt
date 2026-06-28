@@ -1,0 +1,11 @@
+ System Description   - Omada 28-Port Gigabit Smart Switch with 24-Port PoE+
+ System Name          - SG2428P
+ System Location      - Hong Kong
+ Contact Information   - www.tp-link.com
+ Hardware Version     - SG2428P 5.20
+ Software Version     - 5.20.2 Build 20240115 Rel.72847
+ Bootloader Version   - TP-LINK  BOOTUTIL(v1.0.0)
+ Mac Address          - 3C-52-A1-CE-A1-CD
+ Serial Number        - Y238034000362
+ System Time          - 2026-06-29 00:12:18
+ Running Time         - 0 day - 0 hour - 7 min - 55 sec

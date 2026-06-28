@@ -9,6 +9,7 @@ from netbuddy.adapters.registry import (
     get_api_adapter_class,
 )
 from netbuddy.adapters.scrapli_transport import ScrapliTransport
+from netbuddy.adapters.tplink_transport import TplinkTransport
 from netbuddy.db.models import Credential, Device
 
 # Vendor-korrekte Auth-Header je API-Adapter: (Header-Name, Token-Präfix).
@@ -57,5 +58,11 @@ def connect(device: Device, credential: Credential) -> tuple[SwitchAdapter, Any]
         )
         return adapter, client
 
-    transport = ScrapliTransport(params_from_credential(device, credential))
+    params = params_from_credential(device, credential)
+    # TP-Link JetStream/Omada: eigener Transport (CR-Zeilenende + nicht abschaltbarer Pager).
+    transport: Any = (
+        TplinkTransport(params)
+        if device.adapter_id == "tplink_jetstream"
+        else ScrapliTransport(params)
+    )
     return build_adapter(device.adapter_id, transport), transport

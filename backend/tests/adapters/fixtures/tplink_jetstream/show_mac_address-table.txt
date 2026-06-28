@@ -1,0 +1,10 @@
+                    MAC Address Table                    
+------------------------------------------------------------  
+MAC                VLAN    Port     Type            Aging    
+---                ----    ----     ----            -----    
+00:09:0f:09:00:01  1       Gi1/0/1  dynamic         aging    
+24:5a:4c:91:54:b1  1       Gi1/0/1  dynamic         aging    
+58:38:79:70:13:e3  1       Gi1/0/10 dynamic         aging    
+74:78:27:d4:96:da  1       Gi1/0/13 dynamic         aging    
+
+Total MAC Addresses for this criterion: 4

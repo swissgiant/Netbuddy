@@ -1,0 +1,11 @@
+Value LOCAL_INTERFACE ((?:Gi|Te|Fo|Tw|Po)\S*)
+Value DEVICE_ID (\S+(?: \S+)*?)
+Value PORT_ID (\S+(?: \S+)*?)
+Value MGMT (\S+)
+Value SYSTEM_NAME (\S+(?: \S+)*?)
+
+Start
+  ^\s*Port\s+Device ID -> Next
+  ^\s*-+ -> Next
+  ^\s*${LOCAL_INTERFACE}\s{2,}${DEVICE_ID}\s{2,}${PORT_ID}\s{2,}${MGMT}\s{2,}\S.*?\s{2,}${SYSTEM_NAME}\s*$$ -> Record
+  ^\s*${LOCAL_INTERFACE}\s{2,}${DEVICE_ID}\s{2,}${PORT_ID}\s*$$ -> Record

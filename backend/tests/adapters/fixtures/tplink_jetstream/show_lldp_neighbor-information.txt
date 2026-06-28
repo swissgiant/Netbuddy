@@ -1,0 +1,5 @@
+ Port      Device ID               Port ID                 management address      Port Description              System Name                   
+ ----      ------------            ------------            ------------            --------------                --------------                
+ Gi1/0/1   34:60:F9:2F:8C:75       gigabitEthernet 1/0/24  10.122.40.11            gigabitEthernet 1/0/24        TL-SG2428P                    
+
+ Gi1/0/13  EWP-DVZPDB3             74:78:27:D4:96:DA                                                                                           

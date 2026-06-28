@@ -1,0 +1,8 @@
+ Port      Status      Speed     Duplex    FlowCtrl    Active-Medium   Description
+ ----      ------      -----     ------    --------    -------------   -----------
+ Gi1/0/1   LinkUp      1000M     Full      Disable     Copper          
+ Gi1/0/2   LinkDown    N/A       N/A       N/A         Copper          
+ Gi1/0/10  LinkUp      100M      Full      Disable     Copper          
+ Gi1/0/13  LinkUp      1000M     Full      Disable     Copper          
+ Gi1/0/25  LinkDown    N/A       N/A       N/A         Fiber           
+ Gi1/0/28  LinkDown    N/A       N/A       N/A         Fiber           

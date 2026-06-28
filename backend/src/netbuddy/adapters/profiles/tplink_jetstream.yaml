@@ -1,0 +1,65 @@
+# TP-Link JetStream / Omada (TL-SG2428P u.a.) — read-only.
+# LIVE validiert (TL-SG2428P, Omada FW 5.20.2): eigener Transport (CR-Zeilenende + Pager),
+# Enable-Mode. Befehle: system-info / interface status / lldp neighbor-information / mac.
+adapter_id: tplink_jetstream
+provenance: "TP-Link JetStream/Omada — live-validated (TL-SG2428P 5.20.2): sysinfo/interfaces/lldp/mac"
+
+backup_command: "show running-config"
+
+# Globaler LLDP-Schalter (im Config-Mode `lldp` an / `no lldp` aus). Status via "show lldp".
+lldp_control:
+  status_command: "show lldp"
+  enabled_marker: 'LLDP Status:\s+Enabled'
+  config_enter: ["configure"]
+  config_exit: ["end"]
+  enable_global: ["lldp"]
+  enable_interface: []
+  interface_enter: "interface {name}"
+  interface_exit: "exit"
+
+capabilities:
+  read_system_info:
+    command: "show system-info"
+    parser: "textfsm:tplink_jetstream_show_system-info.textfsm"
+    fields:
+      vendor: { const: tp-link }
+      model: model
+      os_version: os_version
+      serial_number: serial
+      device_type: { const: switch }
+
+  read_interfaces:
+    command: "show interface status"
+    parser: "textfsm:tplink_jetstream_show_interface_status.textfsm"
+    fields:
+      name: port
+      oper_status:
+        from: status
+        via:
+          - lookup:
+              table: { linkup: up, linkdown: down }
+              default: unknown
+      speed_mbps: { from: speed, via: [leading_int] }
+
+  read_lldp:
+    command: "show lldp neighbor-information"
+    parser: "textfsm:tplink_jetstream_show_lldp_neighbor-information.textfsm"
+    fields:
+      local_interface: local_interface
+      remote_chassis_id: device_id
+      remote_port_id: port_id
+      remote_system_name: { from: system_name, via: [strip_or_none] }
+      mgmt_address: { from: mgmt, via: [strip_or_none] }
+
+  read_mac_table:
+    command: "show mac address-table"
+    parser: "textfsm:tplink_jetstream_show_mac_address-table.textfsm"
+    drop_when_empty: [interface]
+    fields:
+      mac_address: mac
+      interface: { from: port, via: [strip_or_none] }
+      vlan_id: { from: vlan, via: [int_or_none] }
+      entry_type:
+        from: type
+        via:
+          - enum_value: { values_of: MacEntryType, default: dynamic }

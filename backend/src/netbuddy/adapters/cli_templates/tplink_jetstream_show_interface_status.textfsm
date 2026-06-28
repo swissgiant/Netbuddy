@@ -1,0 +1,8 @@
+Value PORT ((?:Gi|Te|Fo|Tw|Po)\S*)
+Value STATUS (LinkUp|LinkDown)
+Value SPEED (\S+)
+Value DUPLEX (\S+)
+Value MEDIUM (\S+)
+
+Start
+  ^\s*${PORT}\s+${STATUS}\s+${SPEED}\s+${DUPLEX}\s+\S+\s+${MEDIUM} -> Record

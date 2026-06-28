@@ -10,11 +10,12 @@ _SCRAPLI_PLATFORM = {
     "dell_os6": "generic",
     "fs_centec": "generic",
     "fs_ruijie": "generic",
+    "tplink_jetstream": "generic",  # eigener Transport (CR+Pager), Plattform nur fürs Param-Bauen
 }
 
 # Diese Adapter brauchen Privileged-Exec (`enable`), bevor Pager-Abschaltung/Reads sauber
 # laufen (Dell OS6: `terminal length 0` existiert nur im Enable-Mode, User-Exec paged).
-_ENABLE_REQUIRED = {"dell_os6"}
+_ENABLE_REQUIRED = {"dell_os6", "tplink_jetstream"}
 
 # Paging beim Öffnen abschalten — der GenericDriver kennt Dells/FS' Prompt nicht und würde
 # sonst bei langen Ausgaben am `--More--`-Pager hängen (ScrapliTimeout). Core-Treiber (Cisco)
