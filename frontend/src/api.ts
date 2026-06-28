@@ -395,3 +395,74 @@ export const toggleUnifiHost = (hostId: string, enabled: boolean) =>
   });
 export const runUnifiImport = () =>
   http<UnifiImportSummary>("/unifi/import", { method: "POST" });
+
+// --- PoE / AP-Verortung ---
+export interface ApLocationInfo {
+  ap_mac: string;
+  ap_name: string;
+  ap_model: string | null;
+  ap_ip: string | null;
+  status: string;
+  device_id: string | null;
+  device_hostname: string | null;
+  port: string | null;
+  source: string | null;
+  mesh: boolean;
+  mesh_reason: string | null;
+}
+export interface StuckCandidate {
+  device_id: string;
+  hostname: string;
+  port: string;
+  poe_status: string;
+  poe_state: string | null;
+  link_up: boolean | null;
+  ap_mac: string | null;
+  ap_name: string | null;
+  reason: string;
+}
+export interface RecoverResult {
+  device_id: string;
+  hostname: string;
+  port: string;
+  action: string;
+  status_before: string | null;
+  status_after: string | null;
+  ap_name: string | null;
+  detail: string;
+}
+export interface PoeEventRow {
+  device_id: string;
+  port: string;
+  ap_name: string | null;
+  action: string;
+  status_before: string | null;
+  status_after: string | null;
+  actor: string | null;
+  detail: string | null;
+  created_at: string;
+}
+export const fetchApLocations = (refresh = true) =>
+  http<ApLocationInfo[]>(`/endpoints/aps?refresh=${refresh}`);
+export const fetchStuck = (refresh = true) =>
+  http<StuckCandidate[]>(`/poe/stuck?refresh=${refresh}`);
+export const recoverAllStuck = () =>
+  http<RecoverResult[]>("/poe/recover", { method: "POST" });
+export const recoverPort = (deviceId: string, port: string) =>
+  http<RecoverResult>(`/poe/devices/${deviceId}/recover`, {
+    method: "POST",
+    body: JSON.stringify({ port }),
+  });
+export const fetchPoeEvents = () => http<PoeEventRow[]>("/poe/events");
+
+export interface ClientLocation {
+  mac: string;
+  hostname: string | null;
+  ip: string | null;
+  kind: string; // wired | wireless
+  via_device: string | null;
+  port: number | null;
+  site: string;
+  oui: string | null;
+}
+export const fetchClients = () => http<ClientLocation[]>("/endpoints/clients");

@@ -6,6 +6,7 @@ import { CredentialsView } from "./views/CredentialsView";
 import { DevicesView } from "./views/DevicesView";
 import { DiscoveryView } from "./views/DiscoveryView";
 import { LoginView } from "./views/LoginView";
+import { PoeView } from "./views/PoeView";
 import { SitesView } from "./views/SitesView";
 import { SsoView } from "./views/SsoView";
 import { TopologyView } from "./views/TopologyView";
@@ -16,6 +17,7 @@ type View =
   | "topology"
   | "devices"
   | "discovery"
+  | "poe"
   | "sites"
   | "credentials"
   | "unifi"
@@ -26,6 +28,7 @@ const NAV: { key: View; label: string; adminOnly?: boolean }[] = [
   { key: "topology", label: "🌐 Topologie" },
   { key: "devices", label: "🖥️ Geräte" },
   { key: "discovery", label: "🔍 Discovery" },
+  { key: "poe", label: "🔌 PoE/AP" },
   { key: "sites", label: "📍 Standorte" },
   { key: "credentials", label: "🔑 Credentials" },
   { key: "unifi", label: "📶 UniFi", adminOnly: true },
@@ -87,6 +90,7 @@ export default function App() {
         {view === "topology" && <TopologyView theme={theme} />}
         {view === "devices" && <DevicesView />}
         {view === "discovery" && <DiscoveryView />}
+        {view === "poe" && <PoeView />}
         {view === "sites" && <SitesView />}
         {view === "credentials" && <CredentialsView />}
         {view === "unifi" && <UnifiView />}
