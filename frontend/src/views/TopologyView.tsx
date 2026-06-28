@@ -2,10 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import type { AdapterInfo, LocateResult, Topology } from "../api";
 import { fetchAdapters, fetchTopology, resolveHosts, searchEndpoints } from "../api";
 import type { EndpointHighlight } from "../TopologyGraph";
-import { TopologyGraph } from "../TopologyGraph";
+import { clearSavedPositions, TopologyGraph } from "../TopologyGraph";
 
-const NODE_LAYERS = ["switch", "firewall", "router", "ap", "other"] as const;
-const EDGE_LAYERS = ["lldp", "vpn"] as const;
+const NODE_LAYERS = ["switch", "firewall", "router", "ap", "unknown", "other"] as const;
+const EDGE_LAYERS = ["lldp", "uplink", "vpn"] as const;
+const EDGE_LABEL: Record<string, string> = {
+  lldp: "LLDP (Backbone)",
+  uplink: "AP-/Switch-Uplinks",
+  vpn: "VPN-Tunnel (Site↔Site)",
+};
 
 export function TopologyView({ theme }: { theme: "dark" | "light" }) {
   const [topology, setTopology] = useState<Topology | null>(null);
@@ -22,6 +27,12 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
   const [hits, setHits] = useState<LocateResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [resolveMsg, setResolveMsg] = useState<string | null>(null);
+  const [layoutNonce, setLayoutNonce] = useState(0);
+
+  const tidyLayout = () => {
+    clearSavedPositions();
+    setLayoutNonce((n) => n + 1);
+  };
 
   const reload = () => {
     fetchTopology().then(setTopology).catch((e) => setError(String(e)));
@@ -103,7 +114,12 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
   return (
     <div className="topo">
       <aside className="controls">
-        <button className="ghost" onClick={reload}>↻ Neu laden</button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button className="ghost" onClick={reload}>↻ Neu laden</button>
+          <button className="ghost" onClick={tidyLayout} title="Knoten neu strukturiert anordnen">
+            🧹 Layout aufräumen
+          </button>
+        </div>
         {error && <p className="error">{error}</p>}
 
         <h3>Suche (Gerät / MAC / IP)</h3>
@@ -172,7 +188,7 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
         {EDGE_LAYERS.map((t) => (
           <label key={t} style={{ display: "block" }}>
             <input type="checkbox" checked={edgeLayers.has(t)} onChange={() => toggle(edgeLayers, setEdgeLayers, t)} />{" "}
-            {t === "vpn" ? "VPN-Tunnel (Site↔Site)" : "LLDP-Links"}
+            {EDGE_LABEL[t] ?? t}
           </label>
         ))}
 
@@ -217,6 +233,7 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
             edgeWidth={edgeWidth}
             edgeColor={edgeColor}
             endpoints={endpoints}
+            layoutNonce={layoutNonce}
           />
         ) : (
           <p style={{ padding: 16 }}>Lade Topologie…</p>

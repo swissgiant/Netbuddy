@@ -3,13 +3,13 @@
 export interface TopologyNode {
   id: string;
   label: string;
-  type: "site" | "switch" | "firewall" | "router" | "ap" | "other";
+  type: "site" | "switch" | "firewall" | "router" | "ap" | "unknown" | "other";
   parent: string | null;
 }
 export interface TopologyEdge {
   source: string;
   target: string;
-  type: "lldp" | "vpn";
+  type: "lldp" | "uplink" | "inferred" | "vpn";
   label?: string | null;
   up?: boolean | null;
 }

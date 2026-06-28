@@ -262,7 +262,59 @@ async def build_ap_locations(
                 row.located_at = now
 
     if persist:
+        if local_devices:
+            await _persist_switch_uplinks(session, local_devices, existing, now)
         await session.commit()
 
     infos.sort(key=lambda i: (i.status != "offline", i.ap_name))
     return infos
+
+
+async def _persist_switch_uplinks(
+    session: AsyncSession,
+    local_devices: list[UnifiDevice],
+    existing: dict[str, ApLocation],
+    now: datetime,
+) -> None:
+    """UniFi-Switch→Upstream-Switch-Uplinks (Backbone) als sticky Zeilen ablegen (port=None),
+    damit die Topologie an UniFi-Standorten Switch↔Core-Linien zeigt (kein CLI-LLDP dort).
+    """
+    usw = {_norm_mac(d.mac): (d.name, d.ip) for d in local_devices if d.type == "usw"}
+    sdevs = (
+        (
+            await session.execute(
+                select(Device).where(
+                    Device.device_type == DeviceType.SWITCH, Device.deleted_at.is_(None)
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    by_host = {(d.hostname or "").upper(): d for d in sdevs}
+    by_ip = {str(d.mgmt_ip): d for d in sdevs}
+
+    def resolve(name: str | None, ip: str | None) -> Device | None:
+        return by_host.get((name or "").upper()) or (by_ip.get(ip) if ip else None)
+
+    for d in local_devices:
+        if d.type != "usw" or not d.uplink_mac:
+            continue
+        up_name, up_ip = usw.get(_norm_mac(d.uplink_mac), (None, None))
+        upstream = resolve(up_name, up_ip)
+        selfdev = resolve(d.name, d.ip)
+        if upstream is None or selfdev is None or upstream.id == selfdev.id:
+            continue
+        mac = _norm_mac(d.mac)
+        row = existing.get(mac)
+        if row is None:
+            row = ApLocation(ap_mac=mac)
+            session.add(row)
+            existing[mac] = row
+        row.ap_name = d.name or selfdev.hostname
+        row.device_id = upstream.id
+        row.port = None
+        row.source = "unifi-switch"
+        row.status = "online"
+        row.synced_at = now
+        row.located_at = now
