@@ -2,7 +2,22 @@
 
 **Stand:** 24. Juni 2026, Phase 1+ — Discovery/Erkennung am echten Fleet feature-komplett; **S39: NetBuddy läuft LIVE auf der Prod-VM** (`bls-srv-netbuddy` / 10.120.20.101, 5/5 Container healthy, HTTPS via nginx, Migrationen auto, Worker aktiv). Cert-Automatisierung gegen die interne AD-CS gebaut (`tools/`+`docker/issue_cert.sh`). Roadmap Richtung VLAN-Write in `docs/gap-analysis.md`.
 
-Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `8fa27cc` (S51).
+Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `3b0eb06` (S52).
+
+## S52 — Test-Netze Full-Mesh (direkte Spoke-Tunnel) (28.6.2026)
+
+- **Korrektur zur Annahme „3 Spoke-Tunnel fehlen":** sie **existieren** und sind **up** —
+  `SLO-CU` (Gro↔Cu), `GRO-USA` (Gro↔US), `USA-CUS` (Cu↔US); GRO-USA/USA-CUS tragen schon Prod.
+  Also **keine neuen Tunnel gebaut** — nur (additiv) Test-Phase2 `Testnetze-<Remote>` + Route + In/Out-
+  Policies an die bestehenden Spoke-Tunnel gehängt (wie beim Hub).
+- **`auto-negotiate=enable`** auf allen Test-Phase2 → SAs kommen proaktiv hoch (kein erster-Paket-
+  Verlust). Alle 6 Spoke↔Spoke-Test-SAs **up** verifiziert (SA-up = beidseitig ausgehandelter Pfad;
+  FW-Ping auf Spokes ging nicht, admin-SSH dort dicht — REST-API funktioniert).
+- **Hub-Routing-Interim zurückgebaut:** Hub-Selektoren `/14`→`/16`, `/14`-Routen + `Testnetze-mesh`-
+  Policy entfernt → spoke↔spoke läuft direkt, Hub nur noch Sulgen↔Spoke.
+- **Ergebnis:** Test-Netze (10.220–223) **Full-Mesh** über alle 4 Standorte, jeder direkt zu jedem.
+- **Offen:** #37 Switches an Spoke-Standorten; #34 Port→VLAN-UI; (Hinweis: admin-SSH auf Grosuplje/
+  Cusano-FW prüfen/freischalten).
 
 ## S51 — #38 Test-Netze site-übergreifend (Hub-Spoke) LIVE (28.6.2026)
 
