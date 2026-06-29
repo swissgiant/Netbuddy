@@ -4,6 +4,21 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S58 — Bugfixes (UniFi-Ports, Geräteliste) + SLO-Rename + Filter (29.6.2026)
+
+- **Bug: UniFi-Switches zeigten 0 Ports** (Cloud-API liefert keine Interfaces). Fix:
+  `unifi_local.switch_port_interfaces` holt `port_table` vom lokalen Controller (Port-VLAN aus
+  `native_networkconf_id`), `discovery.persist_interface_snapshot` schreibt sie; Discover-Endpoint
+  routet `unifi(_cloud)`-Geräte dorthin. Verifiziert: BLS-SW-CU-01 = 52 Ports. Damit auch Port→VLAN
+  auf UniFi nutzbar.
+- **Bug: Geräteliste unvollständig** — Frontend holte mit Default-`limit=100`, bei 118 Geräten
+  fielen GRO-* + Sulgen-Cores + USA-TP-Links raus. Fix: `fetchDevices` → `?limit=500`.
+- **Grosuplje-Switches umbenannt** nach Konvention `BLS-SW-SLO-<letztes-IP-Oktett>` (GRO-CORE→
+  BLS-SW-SLO-30, GRO-SW-20..26 → BLS-SW-SLO-20..26), 7 Geräte.
+- **Geräteliste-Filter** (DevicesView): Buttons für Standort + Geräte-Typ (Switch/AP/…), Badge
+  zeigt gefiltert/gesamt.
+- `_unifi_local_target`-Helper (Site + UnifiLocal-Cred) für Discover- + Port-VLAN-Endpoint. 263 Tests grün.
+
 ## S57 — #34 Port→VLAN über alle Plattformen (29.6.2026)
 
 - **#34 gebaut + deployed (alle 6 Plattformen):** Access-Port per Klick einem der 16 Test-VLANs

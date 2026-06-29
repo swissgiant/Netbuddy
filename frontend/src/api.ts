@@ -181,7 +181,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 export const fetchTopology = () => http<Topology>("/topology");
 export const fetchAdapters = () => http<AdapterInfo[]>("/adapters");
 
-export const fetchDevices = () => http<Device[]>("/devices");
+export const fetchDevices = () => http<Device[]>("/devices?limit=500");
 export const createDevice = (body: DeviceCreate) =>
   http<Device>("/devices", { method: "POST", body: JSON.stringify(body) });
 export const deleteDevice = (id: string) => http<void>(`/devices/${id}`, { method: "DELETE" });

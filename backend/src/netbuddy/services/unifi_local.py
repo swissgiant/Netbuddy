@@ -17,7 +17,8 @@ from typing import Any
 import httpx
 from pydantic import BaseModel
 
-from netbuddy.db.models import Credential
+from netbuddy.adapters.dto import InterfaceData
+from netbuddy.db.models import Credential, OperStatus
 
 # NetBuddy-Site-Name -> lokale Controller-IP (UniFi OS Server). BLS-UniFi-Slowenia = Site Grosuplje.
 CONSOLES: dict[str, str] = {
@@ -519,6 +520,50 @@ async def assign_unifi_port_vlan(
         vlan_id=vlan_id,
         networkconf_id=net.id,
     )
+
+
+async def switch_port_interfaces(
+    credential: Credential,
+    site: str,
+    switch_ip: str,
+    *,
+    unifi_site: str = "default",
+    consoles: dict[str, str] = CONSOLES,
+    client_factory: ClientFactory = _default_client,
+) -> list[InterfaceData]:
+    """Ports eines UniFi-Switches (per Mgmt-IP) als Interface-DTOs — fürs Inventar.
+
+    Die Cloud-API liefert keine Ports; der lokale Controller schon (``port_table``). Das aktuelle
+    Port-VLAN wird aus ``native_networkconf_id`` → VLAN-ID aufgelöst (None = Default-Netz).
+    """
+    ip = consoles.get(site)
+    if ip is None:
+        raise ValueError(f"Keine UniFi-Konsole für Standort {site!r} bekannt")
+    async with UnifiConsole(
+        f"https://{ip}:{_PORT}",
+        credential.username or "",
+        credential.password or "",
+        client_factory=client_factory,
+    ) as con:
+        vlan_by_nc = {n.id: n.vlan for n in await con.networks(unifi_site)}
+        sw = await con.device_by_ip(switch_ip, unifi_site)
+        if sw is None:
+            return []
+        out: list[InterfaceData] = []
+        for p in sw.get("port_table") or []:
+            idx = p.get("port_idx")
+            if idx is None:
+                continue
+            nc = p.get("native_networkconf_id")
+            out.append(
+                InterfaceData(
+                    name=str(p.get("name") or f"Port {idx}"),
+                    if_index=int(idx),
+                    oper_status=OperStatus.UP if p.get("up") else OperStatus.DOWN,
+                    vlan_id=vlan_by_nc.get(nc) if nc else None,
+                )
+            )
+        return out
 
 
 async def fetch_all(

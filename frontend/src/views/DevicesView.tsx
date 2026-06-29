@@ -43,6 +43,8 @@ export function DevicesView() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [edit, setEdit] = useState<{ id: string; hostname: string; mgmt_ip: string } | null>(null);
+  const [siteFilter, setSiteFilter] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
   const reload = () => {
     fetchDevices().then(setDevices).catch((e) => setError(String(e)));
@@ -55,9 +57,16 @@ export function DevicesView() {
 
   const linksFor = (deviceId: string) => links.filter((l) => l.device_id === deviceId);
 
-  const { sorted: sortedDevices, sort, toggle } = useSort(devices, {
+  const filtered = devices.filter(
+    (d) =>
+      (siteFilter === null || d.site_id === siteFilter) &&
+      (typeFilter === null || d.device_type === typeFilter),
+  );
+  const { sorted: sortedDevices, sort, toggle } = useSort(filtered, {
     site: (d) => sites.find((s) => s.id === d.site_id)?.name ?? null,
   });
+  // Nur Typen anbieten, die im Inventar vorkommen (Switch/AP zuerst — die häufigsten).
+  const presentTypes = DEVICE_TYPES.filter((t) => devices.some((d) => d.device_type === t));
 
   const submit = async () => {
     setError(null);
@@ -136,8 +145,35 @@ export function DevicesView() {
 
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between" }}>
-          <h3 style={{ margin: 0 }}>Inventar <span className="badge">{devices.length}</span></h3>
+          <h3 style={{ margin: 0 }}>
+            Inventar <span className="badge">{filtered.length}/{devices.length}</span>
+          </h3>
           <button className="ghost" onClick={reload}>↻</button>
+        </div>
+
+        <div className="row" style={{ gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+          <span className="muted" style={{ fontSize: 12, alignSelf: "center" }}>Standort:</span>
+          <button className={siteFilter === null ? "" : "ghost"} onClick={() => setSiteFilter(null)}>
+            Alle
+          </button>
+          {sites.map((s) => (
+            <button key={s.id} className={siteFilter === s.id ? "" : "ghost"}
+              onClick={() => setSiteFilter(s.id)}>
+              {s.name}
+            </button>
+          ))}
+        </div>
+        <div className="row" style={{ gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+          <span className="muted" style={{ fontSize: 12, alignSelf: "center" }}>Typ:</span>
+          <button className={typeFilter === null ? "" : "ghost"} onClick={() => setTypeFilter(null)}>
+            Alle
+          </button>
+          {presentTypes.map((t) => (
+            <button key={t} className={typeFilter === t ? "" : "ghost"}
+              onClick={() => setTypeFilter(t)}>
+              {t}
+            </button>
+          ))}
         </div>
         <table>
           <thead>

@@ -62,6 +62,39 @@ def _apply_interface(iface: Interface, data: InterfaceData, now: datetime) -> No
     iface.last_polled = now
 
 
+async def persist_interface_snapshot(
+    session: AsyncSession,
+    device: Device,
+    interfaces: list[InterfaceData],
+    *,
+    triggered_by: str = "manual",
+) -> DiscoveryRun:
+    """Schreibt eine fertige Interface-Liste (z.B. vom UniFi-Controller) ins Inventar + Run.
+
+    Für Geräte, deren Adapter keine Interfaces liefert (UniFi-Cloud), aber der lokale Controller
+    schon. Upsert über ``(device_id, name)`` wie bei :func:`run_discovery`.
+    """
+    now = datetime.now(UTC)
+    run = DiscoveryRun(
+        triggered_by=triggered_by,
+        seed_devices=[str(device.id)],
+        status=DiscoveryStatus.RUNNING,
+    )
+    session.add(run)
+    await session.flush()
+    cache = await _interface_cache(session, device.id)
+    for data in interfaces:
+        iface = await _get_or_create_interface(session, device.id, data.name, cache)
+        _apply_interface(iface, data, now)
+    device.last_seen = now
+    run.status = DiscoveryStatus.SUCCESS
+    run.errors = []
+    run.devices_found = 1
+    run.finished_at = now
+    await session.flush()
+    return run
+
+
 async def run_discovery(
     session: AsyncSession,
     device: Device,

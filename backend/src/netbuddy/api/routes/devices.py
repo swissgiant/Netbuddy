@@ -41,14 +41,14 @@ from netbuddy.db.models import (
 )
 from netbuddy.services.audit import audit
 from netbuddy.services.backup import BackupResult, backup_device, diff_latest
-from netbuddy.services.discovery import run_discovery
+from netbuddy.services.discovery import persist_interface_snapshot, run_discovery
 from netbuddy.services.hosts import normalize_mac
 from netbuddy.services.lldp_control import LldpEnableResult, enable_lldp, read_lldp_enabled
 from netbuddy.services.onboarding import ProfileDraft, suggest_profile
 from netbuddy.services.oui import vendor_for_mac
 from netbuddy.services.port_vlan import PortVlanResult, assign_port_vlan
 from netbuddy.services.sites_net import site_for_ip
-from netbuddy.services.unifi_local import assign_unifi_port_vlan
+from netbuddy.services.unifi_local import assign_unifi_port_vlan, switch_port_interfaces
 from netbuddy.services.validation import DeviceValidationReport, validate_adapter
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -315,6 +315,32 @@ async def _device_credential(device: Device, session: SessionDep) -> Credential 
     return creds[0]
 
 
+async def _unifi_local_target(device: Device, session: SessionDep) -> tuple[str, Credential]:
+    """Standort-Name + `UnifiLocal`-Credential für einen UniFi-Switch (für den Controller-Pfad)."""
+    site = await session.get(Site, device.site_id) if device.site_id else None
+    if site is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Gerät hat keinen Standort — für den UniFi-Controller nötig",
+        )
+    local = (
+        (
+            await session.execute(
+                select(Credential).where(
+                    Credential.name == "UnifiLocal", Credential.deleted_at.is_(None)
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if local is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Kein UnifiLocal-Credential"
+        )
+    return site.name, local
+
+
 @router.post("/{device_id}/validate", response_model=DeviceValidationReport)
 async def validate_device_endpoint(
     device_id: uuid.UUID,
@@ -416,6 +442,18 @@ async def discover_device_endpoint(
 ) -> DiscoveryRun:
     """Liest read-only live aus und schreibt das Inventar (Interfaces/LLDP/MAC) in die DB."""
     device = await get_device(device_id, session)
+
+    # UniFi-Switches: die Cloud-API liefert keine Ports → Ports aus dem lokalen Controller holen.
+    if device.adapter_id in ("unifi", "unifi_cloud"):
+        site_name, local = await _unifi_local_target(device, session)
+        try:
+            ifaces = await switch_port_interfaces(local, site_name, str(device.mgmt_ip))
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        except (TimeoutError, OSError) as exc:
+            raise _unreachable(device, exc) from exc
+        return await persist_interface_snapshot(session, device, ifaces, triggered_by="api")
+
     credential = await _device_credential(device, session)
     if credential is None:
         raise HTTPException(
@@ -744,27 +782,7 @@ async def assign_port_vlan_endpoint(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Port-VLAN-Zuweisung für {device.adapter_id!r} nicht unterstützt",
             )
-        site = await session.get(Site, device.site_id) if device.site_id else None
-        if site is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Gerät hat keinen Standort — für den UniFi-Controller nötig",
-            )
-        local = (
-            (
-                await session.execute(
-                    select(Credential).where(
-                        Credential.name == "UnifiLocal", Credential.deleted_at.is_(None)
-                    )
-                )
-            )
-            .scalars()
-            .first()
-        )
-        if local is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Kein UnifiLocal-Credential"
-            )
+        site_name, local = await _unifi_local_target(device, session)
         port_idx = _port_index(body.interface)
         if port_idx is None:
             raise HTTPException(
@@ -773,7 +791,7 @@ async def assign_port_vlan_endpoint(
             )
         try:
             await assign_unifi_port_vlan(
-                local, site.name, str(device.mgmt_ip), port_idx, body.vlan_id
+                local, site_name, str(device.mgmt_ip), port_idx, body.vlan_id
             )
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
