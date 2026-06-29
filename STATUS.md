@@ -2,7 +2,23 @@
 
 **Stand:** 24. Juni 2026, Phase 1+ — Discovery/Erkennung am echten Fleet feature-komplett; **S39: NetBuddy läuft LIVE auf der Prod-VM** (`bls-srv-netbuddy` / 10.120.20.101, 5/5 Container healthy, HTTPS via nginx, Migrationen auto, Worker aktiv). Cert-Automatisierung gegen die interne AD-CS gebaut (`tools/`+`docker/issue_cert.sh`). Roadmap Richtung VLAN-Write in `docs/gap-analysis.md`.
 
-Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `3b966ad` (S53).
+Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
+
+## S54 — Test-VLANs auf Grosuplje-Switches (29.6.2026)
+
+- **Spoke-Rollout-Entscheidung:** erst CLI-Sites (USA+Gro), Cusano/UniFi (5 controller-managed Switches)
+  separat später. USA = TP-Link, blockiert (TplinkTransport liest gepagten Config nicht → kein echtes
+  Backup; user macht ggf. Web-UI-Backup).
+- **Grosuplje fast komplett:** Core **GRO-CORE (fs_ruijie, neuer Typ, Pilot bestätigt)** VLAN 101–116 +
+  alle Access-Port-Trunks; Access **GRO-SW-20/21/22/25 (dell) + GRO-SW-24 (fs_centec)** VLAN+Uplink-
+  Trunk; je Backup vorab, alle gespeichert; verifiziert FW-Ping (GRO-SW-22/24 0% loss, dein FW-SSH).
+  Topologie: FW-HA (BLS-SLO2/SL01) hängt an GRO-SW-20, dieser uplinkt zum Core.
+- **fs_ruijie-Syntax:** Login direkt `#`, `configure terminal`/`vlan range 101-116`, Trunk
+  `switchport mode trunk`+`switchport trunk allowed vlan add 101-116`, Save `write`.
+- **OFFEN: GRO-SW-26 (Rack H, fs_centec)** — Config bereit (VLAN+eth-0-54-Trunk+LLDP an, gespeichert),
+  aber Upstream-Port remote nicht ermittelbar (kein LLDP vom Gegenüber, Ruijie-Core-MAC-Tabelle
+  unleserlich, Core 0/37/0/39 negativ). User nach physischer Verkabelung von Rack H gefragt.
+- **OFFEN:** USA (TP-Link, Transport-Fix/Backup), Cusano (UniFi-Controller), #34 Port→VLAN-UI.
 
 ## S53 — Test-VLANs auf die Sulgen-Access-Switches ausgerollt (29.6.2026)
 
