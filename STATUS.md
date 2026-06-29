@@ -4,6 +4,21 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S60 — Topologie-FW-Kanten + ARP-grün (29.6.2026)
+
+- **FW↔Switch-Kanten fehlten bei Gro+Cusano** (nur USA/Sulgen). Ursachen + Fix:
+  - **Cusano**: FortiGate-91G sieht `BLS-SW-Cu-Core1` per LLDP, aber die FW war seit dem
+    LLDP-Aktivieren nicht neu discovert → LLDP-Zeilen fehlten. Fix = Re-Discovery der FortiGates.
+  - **Grosuplje**: BLS-SW-SLO-20 (Access, anderer Raum) sieht die FW als `BLS-SLO2.bls.local`,
+    Inventar führt aber `BLS-SLO2` → exakter Hostname-Match scheiterte. Fix: Topologie matcht
+    LLDP-Namen jetzt auch über den **Kurznamen** (vor dem ersten Punkt), beidseitig.
+  - Ergebnis: alle 4 Sites haben die FW↔Switch-Kante (Sulgen Core2, USA SW-US-11, Cusano Cu-Core1,
+    Gro SLO-20).
+- **ARP `empty` = grün**: Adapter-Status wertet `empty` jetzt als validiert (Befehl lief, Gerät hat
+  nur keine Einträge — z.B. ARP auf L2-Switch). Lila bleibt echten Fehlern vorbehalten.
+- **OFFEN (nächster Schritt):** `unifi_cloud` + `unifi`-API-Adapter durch einen einzigen
+  `unifi_local`-Adapter ersetzen (User-Wunsch).
+
 ## S59 — Validierungs-Cross-Check alle Gerätetypen + tplink-Transport-Fix (29.6.2026)
 
 - **Validierungs-Matrix über alle Adapter** (je 1 Repräsentant, persistiert → Adapter-Status):

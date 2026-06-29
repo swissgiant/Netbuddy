@@ -71,6 +71,10 @@ async def get_topology(session: SessionDep) -> Topology:
             )
         )
         by_hostname[device.hostname] = device
+        # Auch unter dem Kurznamen (vor dem ersten Punkt) ablegen: LLDP meldet oft den FQDN
+        # (z.B. "BLS-SLO2.bls.local"), das Inventar führt aber "BLS-SLO2" — sonst kein Match.
+        short = device.hostname.split(".")[0]
+        by_hostname.setdefault(short, device)
 
     edges: list[TopologyEdge] = []
     devices_by_id = {device.id: device for device in devices}
@@ -121,7 +125,11 @@ async def get_topology(session: SessionDep) -> Topology:
         local = devices_by_id.get(n.local_device_id)
         if local is None or is_ap(local.id):
             continue
-        remote = by_hostname.get(n.remote_system_name) if n.remote_system_name else None
+        remote = None
+        if n.remote_system_name:
+            remote = by_hostname.get(n.remote_system_name) or by_hostname.get(
+                n.remote_system_name.split(".")[0]
+            )
         if remote is None and n.remote_mgmt_address:
             remote = ip2dev.get(str(n.remote_mgmt_address))
         if remote is not None:

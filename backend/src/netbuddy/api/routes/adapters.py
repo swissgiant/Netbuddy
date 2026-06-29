@@ -46,7 +46,9 @@ async def list_adapters(session: SessionDep) -> list[AdapterInfo]:
             cap_infos.append(
                 CapabilityStatusInfo(
                     capability=capability,
-                    validated=any(r.status == "ok" for r in rows),
+                    # `empty` zählt als validiert: Befehl lief sauber, Gerät hat nur keine
+                    # Einträge (z.B. ARP auf L2-Switch) — technisch grün.
+                    validated=any(r.status in ("ok", "empty") for r in rows),
                     last_status=latest.status if latest else None,
                     last_checked_at=latest.checked_at if latest else None,
                     devices_checked=len(rows),
