@@ -136,8 +136,10 @@ async def get_topology(session: SessionDep) -> Topology:
             if not is_ap(remote.id):
                 add_edge(local.id, remote.id, "lldp")
             continue
+        # Firewalls NICHT als Hub-Reporter: ihre unaufgelösten Nachbarn sind WAN/extern
+        # (Aruba/Trzin/…), nicht der lokale Core → sonst falsche FW↔Core-Kante (Gro).
         key = (n.remote_chassis_id or n.remote_system_name or "").lower()
-        if key and local.site_id is not None:
+        if key and local.site_id is not None and local.device_type.value != "firewall":
             hub_reporters[(local.site_id, key)].add(local.id)
     for (sid, _key), reporters in hub_reporters.items():
         core = site_core.get(sid)
