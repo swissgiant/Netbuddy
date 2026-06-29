@@ -7,6 +7,7 @@ from netbuddy.adapters.capabilities import Capability
 from netbuddy.adapters.connection import params_from_credential
 from netbuddy.adapters.registry import build_adapter
 from netbuddy.adapters.scrapli_transport import ScrapliTransport
+from netbuddy.adapters.tplink_transport import TplinkTransport
 from netbuddy.adapters.transport import RecordingTransport
 from netbuddy.db.models import Credential, Device
 
@@ -109,7 +110,13 @@ async def validate_device(
     Baut den Adapter über einen `RecordingTransport`, damit der rohe CLI-Output (als
     Referenz-Capture) neben dem Report verfügbar ist. ⚠️ echter Geräte-Zugriff.
     """
-    transport = ScrapliTransport(params_from_credential(device, credential))
+    params = params_from_credential(device, credential)
+    # Transport wie in der Factory wählen: TP-Link braucht den eigenen (CR/Pager), sonst Scrapli.
+    transport = (
+        TplinkTransport(params)
+        if device.adapter_id == "tplink_jetstream"
+        else ScrapliTransport(params)
+    )
     recorder = RecordingTransport(transport)
     adapter = build_adapter(device.adapter_id, recorder)
     async with transport:

@@ -4,6 +4,19 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S59 — Validierungs-Cross-Check alle Gerätetypen + tplink-Transport-Fix (29.6.2026)
+
+- **Validierungs-Matrix über alle Adapter** (je 1 Repräsentant, persistiert → Adapter-Status):
+  dell_os10/os6, fortigate = alle Capabilities `ok`; fs_centec/ruijie = ok außer `arp:empty`
+  (am Gerät verifiziert: `show ip arp` liefert nur Header, L2-Switch hat real 0 ARP-Einträge → echt,
+  kein Defekt); unifi_cloud = system_info ok.
+- **#44 gefixt — tplink-Read-Pfad:** Ursache war `validate_device`, das **hartkodiert ScrapliTransport**
+  baute statt (wie die Factory) `TplinkTransport` für `tplink_jetstream`. Fix: Transport-Wahl analog
+  Factory. Beide TP-Links validieren jetzt sauber (interfaces:28, lldp, mac:22, system_info).
+- **UniFi cloud + lokal:** Cloud (`unifi_cloud`) system_info ok; lokaler Pfad (`unifi_local`,
+  Cookie-Login) liefert Switches/APs/Clients + Ports (52/Switch) — produktiv genutzt (Ports/PoE/VLAN).
+  Der separate `unifi`-API-Adapter ist unbenutzt (0 Geräte); lokaler Zugriff läuft über `unifi_local`.
+
 ## S58 — Bugfixes (UniFi-Ports, Geräteliste) + SLO-Rename + Filter (29.6.2026)
 
 - **Bug: UniFi-Switches zeigten 0 Ports** (Cloud-API liefert keine Interfaces). Fix:
