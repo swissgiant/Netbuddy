@@ -216,6 +216,18 @@ export interface LldpEnableResult {
 export const enableLldp = (id: string) =>
   http<LldpEnableResult>(`/devices/${id}/lldp/enable`, { method: "POST" });
 
+export interface PortVlanResult {
+  interface: string;
+  vlan_id: number;
+  backed_up: boolean;
+  verified: boolean | null;
+}
+export const assignPortVlan = (id: string, iface: string, vlanId: number) =>
+  http<PortVlanResult>(`/devices/${id}/interfaces/port-vlan`, {
+    method: "POST",
+    body: JSON.stringify({ interface: iface, vlan_id: vlanId }),
+  });
+
 export const fetchCredentials = () => http<Credential[]>("/credentials");
 export const createCredential = (body: CredentialCreate) =>
   http<Credential>("/credentials", { method: "POST", body: JSON.stringify(body) });

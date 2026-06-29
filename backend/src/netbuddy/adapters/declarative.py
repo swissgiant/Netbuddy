@@ -34,6 +34,8 @@ class DeclarativeAdapter:
         caps = set(self._profile.capabilities)
         if self._profile.backup_command:
             caps.add(Capability.READ_CONFIG)
+        if self._profile.port_vlan_control is not None:
+            caps.add(Capability.CONFIGURE_PORT_VLAN)
         return frozenset(caps)
 
     async def get_config(self) -> str:

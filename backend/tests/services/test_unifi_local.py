@@ -238,6 +238,68 @@ async def test_provision_dry_run_writes_nothing() -> None:
     assert store == []
 
 
+def _port_factory(rec: list[httpx.Request]) -> unifi_local.ClientFactory:
+    """Fake-Controller: networkconf (VLAN 101) + ein Switch mit bestehendem Port-Override."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        rec.append(request)
+        p = request.url.path
+        if p == "/api/auth/login":
+            return httpx.Response(200, headers={"X-CSRF-Token": "csrf123"}, json={})
+        if p.endswith("/rest/networkconf"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {"_id": "net101", "name": "Testnetz01", "vlan_enabled": True, "vlan": 101}
+                    ]
+                },
+            )
+        if p.endswith("/stat/device"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "_id": "sw1",
+                            "mac": "aa:bb:cc:00:00:01",
+                            "ip": "10.123.40.3",
+                            "port_overrides": [{"port_idx": 1, "poe_mode": "auto"}],
+                        }
+                    ]
+                },
+            )
+        if "/rest/device/" in p and request.method == "PUT":
+            return httpx.Response(200, json={"data": [{}]})
+        return httpx.Response(404)
+
+    def make(base_url: str) -> httpx.AsyncClient:
+        return httpx.AsyncClient(base_url=base_url, transport=httpx.MockTransport(handler))
+
+    return make
+
+
+async def test_assign_unifi_port_vlan_sets_native_override() -> None:
+    rec: list[httpx.Request] = []
+    cred = Credential(name="UnifiLocal", username="netbuddy", password="pw")
+    res = await unifi_local.assign_unifi_port_vlan(
+        cred,
+        "Cusano",
+        "10.123.40.3",
+        5,
+        101,
+        consoles={"Cusano": "10.123.12.253"},
+        client_factory=_port_factory(rec),
+    )
+    assert res.networkconf_id == "net101" and res.port_idx == 5
+    put = next(r for r in rec if r.method == "PUT" and "/rest/device/sw1" in r.url.path)
+    overrides = json.loads(put.content)["port_overrides"]
+    target = next(o for o in overrides if o["port_idx"] == 5)
+    assert target["native_networkconf_id"] == "net101" and target["forward"] == "native"
+    # bestehender Override (Port 1, PoE) bleibt erhalten
+    assert any(o["port_idx"] == 1 and o.get("poe_mode") == "auto" for o in overrides)
+
+
 async def test_fetch_all_skips_unreachable() -> None:
     def make(base_url: str) -> httpx.AsyncClient:
         def handler(request: httpx.Request) -> httpx.Response:

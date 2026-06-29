@@ -6,6 +6,12 @@ provenance: "Dell OS10 — live-validated (S5248F-ON 10.5.2.6): sysinfo/interfac
 
 backup_command: "show running-configuration"
 
+# Port→VLAN (Access): OS10-Standard-Syntax.
+port_vlan_control:
+  config_enter: ["configure terminal"]
+  config_exit: ["end"]
+  set_access: ["switchport mode access", "switchport access vlan {vlan}"]
+
 # OS10: LLDP global per Default aktiv; globaler Schalter `lldp enable`. `show lldp timers`
 # antwortet nur, wenn LLDP läuft → als Status-Marker genutzt.
 lldp_control:

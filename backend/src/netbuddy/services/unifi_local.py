@@ -254,6 +254,45 @@ class UnifiConsole:
         """⚠️ Schreibpfad: ein Network/VLAN löschen (Rollback eines Test-VLANs)."""
         await self._write("DELETE", f"/proxy/network/api/s/{site}/rest/networkconf/{network_id}")
 
+    async def device_by_ip(self, ip: str, site: str = "default") -> dict[str, Any] | None:
+        """Liefert das rohe Device-Objekt (inkl. ``_id``/``port_overrides``) per Mgmt-IP."""
+        for dev in await self.devices(site):
+            if str(dev.get("ip")) == ip:
+                return dev
+        return None
+
+    async def set_port_access_vlan(
+        self, switch_mac: str, port_idx: int, networkconf_id: str, site: str = "default"
+    ) -> None:
+        """⚠️ Schreibpfad: einen Switch-Port als Access-Port auf ein VLAN-Network legen.
+
+        Setzt in ``port_overrides`` des Switches ``native_networkconf_id`` (= das VLAN) +
+        ``forward: native`` für genau diesen Port; bestehende Overrides anderer Ports bleiben,
+        und sonstige Einstellungen des Ports (z.B. PoE) werden gemerged statt überschrieben.
+        """
+        devices = await self.devices(site)
+        dev = next(
+            (d for d in devices if str(d.get("mac", "")).lower() == switch_mac.lower()), None
+        )
+        if dev is None:
+            raise ValueError(f"UniFi-Switch {switch_mac!r} nicht auf dem Controller gefunden")
+        dev_id = str(dev.get("_id") or "")
+        existing: dict[str, Any] = next(
+            (o for o in (dev.get("port_overrides") or []) if o.get("port_idx") == port_idx), {}
+        )
+        others = [o for o in (dev.get("port_overrides") or []) if o.get("port_idx") != port_idx]
+        target = {
+            **existing,
+            "port_idx": port_idx,
+            "native_networkconf_id": networkconf_id,
+            "forward": "native",
+        }
+        await self._write(
+            "PUT",
+            f"/proxy/network/api/s/{site}/rest/device/{dev_id}",
+            {"port_overrides": [*others, target]},
+        )
+
 
 async def fetch_console(
     site: str,
@@ -426,6 +465,60 @@ async def provision_vlan_only_networks(
             report.created.append(vlan)
         report.networks = existing if dry_run else await con.networks(unifi_site)
     return report
+
+
+class UnifiPortVlanResult(BaseModel):
+    """Ergebnis einer UniFi-Port→VLAN-Zuweisung."""
+
+    site: str
+    switch_ip: str
+    port_idx: int
+    vlan_id: int
+    networkconf_id: str
+
+
+async def assign_unifi_port_vlan(
+    credential: Credential,
+    site: str,
+    switch_ip: str,
+    port_idx: int,
+    vlan_id: int,
+    *,
+    unifi_site: str = "default",
+    consoles: dict[str, str] = CONSOLES,
+    client_factory: ClientFactory = _default_client,
+) -> UnifiPortVlanResult:
+    """⚠️ Schreibpfad: einen UniFi-Switch-Port (per Mgmt-IP) einem VLAN als Access zuweisen.
+
+    Das VLAN muss als Network auf dem Controller existieren (siehe
+    :func:`provision_vlan_only_networks`). Setzt den Port-Override auf dessen ``networkconf_id``.
+    """
+    ip = consoles.get(site)
+    if ip is None:
+        raise ValueError(f"Keine UniFi-Konsole für Standort {site!r} bekannt")
+    async with UnifiConsole(
+        f"https://{ip}:{_PORT}",
+        credential.username or "",
+        credential.password or "",
+        client_factory=client_factory,
+    ) as con:
+        net = next(
+            (n for n in await con.networks(unifi_site) if n.vlan == vlan_id and n.vlan_enabled),
+            None,
+        )
+        if net is None:
+            raise ValueError(f"VLAN {vlan_id} ist auf dem Controller {site!r} nicht angelegt")
+        sw = await con.device_by_ip(switch_ip, unifi_site)
+        if sw is None:
+            raise ValueError(f"UniFi-Switch {switch_ip} nicht auf dem Controller {site!r} gefunden")
+        await con.set_port_access_vlan(str(sw.get("mac")), port_idx, net.id, unifi_site)
+    return UnifiPortVlanResult(
+        site=site,
+        switch_ip=switch_ip,
+        port_idx=port_idx,
+        vlan_id=vlan_id,
+        networkconf_id=net.id,
+    )
 
 
 async def fetch_all(

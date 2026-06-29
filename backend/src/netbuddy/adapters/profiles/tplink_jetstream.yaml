@@ -6,6 +6,12 @@ provenance: "TP-Link JetStream/Omada — live-validated (TL-SG2428P 5.20.2): sys
 
 backup_command: "show running-config"
 
+# Port→VLAN (Access): JetStream general-Modell — VLAN untagged + PVID setzen.
+port_vlan_control:
+  config_enter: ["configure"]
+  config_exit: ["end"]
+  set_access: ["switchport general allowed vlan {vlan} untagged", "switchport pvid {vlan}"]
+
 # Globaler LLDP-Schalter (im Config-Mode `lldp` an / `no lldp` aus). Status via "show lldp".
 lldp_control:
   status_command: "show lldp"

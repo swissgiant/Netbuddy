@@ -6,6 +6,12 @@ provenance: "Dell OS6 — live-validated via telnet (N2248PX-ON 6.6.3.15): sysin
 
 backup_command: "show running-config"
 
+# Port→VLAN (Access): OS6 landet im User-Exec `>` → `enable` (ohne PW) vor `configure`.
+port_vlan_control:
+  config_enter: ["enable", "configure"]
+  config_exit: ["end"]
+  set_access: ["switchport mode access", "switchport access vlan {vlan}"]
+
 # Dell N-Series: LLDP ist global per Default aktiv (kein globaler An/Aus-Schalter wie Cisco);
 # steuerbar wäre nur per Port (lldp transmit/receive). Marker erkennt den globalen LLDP-Block.
 lldp_control:

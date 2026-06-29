@@ -1,3 +1,4 @@
+import re
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
@@ -33,7 +34,9 @@ from netbuddy.db.models import (
     MacAddressEntry,
     MacEntryType,
     OperStatus,
+    Site,
     ValidationCheck,
+    Vlan,
     VpnTunnel,
 )
 from netbuddy.services.audit import audit
@@ -43,7 +46,9 @@ from netbuddy.services.hosts import normalize_mac
 from netbuddy.services.lldp_control import LldpEnableResult, enable_lldp, read_lldp_enabled
 from netbuddy.services.onboarding import ProfileDraft, suggest_profile
 from netbuddy.services.oui import vendor_for_mac
+from netbuddy.services.port_vlan import PortVlanResult, assign_port_vlan
 from netbuddy.services.sites_net import site_for_ip
+from netbuddy.services.unifi_local import assign_unifi_port_vlan
 from netbuddy.services.validation import DeviceValidationReport, validate_adapter
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -691,6 +696,127 @@ async def lldp_enable_endpoint(
         "device.lldp_enable",
         device.hostname,
         {"interfaces": result.interfaces_configured, "enabled_after": result.enabled_after},
+    )
+    return result
+
+
+# --- Port→VLAN: Access-Port einem der zentralen VLANs zuweisen (Feature #34) -------------------
+
+
+def _port_index(interface: str) -> int | None:
+    """UniFi braucht eine Port-Nummer — letzte Zahl im Interface-Namen (z.B. „Port 5" → 5)."""
+    matches = re.findall(r"\d+", interface)
+    return int(matches[-1]) if matches else None
+
+
+class PortVlanRequest(BaseModel):
+    interface: str  # physischer Portname, wie ihn der Adapter meldet
+    vlan_id: int
+
+
+@router.post("/{device_id}/interfaces/port-vlan", response_model=PortVlanResult)
+async def assign_port_vlan_endpoint(
+    device_id: uuid.UUID,
+    body: PortVlanRequest,
+    session: SessionDep,
+    connection: LiveConnectionDep,
+    user: CurrentUserDep,
+) -> PortVlanResult:
+    """Weist einen Access-Port einem VLAN zu. ⚠️ Schreibzugriff (CLI: Backup + Verify).
+
+    CLI-Vendor: über `port_vlan_control` des Profils. UniFi (API): über den lokalen Controller
+    (Port-Override). Das VLAN muss zentral definiert sein.
+    """
+    device = await get_device(device_id, session)
+    vlan = (
+        (await session.execute(select(Vlan).where(Vlan.vlan_id == body.vlan_id))).scalars().first()
+    )
+    if vlan is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"VLAN {body.vlan_id} ist nicht definiert",
+        )
+
+    # UniFi (API-Adapter) → lokaler Controller-Pfad (Port-Override), nicht CLI.
+    if adapter_kind(device.adapter_id) == "api":
+        if device.adapter_id not in ("unifi", "unifi_cloud"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Port-VLAN-Zuweisung für {device.adapter_id!r} nicht unterstützt",
+            )
+        site = await session.get(Site, device.site_id) if device.site_id else None
+        if site is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Gerät hat keinen Standort — für den UniFi-Controller nötig",
+            )
+        local = (
+            (
+                await session.execute(
+                    select(Credential).where(
+                        Credential.name == "UnifiLocal", Credential.deleted_at.is_(None)
+                    )
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if local is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Kein UnifiLocal-Credential"
+            )
+        port_idx = _port_index(body.interface)
+        if port_idx is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Portnummer aus {body.interface!r} nicht ableitbar",
+            )
+        try:
+            await assign_unifi_port_vlan(
+                local, site.name, str(device.mgmt_ip), port_idx, body.vlan_id
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        await audit(
+            session,
+            user,
+            "device.port_vlan_assign",
+            device.hostname,
+            {"interface": body.interface, "vlan": body.vlan_id, "via": "unifi"},
+        )
+        return PortVlanResult(
+            interface=body.interface, vlan_id=body.vlan_id, backed_up=False, verified=None
+        )
+
+    # CLI-Vendor → Profil-Schreibpfad.
+    credential = await _device_credential(device, session)
+    if credential is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Keine SSH-Credential für dieses Gerät verknüpft",
+        )
+    profile = get_profile(device.adapter_id)
+    if profile.port_vlan_control is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Adapter {device.adapter_id!r} unterstützt Port-VLAN-Zuweisung nicht",
+        )
+    async with connection(device, credential) as (adapter, transport):
+        result = await assign_port_vlan(
+            session,
+            device,
+            adapter,
+            transport,
+            profile.port_vlan_control,
+            body.interface,
+            body.vlan_id,
+        )
+    await audit(
+        session,
+        user,
+        "device.port_vlan_assign",
+        device.hostname,
+        {"interface": body.interface, "vlan": body.vlan_id, "verified": result.verified},
     )
     return result
 

@@ -7,6 +7,12 @@ provenance: "FS.com Centec/FSOS — live-validated (S5800-48MBQ 7.0.4.5): sysinf
 
 backup_command: "show running-config"
 
+# Port→VLAN (Access): Centec/FSOS kennt kein `end` → `exit`.
+port_vlan_control:
+  config_enter: ["configure terminal"]
+  config_exit: ["exit"]
+  set_access: ["switchport mode access", "switchport access vlan {vlan}"]
+
 # LLDP-Schreibpfad (Centec/FSOS): per Default ist LLDP global AUS ("global enabled : NO").
 # `lldp enable` global + pro physischem Port (eth-0-x). Status via `show lldp local config`.
 lldp_control:

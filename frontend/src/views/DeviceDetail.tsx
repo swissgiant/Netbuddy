@@ -8,9 +8,11 @@ import type {
   LldpStatus,
   MacEntry,
   ValidationReport,
+  Vlan,
   VpnTunnel,
 } from "../api";
 import {
+  assignPortVlan,
   backupDevice,
   discoverDevice,
   enableLldp,
@@ -18,6 +20,7 @@ import {
   fetchInterfaces,
   fetchLldpNeighbors,
   fetchMacTable,
+  fetchVlans,
   fetchVpnTunnels,
   lldpStatus,
   updateVpnTunnel,
@@ -52,20 +55,25 @@ export function DeviceDetail({ device }: { device: Device }) {
   const [error, setError] = useState<string | null>(null);
   const [lldpCtl, setLldpCtl] = useState<LldpStatus | null>(null);
   const [tunnels, setTunnels] = useState<VpnTunnel[]>([]);
+  const [vlans, setVlans] = useState<Vlan[]>([]);
+  // Port → VLAN-Zuweisung: angeklickter Port + gewählte VLAN-ID (Panel offen, wenn gesetzt).
+  const [portSel, setPortSel] = useState<{ iface: Interface; vlan: number } | null>(null);
 
   const loadInventory = useCallback(async () => {
-    const [i, m, l, a, v] = await Promise.all([
+    const [i, m, l, a, v, vl] = await Promise.all([
       fetchInterfaces(device.id),
       fetchMacTable(device.id),
       fetchLldpNeighbors(device.id),
       fetchArp(device.id),
       fetchVpnTunnels(device.id).catch(() => []),
+      fetchVlans().catch(() => []),
     ]);
     setInterfaces(i);
     setMacs(m);
     setLldp(l);
     setArp(a);
     setTunnels(v);
+    setVlans(vl);
   }, [device.id]);
 
   useEffect(() => {
@@ -124,6 +132,23 @@ export function DeviceDetail({ device }: { device: Device }) {
           : "LLDP-Aktivierung lief, Status weiterhin AUS — bitte am Gerät prüfen.",
       );
     });
+
+  const assignVlan = () => {
+    if (!portSel) return;
+    const { iface, vlan } = portSel;
+    void act("assign-vlan", async () => {
+      if (!confirm(`Port ${iface.name} dem VLAN ${vlan} zuweisen? Schreibzugriff (Backup wird angelegt).`))
+        return;
+      const r = await assignPortVlan(device.id, iface.name, vlan);
+      setPortSel(null);
+      await loadInventory();
+      setError(
+        r.verified === false
+          ? `Port ${r.interface} auf VLAN ${r.vlan_id} gesetzt, aber Re-Read weicht ab — bitte prüfen.`
+          : `Port ${r.interface} → VLAN ${r.vlan_id} zugewiesen (Backup angelegt).`,
+      );
+    });
+  };
 
   const macCount = (ifaceId: string) => macs.filter((m) => m.interface_id === ifaceId).length;
   const neighbor = (ifaceId: string) =>
@@ -190,7 +215,7 @@ export function DeviceDetail({ device }: { device: Device }) {
         </div>
       </div>
 
-      {error && <p className={error.startsWith("Backup") ? "muted" : "error"}>{error}</p>}
+      {error && <p className={/^(Backup|Port|LLDP)/.test(error) ? "muted" : "error"}>{error}</p>}
       {run && (
         <p className="muted" style={{ fontSize: 13 }}>
           Discovery: <strong>{run.status}</strong>
@@ -281,12 +306,23 @@ export function DeviceDetail({ device }: { device: Device }) {
                       i.name,
                       i.description ? `„${i.description}"` : null,
                       `oper: ${i.oper_status} / admin: ${i.admin_status}`,
+                      i.vlan_id ? `VLAN ${i.vlan_id}` : null,
                       i.speed_mbps ? `${i.speed_mbps} Mbps` : null,
                       nb ? `↔ ${nb}` : null,
                       macs_ ? `${macs_} MAC(s)` : null,
+                      "▸ Klick: VLAN zuweisen",
                     ].filter(Boolean).join("\n");
+                    const selected = portSel?.iface.id === i.id;
                     return (
-                      <div key={i.id} className={portClass(i) + (nb ? " has-neighbor" : "")} title={title}>
+                      <div
+                        key={i.id}
+                        className={portClass(i) + (nb ? " has-neighbor" : "") + (selected ? " selected" : "")}
+                        title={title}
+                        style={{ cursor: "pointer" }}
+                        onClick={() =>
+                          setPortSel({ iface: i, vlan: i.vlan_id ?? vlans[0]?.vlan_id ?? 0 })
+                        }
+                      >
                         {shortLabel(i.name)}
                         {nb && <span className="uplink" />}
                       </div>
@@ -299,7 +335,37 @@ export function DeviceDetail({ device }: { device: Device }) {
                 <span><i className="dot down" /> down</span>
                 <span><i className="dot admin-down" /> admin-down</span>
                 <span><i className="dot has-neighbor" /> LLDP-Nachbar</span>
+                <span>▸ Port anklicken zum VLAN-Zuweisen</span>
               </div>
+              {portSel && (
+                <div className="assign-panel row" style={{ gap: 10, alignItems: "center", marginTop: 8 }}>
+                  <strong>{portSel.iface.name}</strong>
+                  <span className="muted">aktuell: VLAN {portSel.iface.vlan_id ?? "—"} →</span>
+                  {vlans.length === 0 ? (
+                    <span className="muted">keine VLANs definiert (zuerst unter „🏷️ VLANs" anlegen)</span>
+                  ) : (
+                    <>
+                      <select
+                        value={portSel.vlan}
+                        onChange={(e) =>
+                          setPortSel({ iface: portSel.iface, vlan: Number(e.target.value) })
+                        }
+                      >
+                        {vlans.map((v) => (
+                          <option key={v.id} value={v.vlan_id}>
+                            {v.vlan_id} — {v.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button onClick={assignVlan} disabled={busy !== null}
+                        title="Schreibzugriff: Access-Port auf das VLAN, mit Backup">
+                        {busy === "assign-vlan" ? "schreibt…" : "VLAN zuweisen (Schreibzugriff)"}
+                      </button>
+                    </>
+                  )}
+                  <button className="ghost" onClick={() => setPortSel(null)}>abbrechen</button>
+                </div>
+              )}
               {logical.length > 0 && (
                 <p className="muted" style={{ fontSize: 12 }}>
                   Logisch: {logical.map((i) => i.name).join(", ")}

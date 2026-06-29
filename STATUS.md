@@ -4,6 +4,24 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S57 — #34 Port→VLAN über alle Plattformen (29.6.2026)
+
+- **#34 gebaut + deployed (alle 6 Plattformen):** Access-Port per Klick einem der 16 Test-VLANs
+  zuweisen.
+- **Backend CLI** (dell_os10/os6, fs_centec/ruijie, tplink): neue Capability `CONFIGURE_PORT_VLAN`,
+  Profil-Block `port_vlan_control` je Vendor (korrekte Access-Syntax; OS6 `enable`→`configure`,
+  Centec `exit` statt `end`, TP-Link `general allowed … untagged`+`pvid`). Service `port_vlan.py`:
+  Backup → `send_config` → Verify (Re-Read) → Inventar-Update. Mustervorlage = LLDP-Schreibpfad.
+- **UniFi** (über `unifi_local`, nicht Cloud): `UnifiConsole.set_port_access_vlan` (Port-Override
+  `native_networkconf_id` = das VLAN-Network + `forward: native`, bestehende Overlays gemerged) +
+  Service `assign_unifi_port_vlan` (VLAN→networkconf_id, Switch per Mgmt-IP). Endpoint routet
+  API-Adapter (unifi/unifi_cloud) hierhin, CLI über das Profil.
+- **Endpoint** `POST /devices/{id}/interfaces/port-vlan` (Audit, VLAN-Existenz-Check, Port-Index aus
+  Interface-Name für UniFi). **Frontend**: DeviceDetail Ports-Tab → Port anklicken → VLAN-Dropdown +
+  „zuweisen" (Bestätigung, Verify-Meldung). Keine DB-Migration (Port-VLAN lebt im `interface`-Modell).
+- 4 neue Tests (CLI-Service, UniFi-Override, Capability-Meldung); 263 Tests grün, mypy/ruff sauber.
+- **OFFEN:** Live-Test an einem freien Port (Port-Wahl durch Alex); #44 TP-Link-Transport-Härtung.
+
 ## S56 — Cusano UniFi-VLAN-Provisioning + LLDP fleet-weit + Datenpfad bewiesen (29.6.2026)
 
 - **`unifi_local` um Schreibpfad erweitert** (getestet, deployed): `UnifiNetwork`/`parse_network`,

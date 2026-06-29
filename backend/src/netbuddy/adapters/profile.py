@@ -130,6 +130,24 @@ class PoeControlSpec(BaseModel):
     recover_wait_seconds: int = 5
 
 
+class PortVlanControlSpec(BaseModel):
+    """Optionaler Schreibpfad, um einen Access-Port einem VLAN zuzuweisen.
+
+    Bewusst eng: nur Access-Port-VLAN. ``set_access`` sind die Zeilen im Interface-Kontext
+    (``interface_enter`` füllt ``{name}``); jede Zeile kann ``{vlan}`` und ``{name}`` enthalten
+    (z.B. ``"switchport access vlan {vlan}"``). Schreibzugriff nur über den expliziten,
+    autorisierten Port-VLAN-Endpoint — nie über den read-only Discovery-/Validierungspfad.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    config_enter: list[str] = Field(default_factory=lambda: ["configure terminal"])
+    config_exit: list[str] = Field(default_factory=lambda: ["end"])
+    interface_enter: str = "interface {name}"
+    interface_exit: str = "exit"
+    set_access: list[str] = Field(default_factory=list)  # {vlan}/{name} formatierbar
+
+
 class VendorProfile(BaseModel):
     """Deklarative Beschreibung eines Vendor-Adapters (ein YAML pro Vendor)."""
 
@@ -141,6 +159,7 @@ class VendorProfile(BaseModel):
     backup_command: str | None = None  # liefert die laufende Konfig (READ_CONFIG)
     lldp_control: LldpControlSpec | None = None  # optionaler LLDP-Schreibpfad (write)
     poe_control: PoeControlSpec | None = None  # optionaler PoE-Status-/Recovery-Pfad
+    port_vlan_control: PortVlanControlSpec | None = None  # optionaler Port-VLAN-Schreibpfad
     capabilities: dict[Capability, CapabilitySpec]
 
 
