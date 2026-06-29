@@ -35,6 +35,7 @@ from netbuddy.adapters.transport import (
 )
 from netbuddy.adapters.unifi import UnifiAdapter
 from netbuddy.adapters.unifi_cloud import UnifiCloudAdapter
+from netbuddy.adapters.unifi_local_adapter import UnifiLocalAdapter
 from netbuddy.adapters.watchguard import WatchGuardAdapter
 
 __all__ = [
@@ -59,6 +60,7 @@ __all__ = [
     "TransportError",
     "UnifiAdapter",
     "UnifiCloudAdapter",
+    "UnifiLocalAdapter",
     "UnknownAdapterError",
     "VendorProfile",
     "WatchGuardAdapter",

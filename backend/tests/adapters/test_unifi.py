@@ -2,8 +2,7 @@ from typing import Any
 
 import pytest
 
-from netbuddy.adapters import adapter_kind, available_adapters, provenance_for
-from netbuddy.adapters.capabilities import Capability
+from netbuddy.adapters import available_adapters
 from netbuddy.adapters.unifi import DeviceNotFoundError, UnifiAdapter
 
 _PAYLOAD: dict[str, Any] = {
@@ -94,14 +93,9 @@ async def test_device_not_found() -> None:
         ).get_system_info()
 
 
-def test_unifi_registered_as_api_adapter() -> None:
-    assert adapter_kind("unifi") == "api"
-    assert available_adapters()["unifi"] == frozenset(
-        {
-            Capability.READ_SYSTEM_INFO,
-            Capability.READ_INTERFACES,
-            Capability.READ_LLDP,
-            Capability.READ_MAC_TABLE,
-        }
-    )
-    assert provenance_for("unifi") is not None
+def test_unifi_deregistered_replaced_by_unifi_local() -> None:
+    # Der alte `unifi`-API-Adapter (Token/HttpxApiClient) ist deregistriert — der lokale
+    # UniFi-Zugriff läuft jetzt über `unifi_local` (UnifiConsole, Cookie-Login).
+    catalogue = available_adapters()
+    assert "unifi" not in catalogue
+    assert "unifi_local" in catalogue

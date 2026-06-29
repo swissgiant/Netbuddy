@@ -592,6 +592,28 @@ def _unifi_port_speed(port: dict[str, Any]) -> int | None:
     return int(speed) if isinstance(speed, int) and speed > 0 else None
 
 
+def ports_to_interfaces(
+    device: dict[str, Any], vlan_by_nc: dict[str, int | None]
+) -> list[InterfaceData]:
+    """Roh-``port_table`` eines UniFi-Switches → Interface-DTOs (wiederverwendet vom Adapter)."""
+    out: list[InterfaceData] = []
+    for p in device.get("port_table") or []:
+        idx = p.get("port_idx")
+        if idx is None:
+            continue
+        nc = p.get("native_networkconf_id")
+        out.append(
+            InterfaceData(
+                name=str(p.get("name") or f"Port {idx}"),
+                if_index=int(idx),
+                oper_status=OperStatus.UP if p.get("up") else OperStatus.DOWN,
+                vlan_id=vlan_by_nc.get(nc) if nc else None,
+                speed_mbps=_unifi_port_speed(p),
+            )
+        )
+    return out
+
+
 async def switch_port_interfaces(
     credential: Credential,
     site: str,
@@ -619,21 +641,7 @@ async def switch_port_interfaces(
         sw = await con.device_by_ip(switch_ip, unifi_site)
         if sw is None:
             return []
-        out: list[InterfaceData] = []
-        for p in sw.get("port_table") or []:
-            idx = p.get("port_idx")
-            if idx is None:
-                continue
-            nc = p.get("native_networkconf_id")
-            out.append(
-                InterfaceData(
-                    name=str(p.get("name") or f"Port {idx}"),
-                    if_index=int(idx),
-                    oper_status=OperStatus.UP if p.get("up") else OperStatus.DOWN,
-                    vlan_id=vlan_by_nc.get(nc) if nc else None,
-                    speed_mbps=_unifi_port_speed(p),
-                )
-            )
+        out = ports_to_interfaces(sw, vlan_by_nc)
         return out
 
 

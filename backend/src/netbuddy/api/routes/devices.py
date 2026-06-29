@@ -8,7 +8,14 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, IPvAnyAddress
 from sqlalchemy import delete, select
 
-from netbuddy.adapters import Capability, UnknownAdapterError, adapter_kind, get_profile
+from netbuddy.adapters import (
+    Capability,
+    SwitchAdapter,
+    UnknownAdapterError,
+    adapter_kind,
+    get_profile,
+)
+from netbuddy.adapters.unifi_local_adapter import UnifiLocalAdapter
 from netbuddy.api.deps import (
     CurrentUserDep,
     LiveAdapterDep,
@@ -41,17 +48,19 @@ from netbuddy.db.models import (
 )
 from netbuddy.services.audit import audit
 from netbuddy.services.backup import BackupResult, backup_device, diff_latest
-from netbuddy.services.discovery import persist_interface_snapshot, run_discovery
+from netbuddy.services.discovery import run_discovery
 from netbuddy.services.hosts import normalize_mac
 from netbuddy.services.lldp_control import LldpEnableResult, enable_lldp, read_lldp_enabled
 from netbuddy.services.onboarding import ProfileDraft, suggest_profile
 from netbuddy.services.oui import vendor_for_mac
 from netbuddy.services.port_vlan import PortVlanResult, assign_port_vlan, reset_port_vlan
 from netbuddy.services.sites_net import site_for_ip
+from netbuddy.services.unifi_local import _PORT as UNIFI_PORT
 from netbuddy.services.unifi_local import (
+    CONSOLES,
+    UnifiConsole,
     assign_unifi_port_vlan,
     reset_unifi_port_vlan,
-    switch_port_interfaces,
 )
 from netbuddy.services.validation import DeviceValidationReport, validate_adapter
 
@@ -345,6 +354,25 @@ async def _unifi_local_target(device: Device, session: SessionDep) -> tuple[str,
     return site.name, local
 
 
+def _is_unifi(adapter_id: str) -> bool:
+    return adapter_id in ("unifi", "unifi_cloud", "unifi_local")
+
+
+async def _build_unifi_local_adapter(
+    device: Device, session: SessionDep
+) -> tuple[SwitchAdapter, UnifiConsole]:
+    """UniFi-Adapter über den lokalen Controller (Site→Konsolen-IP, UnifiLocal-Credential)."""
+    site_name, local = await _unifi_local_target(device, session)
+    ip = CONSOLES.get(site_name)
+    if ip is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Keine UniFi-Konsole für Standort {site_name!r}",
+        )
+    console = UnifiConsole(f"https://{ip}:{UNIFI_PORT}", local.username or "", local.password or "")
+    return UnifiLocalAdapter(console, str(device.mgmt_ip)), console
+
+
 @router.post("/{device_id}/validate", response_model=DeviceValidationReport)
 async def validate_device_endpoint(
     device_id: uuid.UUID,
@@ -358,30 +386,40 @@ async def validate_device_endpoint(
     (fortigate/unifi/…) über die Live-Verbindung ohne Roh-Capture. ⚠️ echter Geräte-Zugriff.
     """
     device = await get_device(device_id, session)
-    credential = await _device_credential(device, session)
-    if credential is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Keine Credential für dieses Gerät verknüpft",
-        )
-
-    is_api = adapter_kind(device.adapter_id) == "api"
     raw_by_command: dict[str, str] = {}
-    try:
-        if is_api:
-            async with live_adapter(device, credential) as adapter:
+
+    # UniFi: über den lokalen Controller (eigener Cookie-Pfad, nicht connect()).
+    if _is_unifi(device.adapter_id):
+        is_api = True
+        adapter, console = await _build_unifi_local_adapter(device, session)
+        try:
+            async with console:
                 report = await validate_adapter(adapter)
-        else:
-            get_profile(device.adapter_id)  # 400 bei unbekanntem Profil
-            report, raw_by_command = await validator(device, credential)
-    except UnknownAdapterError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    except (TimeoutError, OSError) as exc:
-        raise _unreachable(device, exc) from exc
-    except Exception as exc:
-        if type(exc).__name__.startswith(("Scrapli", "Httpx", "Connect")):
+        except (TimeoutError, OSError) as exc:
             raise _unreachable(device, exc) from exc
-        raise
+    else:
+        credential = await _device_credential(device, session)
+        if credential is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Keine Credential für dieses Gerät verknüpft",
+            )
+        is_api = adapter_kind(device.adapter_id) == "api"
+        try:
+            if is_api:
+                async with live_adapter(device, credential) as adapter:
+                    report = await validate_adapter(adapter)
+            else:
+                get_profile(device.adapter_id)  # 400 bei unbekanntem Profil
+                report, raw_by_command = await validator(device, credential)
+        except UnknownAdapterError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        except (TimeoutError, OSError) as exc:
+            raise _unreachable(device, exc) from exc
+        except Exception as exc:
+            if type(exc).__name__.startswith(("Scrapli", "Httpx", "Connect")):
+                raise _unreachable(device, exc) from exc
+            raise
 
     def _commands(capability: Capability) -> list[str]:
         if is_api:
@@ -447,16 +485,14 @@ async def discover_device_endpoint(
     """Liest read-only live aus und schreibt das Inventar (Interfaces/LLDP/MAC) in die DB."""
     device = await get_device(device_id, session)
 
-    # UniFi-Switches: die Cloud-API liefert keine Ports → Ports aus dem lokalen Controller holen.
-    if device.adapter_id in ("unifi", "unifi_cloud"):
-        site_name, local = await _unifi_local_target(device, session)
+    # UniFi: über den lokalen Controller (Cloud-API liefert keine Ports) — System-Info/Ports/MAC.
+    if _is_unifi(device.adapter_id):
+        adapter, console = await _build_unifi_local_adapter(device, session)
         try:
-            ifaces = await switch_port_interfaces(local, site_name, str(device.mgmt_ip))
-        except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+            async with console:
+                return await run_discovery(session, device, adapter, triggered_by="api")
         except (TimeoutError, OSError) as exc:
             raise _unreachable(device, exc) from exc
-        return await persist_interface_snapshot(session, device, ifaces, triggered_by="api")
 
     credential = await _device_credential(device, session)
     if credential is None:
@@ -781,7 +817,7 @@ async def assign_port_vlan_endpoint(
 
     # UniFi (API-Adapter) → lokaler Controller-Pfad (Port-Override), nicht CLI.
     if adapter_kind(device.adapter_id) == "api":
-        if device.adapter_id not in ("unifi", "unifi_cloud"):
+        if not _is_unifi(device.adapter_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Port-VLAN-Zuweisung für {device.adapter_id!r} nicht unterstützt",
@@ -862,7 +898,7 @@ async def reset_port_vlan_endpoint(
     device = await get_device(device_id, session)
 
     if adapter_kind(device.adapter_id) == "api":
-        if device.adapter_id not in ("unifi", "unifi_cloud"):
+        if not _is_unifi(device.adapter_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Port-VLAN-Reset für {device.adapter_id!r} nicht unterstützt",

@@ -331,3 +331,88 @@ async def test_fetch_all_skips_unreachable() -> None:
     # Sulgen down → nur Cusano-Daten
     assert all(d.site == "Cusano" for d in devices)
     assert len(devices) == 2 and len(clients) == 2
+
+
+def _adapter_factory() -> unifi_local.ClientFactory:
+    """Fake-Controller für den UnifiLocalAdapter: ein Switch (1 Port) + ein wired Client."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        p = request.url.path
+        if p == "/api/auth/login":
+            return httpx.Response(200, headers={"X-CSRF-Token": "csrf"}, json={})
+        if p.endswith("/rest/networkconf"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [{"_id": "net101", "name": "T01", "vlan_enabled": True, "vlan": 101}]
+                },
+            )
+        if p.endswith("/stat/device"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "_id": "sw1",
+                            "mac": "aa:bb:cc:00:00:01",
+                            "name": "BLS-SW-CU-01",
+                            "model": "USWF069",
+                            "version": "7.4.1",
+                            "type": "usw",
+                            "ip": "10.123.40.3",
+                            "port_table": [
+                                {
+                                    "port_idx": 1,
+                                    "name": "Port 1",
+                                    "up": True,
+                                    "media": "2P5GE",
+                                    "native_networkconf_id": "net101",
+                                },
+                            ],
+                        }
+                    ]
+                },
+            )
+        if p.endswith("/stat/sta"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "mac": "50:28:4a:00:00:09",
+                            "is_wired": True,
+                            "sw_mac": "aa:bb:cc:00:00:01",
+                            "sw_port": 1,
+                            "vlan": 101,
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(404)
+
+    def make(base_url: str) -> httpx.AsyncClient:
+        return httpx.AsyncClient(base_url=base_url, transport=httpx.MockTransport(handler))
+
+    return make
+
+
+async def test_unifi_local_adapter_reads_system_interfaces_mac() -> None:
+    from netbuddy.adapters.unifi_local_adapter import UnifiLocalAdapter
+
+    async with unifi_local.UnifiConsole(
+        "https://x:11443", "u", "p", client_factory=_adapter_factory()
+    ) as con:
+        ad = UnifiLocalAdapter(con, "10.123.40.3")
+        info = await ad.get_system_info()
+        ifaces = await ad.get_interfaces()
+        macs = await ad.get_mac_table()
+    assert (
+        info.vendor == "ubiquiti" and info.model == "USWF069" and info.device_type.value == "switch"
+    )
+    assert len(ifaces) == 1 and ifaces[0].name == "Port 1" and ifaces[0].vlan_id == 101
+    assert ifaces[0].speed_mbps == 2500
+    assert (
+        len(macs) == 1
+        and macs[0].interface == "Port 1"
+        and macs[0].mac_address == "50:28:4a:00:00:09"
+    )

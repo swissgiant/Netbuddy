@@ -4,6 +4,20 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S61 — UniFi: ein `unifi_local`-Adapter statt cloud + API (29.6.2026)
+
+- **`unifi_cloud` + `unifi`-API-Adapter durch `unifi_local` ersetzt** (User-Wunsch). Neuer
+  `adapters/unifi_local_adapter.py` (auf `UnifiConsole`, Cookie-Login): system_info + interfaces
+  (port_table inkl. Speed/VLAN) + mac_table (verkabelte Clients pro Port). Lazy-Import gegen
+  Circular (services↔adapters). connect() guarded — Bau über den Controller-Pfad in den Endpoints
+  (`_build_unifi_local_adapter`, Site→Konsolen-IP + UnifiLocal-Cred).
+- **88 Geräte migriert** unifi_cloud→unifi_local. Discover/Validate/Port-VLAN/Reset routen UniFi
+  jetzt über den lokalen Adapter (run_discovery + validate_adapter generisch). Verifiziert:
+  Switch BLS-SW-CU-01 = interfaces:ok(52)/mac:ok/system_info:ok; AP = system_info ok (Rest empty=grün).
+- **`unifi` + `unifi_cloud` deregistriert** (Klassen bleiben für Tests; Cloud-Inventar läuft weiter
+  über services.unifi_inventory/UnifiHost). Katalog zeigt für UniFi nur noch `unifi_local`.
+- 266 Tests grün (neuer Adapter-Test + 2 Registrierungs-Tests angepasst), mypy/ruff sauber.
+
 ## S60 — Topologie-FW-Kanten + ARP-grün (29.6.2026)
 
 - **FW↔Switch-Kanten fehlten bei Gro+Cusano** (nur USA/Sulgen). Ursachen + Fix:

@@ -11,7 +11,6 @@ from netbuddy.adapters.dto import (
     SystemInfo,
     VpnTunnelData,
 )
-from netbuddy.adapters.registry import register_api_adapter
 from netbuddy.db.models import DeviceType
 
 
@@ -19,7 +18,8 @@ class DeviceNotFoundError(AdapterError):
     """Das Gerät wurde im Cloud-Inventar (nach IP) nicht gefunden."""
 
 
-@register_api_adapter
+# Nicht mehr registriert: durch `unifi_local` (lokaler Controller) ersetzt. Klasse bleibt für
+# Referenz/Tests; Cloud-Inventar läuft weiter über services.unifi_inventory (UnifiHost).
 class UnifiCloudAdapter:
     """Read-only-Adapter für Ubiquiti über die **UniFi Site Manager Cloud-API** (`api.ui.com`).
 

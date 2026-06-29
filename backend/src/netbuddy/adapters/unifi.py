@@ -11,7 +11,6 @@ from netbuddy.adapters.dto import (
     SystemInfo,
     VpnTunnelData,
 )
-from netbuddy.adapters.registry import register_api_adapter
 from netbuddy.db.models import AdminStatus, DeviceType, MacEntryType, OperStatus
 
 
@@ -19,7 +18,8 @@ class DeviceNotFoundError(AdapterError):
     """Das Gerät wurde im Controller-Inventar (nach IP) nicht gefunden."""
 
 
-@register_api_adapter
+# Nicht mehr registriert: der lokale UniFi-Zugriff läuft über `unifi_local` (UnifiConsole,
+# Cookie-Login). Diese Token-/HttpxApiClient-Variante erreichte den Controller nie. Klasse bleibt.
 class UnifiAdapter:
     """Read-only-Adapter für Ubiquiti UniFi über die Network-Controller-API (JSON).
 

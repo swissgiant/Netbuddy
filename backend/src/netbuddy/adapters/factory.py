@@ -37,6 +37,12 @@ def connect(device: Device, credential: Credential) -> tuple[SwitchAdapter, Any]
 
     Read-only.
     """
+    if device.adapter_id == "unifi_local":
+        # unifi_local braucht den lokalen Controller (Cookie-Console, Site→IP) — die Endpoints
+        # bauen den Adapter über services.unifi_local, nicht über diesen generischen Pfad.
+        raise AdapterError(
+            "unifi_local wird über den lokalen Controller-Pfad gebaut, nicht über connect()"
+        )
     if adapter_kind(device.adapter_id) == "api":
         if not credential.base_url:
             raise AdapterError(

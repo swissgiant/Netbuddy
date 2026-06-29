@@ -2,8 +2,7 @@ from typing import Any
 
 import pytest
 
-from netbuddy.adapters import adapter_kind, available_adapters
-from netbuddy.adapters.capabilities import Capability
+from netbuddy.adapters import available_adapters
 from netbuddy.adapters.unifi_cloud import DeviceNotFoundError, UnifiCloudAdapter
 from netbuddy.db.models import DeviceType
 
@@ -89,6 +88,9 @@ async def test_unknown_ip_raises() -> None:
         await _adapter("10.99.99.99").get_system_info()
 
 
-def test_registered_as_api_adapter() -> None:
-    assert adapter_kind("unifi_cloud") == "api"
-    assert available_adapters()["unifi_cloud"] == frozenset({Capability.READ_SYSTEM_INFO})
+def test_cloud_deregistered_replaced_by_unifi_local() -> None:
+    # `unifi_cloud` ist deregistriert — UniFi läuft jetzt über den lokalen Controller
+    # (`unifi_local`). Cloud-Inventar bleibt über services.unifi_inventory (UnifiHost).
+    catalogue = available_adapters()
+    assert "unifi_cloud" not in catalogue
+    assert "unifi_local" in catalogue
