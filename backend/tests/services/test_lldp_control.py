@@ -73,8 +73,11 @@ class _FakeWriteTransport:
 def test_is_physical() -> None:
     assert is_physical("eth-0-1")
     assert is_physical("GigabitEthernet1/0/1")
+    assert is_physical("Port 5")  # UniFi-Port darf NICHT als port-channel (logisch) gelten
+    assert is_physical("SFP28 1")
     assert not is_physical("vlan10")
     assert not is_physical("port-channel1")
+    assert not is_physical("Po1")
     assert not is_physical("loopback0")
 
 

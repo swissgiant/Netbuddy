@@ -18,6 +18,12 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - **Geräteliste-Filter** (DevicesView): Buttons für Standort + Geräte-Typ (Switch/AP/…), Badge
   zeigt gefiltert/gesamt.
 - `_unifi_local_target`-Helper (Site + UnifiLocal-Cred) für Discover- + Port-VLAN-Endpoint. 263 Tests grün.
+- **Bug: „Port N" (UniFi) galt als logisch** — `is_physical`/LOGICAL-Regex matchte `po` (port-channel)
+  auch auf „Port" → alle UniFi-Ports im Faceplate fehlten. Fix: `po\d` (Backend lldp_control + Frontend).
+- **Faceplate wie echter Switch**: Ports numerisch nach `if_index` sortiert + 2-Reihen-Grid
+  (spaltenweise gestapelt wie RJ45), SFP hinten.
+- **Speed-Indikator** (alle Switches): farbiger Punkt je Port (100M/1G/2.5G/5G/10G/25G/100G) +
+  Legende. UniFi-Speed aus `media` (Port-Typ); CLI aus Discovery-`speed_mbps`.
 
 ## S57 — #34 Port→VLAN über alle Plattformen (29.6.2026)
 

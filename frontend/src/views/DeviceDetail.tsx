@@ -32,7 +32,8 @@ import { Th, useSort } from "../sort";
 type Tab = "ports" | "mac" | "lldp" | "arp" | "vpn" | "validation";
 
 // Logische/virtuelle Interfaces gehören nicht aufs Faceplate.
-const LOGICAL = /^(vlan|vl|lo|loopback|po|port-?channel|null|tun|mgmt|stack|cpu|bundle)/i;
+// `po\d` = port-channel (Po1) — NICHT bare "po", sonst würde „Port 5" (UniFi) als logisch gelten.
+const LOGICAL = /^(vlan|vl|loopback|lo\d|po\d|port-?channel|null|tun|mgmt|stack|cpu|bundle)/i;
 const isPhysical = (name: string) => !LOGICAL.test(name.trim());
 // Kurzlabel fürs Port-Kästchen: Präfix-Buchstaben weg → "1/1/1".
 const shortLabel = (name: string) => name.replace(/^[A-Za-z ]+/, "").trim() || name;
@@ -41,6 +42,22 @@ function portClass(iface: Interface): string {
   if (iface.oper_status === "up") return "port up";
   if (iface.admin_status === "down") return "port admin-down";
   return "port down";
+}
+
+// Port-Geschwindigkeit → Farbklasse für den Indikator-Punkt (analog UniFi-Konsole).
+const SPEED_TIERS: [number, string, string][] = [
+  [100, "s-fe", "100M"],
+  [1000, "s-1g", "1G"],
+  [2500, "s-2g5", "2.5G"],
+  [5000, "s-5g", "5G"],
+  [10000, "s-10g", "10G"],
+  [25000, "s-25g", "25G"],
+  [Infinity, "s-100g", "100G"],
+];
+function speedTier(mbps: number | null | undefined): [string, string] | null {
+  if (!mbps) return null;
+  const t = SPEED_TIERS.find(([max]) => mbps <= max)!;
+  return [t[1], t[2]];
 }
 
 export function DeviceDetail({ device }: { device: Device }) {
@@ -161,7 +178,14 @@ export function DeviceDetail({ device }: { device: Device }) {
   const vpnSort = useSort(tunnels, { remote: (t) => t.remote_subnets.join(",") || null });
   const valSort = useSort(validation?.capabilities ?? []);
 
-  const physical = interfaces.filter((i) => isPhysical(i.name));
+  // Physische Ports in echter Switch-Reihenfolge: nach Portnummer (if_index), sonst natürlich.
+  const physical = interfaces
+    .filter((i) => isPhysical(i.name))
+    .sort(
+      (a, b) =>
+        (a.if_index ?? 1e9) - (b.if_index ?? 1e9) ||
+        a.name.localeCompare(b.name, undefined, { numeric: true }),
+    );
   const logical = interfaces.filter((i) => !isPhysical(i.name));
   const upCount = physical.filter((i) => i.oper_status === "up").length;
 
@@ -313,11 +337,12 @@ export function DeviceDetail({ device }: { device: Device }) {
                       "▸ Klick: VLAN zuweisen",
                     ].filter(Boolean).join("\n");
                     const selected = portSel?.iface.id === i.id;
+                    const spd = speedTier(i.speed_mbps);
                     return (
                       <div
                         key={i.id}
                         className={portClass(i) + (nb ? " has-neighbor" : "") + (selected ? " selected" : "")}
-                        title={title}
+                        title={spd ? `${title}\nSpeed: ${spd[1]}` : title}
                         style={{ cursor: "pointer" }}
                         onClick={() =>
                           setPortSel({ iface: i, vlan: i.vlan_id ?? vlans[0]?.vlan_id ?? 0 })
@@ -325,6 +350,7 @@ export function DeviceDetail({ device }: { device: Device }) {
                       >
                         {shortLabel(i.name)}
                         {nb && <span className="uplink" />}
+                        {spd && <span className={`speed-dot ${spd[0]}`} />}
                       </div>
                     );
                   })}
@@ -337,6 +363,24 @@ export function DeviceDetail({ device }: { device: Device }) {
                 <span><i className="dot has-neighbor" /> LLDP-Nachbar</span>
                 <span>▸ Port anklicken zum VLAN-Zuweisen</span>
               </div>
+              {(() => {
+                const tiers = [
+                  ...new Map(
+                    physical
+                      .map((i) => speedTier(i.speed_mbps))
+                      .filter((t): t is [string, string] => t !== null)
+                      .map((t) => [t[0], t[1]] as const),
+                  ).entries(),
+                ];
+                return tiers.length ? (
+                  <div className="legend muted">
+                    <span>Speed:</span>
+                    {tiers.map(([cls, lbl]) => (
+                      <span key={cls}><i className={`swatch ${cls}`} /> {lbl}</span>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
               {portSel && (
                 <div className="assign-panel row" style={{ gap: 10, alignItems: "center", marginTop: 8 }}>
                   <strong>{portSel.iface.name}</strong>

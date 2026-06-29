@@ -10,8 +10,9 @@ from netbuddy.db.models import Device
 from netbuddy.services.backup import backup_device
 
 # Logische/virtuelle Interfaces bekommen kein `lldp enable` (nur physische Ports).
+# `po\d` = port-channel (Po1), NICHT bare "po" — sonst gilt „Port 5" (UniFi) fälschlich als logisch.
 _LOGICAL = re.compile(
-    r"^(vlan|vl|lo|loopback|po|port-?channel|null|tun|mgmt|stack|cpu|bundle)", re.IGNORECASE
+    r"^(vlan|vl|loopback|lo\d|po\d|port-?channel|null|tun|mgmt|stack|cpu|bundle)", re.IGNORECASE
 )
 
 

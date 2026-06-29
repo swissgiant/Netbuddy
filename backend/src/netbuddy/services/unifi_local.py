@@ -522,6 +522,34 @@ async def assign_unifi_port_vlan(
     )
 
 
+# UniFi-`media` (Port-Typ/Kapazität) → Mbps, für den Speed-Indikator (wie die Controller-Legende).
+_UNIFI_MEDIA_MBPS: dict[str, int] = {
+    "FE": 100,
+    "GE": 1000,
+    "1GE": 1000,
+    "2P5GE": 2500,
+    "5GE": 5000,
+    "10GE": 10000,
+    "25GE": 25000,
+    "40GE": 40000,
+    "100GE": 100000,
+    "SFP": 1000,
+    "SFP+": 10000,
+    "SFP28": 25000,
+    "QSFP": 40000,
+    "QSFP28": 100000,
+}
+
+
+def _unifi_port_speed(port: dict[str, Any]) -> int | None:
+    """Port-Kapazität in Mbps: bevorzugt `media` (Typ), sonst aktuelle Link-Speed."""
+    media = str(port.get("media") or "").upper()
+    if media in _UNIFI_MEDIA_MBPS:
+        return _UNIFI_MEDIA_MBPS[media]
+    speed = port.get("speed")
+    return int(speed) if isinstance(speed, int) and speed > 0 else None
+
+
 async def switch_port_interfaces(
     credential: Credential,
     site: str,
@@ -561,6 +589,7 @@ async def switch_port_interfaces(
                     if_index=int(idx),
                     oper_status=OperStatus.UP if p.get("up") else OperStatus.DOWN,
                     vlan_id=vlan_by_nc.get(nc) if nc else None,
+                    speed_mbps=_unifi_port_speed(p),
                 )
             )
         return out
