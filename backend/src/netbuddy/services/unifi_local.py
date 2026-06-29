@@ -5,8 +5,9 @@ Session-Cookie wird über den ``httpx``-Client gehalten. Liefert Geräte (Switch
 Uplink-Typ wired/wireless = Mesh + PoE-Portstatus) und Clients (welcher Client an welchem AP bzw.
 Switch-Port). Port-Bounce per ``cmd/devmgr`` ``power-cycle``.
 
-Read-only-Calls verändern nichts; ``power_cycle`` ist der einzige Schreibpfad und nur über die
-autorisierte PoE-Recovery aufgerufen.
+Read-only-Calls verändern nichts. Schreibpfade (CSRF-geschützt): ``power_cycle`` (PoE-Recovery)
+sowie VLAN-Provisioning (``create_vlan_only_network``/``delete_network`` bzw. die idempotente
+``provision_vlan_only_networks``) für die Test-VLANs — Gateway/DHCP bleiben außerhalb (FortiGate).
 """
 
 from collections.abc import Callable
@@ -118,6 +119,26 @@ def parse_client(raw: dict[str, Any], site: str) -> UnifiClient:
     )
 
 
+class UnifiNetwork(BaseModel):
+    """Ein Network/VLAN aus ``rest/networkconf`` (Controller-Konfiguration)."""
+
+    id: str
+    name: str
+    purpose: str | None = None  # corporate | vlan-only | guest | ...
+    vlan_enabled: bool = False
+    vlan: int | None = None
+
+
+def parse_network(raw: dict[str, Any]) -> UnifiNetwork:
+    return UnifiNetwork(
+        id=str(raw.get("_id") or ""),
+        name=str(raw.get("name") or ""),
+        purpose=raw.get("purpose"),
+        vlan_enabled=bool(raw.get("vlan_enabled")),
+        vlan=raw.get("vlan"),
+    )
+
+
 class UnifiConsole:
     """Eine UniFi-OS-Konsole: Login + read + ``power-cycle`` (async Context-Manager).
 
@@ -190,6 +211,48 @@ class UnifiConsole:
         resp.raise_for_status()
         result = resp.json()
         return result if isinstance(result, dict) else {"data": result}
+
+    async def _write(
+        self, method: str, path: str, payload: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        """⚠️ Mutierender Call mit CSRF-Header; liefert die ``data``-Liste der Antwort."""
+        assert self._client is not None
+        headers = {"X-CSRF-Token": self._csrf} if self._csrf else {}
+        resp = await self._client.request(method, path, json=payload, headers=headers)
+        resp.raise_for_status()
+        body = resp.json()
+        data = body.get("data", []) if isinstance(body, dict) else body
+        return [d for d in data if isinstance(d, dict)]
+
+    async def networks(self, site: str = "default") -> list[UnifiNetwork]:
+        """Alle konfigurierten Networks/VLANs (``rest/networkconf``)."""
+        raw = await self._get(f"/proxy/network/api/s/{site}/rest/networkconf")
+        return [parse_network(n) for n in raw]
+
+    async def create_vlan_only_network(
+        self, name: str, vlan: int, site: str = "default"
+    ) -> UnifiNetwork:
+        """⚠️ Schreibpfad: ein **VLAN-only**-Network anlegen (nur Tag, kein Gateway/DHCP im UniFi).
+
+        Gateway + DHCP des VLANs liegen außerhalb (z.B. FortiGate-SVI). UniFi taggt das VLAN
+        dadurch nur auf den Trunks (Port-Profile mit ``forward: all`` übernehmen es automatisch).
+        """
+        payload = {
+            "name": name,
+            "purpose": "vlan-only",
+            "vlan_enabled": True,
+            "vlan": vlan,
+            "networkgroup": "LAN",
+            "enabled": True,
+        }
+        created = await self._write(
+            "POST", f"/proxy/network/api/s/{site}/rest/networkconf", payload
+        )
+        return parse_network(created[0]) if created else parse_network({**payload, "_id": ""})
+
+    async def delete_network(self, network_id: str, site: str = "default") -> None:
+        """⚠️ Schreibpfad: ein Network/VLAN löschen (Rollback eines Test-VLANs)."""
+        await self._write("DELETE", f"/proxy/network/api/s/{site}/rest/networkconf/{network_id}")
 
 
 async def fetch_console(
@@ -314,6 +377,55 @@ async def power_cycle_port(
         client_factory=client_factory,
     ) as con:
         return await con.power_cycle(switch_mac, port_idx)
+
+
+class VlanProvisionReport(BaseModel):
+    """Ergebnis eines VLAN-Provisioning-Laufs auf einer Konsole."""
+
+    site: str
+    unifi_site: str
+    dry_run: bool
+    created: list[int] = []  # neu angelegte VLAN-IDs
+    existing: list[int] = []  # schon vorhanden (übersprungen)
+    networks: list[UnifiNetwork] = []  # Ist-Stand nach dem Lauf
+
+
+async def provision_vlan_only_networks(
+    credential: Credential,
+    site: str,
+    specs: list[tuple[int, str]],
+    *,
+    unifi_site: str = "default",
+    dry_run: bool = False,
+    consoles: dict[str, str] = CONSOLES,
+    client_factory: ClientFactory = _default_client,
+) -> VlanProvisionReport:
+    """⚠️ Schreibpfad (außer ``dry_run``): VLAN-only-Networks idempotent anlegen.
+
+    ``specs`` = Liste ``(vlan_id, name)``. Bereits vorhandene VLAN-IDs werden übersprungen.
+    Bei ``dry_run`` wird nichts geschrieben — der Report zeigt nur, was angelegt *würde*.
+    """
+    ip = consoles.get(site)
+    if ip is None:
+        raise ValueError(f"Keine UniFi-Konsole für Standort {site!r} bekannt")
+    report = VlanProvisionReport(site=site, unifi_site=unifi_site, dry_run=dry_run)
+    async with UnifiConsole(
+        f"https://{ip}:{_PORT}",
+        credential.username or "",
+        credential.password or "",
+        client_factory=client_factory,
+    ) as con:
+        existing = await con.networks(unifi_site)
+        present = {n.vlan for n in existing if n.vlan_enabled and n.vlan is not None}
+        for vlan, name in specs:
+            if vlan in present:
+                report.existing.append(vlan)
+                continue
+            if not dry_run:
+                await con.create_vlan_only_network(name, vlan, unifi_site)
+            report.created.append(vlan)
+        report.networks = existing if dry_run else await con.networks(unifi_site)
+    return report
 
 
 async def fetch_all(

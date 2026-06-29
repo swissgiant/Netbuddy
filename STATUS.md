@@ -4,6 +4,56 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S56 — Cusano UniFi-VLAN-Provisioning + LLDP fleet-weit + Datenpfad bewiesen (29.6.2026)
+
+- **`unifi_local` um Schreibpfad erweitert** (getestet, deployed): `UnifiNetwork`/`parse_network`,
+  `UnifiConsole.networks/create_vlan_only_network/delete_network` (CSRF via `_write`) + idempotente
+  Service-Fn `provision_vlan_only_networks(..., dry_run=)`. VLAN-only = nur Tag, Gateway/DHCP bleibt
+  FortiGate. 7 neue Tests (Fake-Controller mit stateful `rest/networkconf`), mypy/ruff/259 grün.
+- **Cusano-Analyse:** rein UniFi (Core1 USWF066 + CU-01..04 + ~14 APs, alle `unifi_cloud`) +
+  FortiGate-91G. Port-Profile `Allow-PoE/NoPoE` sind `forward=all` (trunken alle VLANs automatisch),
+  Uplinks (Core P43 → FW `wan1`) auf Default-Profil = Trunk-all. FW-SVIs `10.223.101-116.1` + DHCP
+  lagen **schon** auf `wan1` (allowaccess ping). Cloud-API kann KEINE VLANs schreiben → lokal richtig.
+- **Cusano-Rollout LIVE:** alle 16 Test-VLANs als `vlan-only` (Testnetz01-16 = 101-116) auf dem
+  Controller angelegt (erst Dry-Run, dann VLAN 101 einzeln + gegengelesen, dann 102-116). Bestandsnetz
+  `BLS-Cusano` unangetastet. **→ #37 für alle 4 Sites abgeschlossen.**
+- **LLDP fleet-weit (Regel: alles mit `10.12x`-IP):** alle 4 FortiGates **vdom-weit** `lldp-reception/
+  transmission enable` (alle Interfaces erben); Dell OS10/OS6 Default-an (verifiziert), fs explizit an,
+  TP-Link `lldp` an, UniFi LLDP-MED Default-an. APs gehen nur über UniFi-Default (kein CLI-Toggle).
+- **Datenpfad real bewiesen:** Windows-VM `10.220.101.100` (VMware, Sulgen Testnetz01/VLAN 101) zog
+  **DHCP von der FortiGate** (Lease + ARP auf `Testnetz01` belegt) → Switch-Trunk→SVI→DHCP→Host
+  durchgängig. Erst-Ping 100% loss = nur Windows-Firewall (ICMP); nach `New-NetFirewallRule … ICMPv4
+  IcmpType 8 Inbound Allow` voller **Full-Mesh-Beweis**: Ping auf die VM von allen 4 FortiGates je
+  **0% loss** (Sulgen lokal 0.2 ms, Grosuplje 34 ms, USA 150 ms, Cusano 13 ms — Spoke→Mesh→Sulgen).
+  Damit Fabric end-to-end gegen ein echtes Gerät validiert.
+
+## S55 — Rack H (GRO-SW-26) Uplink gelöst + USA-Backup (29.6.2026)
+
+- **GRO-SW-26 (Rack H) fertig:** Upstream-Port via Ruijie-MAC-Tabelle gefunden — Befehl
+  `show mac-address-table dynamic` (227 Einträge; `show mac address-table` ohne Bindestrich gab nur
+  Müll). SW-26-MAC `649d.9930.d947` saß auf Core **`TFGigabitEthernet 0/19`** (nicht 0/37/0/39).
+  Port getrunkt (`allowed vlan add 101-116`, saved). Verifiziert FW-Ping (10.221.101.1 → temp-SVI
+  10.221.101.53 auf SW-26) = **0% loss**. Damit Grosuplje-Access **komplett** (alle Switches 101–116).
+- LLDP half nicht (SW-26 advertised Uplink nicht) → MAC-Tabelle war der Schlüssel.
+- Aufräum-Rest: Core `TF 0/37` aus Fehlversuchen noch getrunkt (harmlos, native VLAN 1) — bei
+  Gelegenheit zurücksetzen.
+- **USA komplett (TP-Link live, neuer Write-Pfad bestätigt):** Alex zog Web-UI-Backups beider
+  TL-SG2428P (.11/.12). LLDP an .11 (`show lldp neighbor`) lieferte die Topologie: **.11** = Haupt-SW
+  (Gi1/0/1→FW_US_2, Gi1/0/2→FW_US_1/Gateway, Gi1/0/4→AP BLS-AP-US-01, Gi1/0/24→.12), **.12** hängt nur
+  an .11 (Gi1/0/1). USA-FortiGate hatte die Test-SVIs (`Testnetz01-16` = 10.222.101-116.1, vlanid
+  101-116 auf lan1) **schon** (beim #38-Mesh mitgezogen) → kein FW-Eingriff nötig.
+- **TP-Link-JetStream-Syntax (SG2428P 5.20) live bestätigt:** Login→`>`, `enable`→`#` (kein PW),
+  `configure`; VLANs `vlan 101-116`; Trunk im Interface `switchport general allowed vlan 101-116
+  tagged` (VLAN 1 bleibt untagged/PVID → Mgmt sicher); Save `copy running-config startup-config`
+  („Saving user config OK!"). Pager „Press any key" mit Space bedienen. Vorsicht: enable braucht
+  `\r\n`, mac/lange Outputs pagen.
+  - **.11**: VLAN 101-116 + Trunk Gi1/0/1+Gi1/0/2+Gi1/0/24; FW-Ping (10.222.101.1→temp-SVI) 0% loss, saved.
+  - **.12**: VLAN 101-116 + Trunk Gi1/0/1; FW-Ping 0% loss, saved.
+- **TF 0/37 bereinigt:** Core-Port aus den SW-26-Fehlversuchen via `switchport mode access`
+  zurückgesetzt (`no switchport trunk allowed vlan add` ist ungültige Ruijie-Syntax — Mode-Wechsel
+  räumt die Trunk-Liste mit), gespeichert.
+- **OFFEN:** nur noch Cusano (UniFi-Controller-managed, eigener Mechanismus) + #34 Port→VLAN-UI.
+
 ## S54 — Test-VLANs auf Grosuplje-Switches (29.6.2026)
 
 - **Spoke-Rollout-Entscheidung:** erst CLI-Sites (USA+Gro), Cusano/UniFi (5 controller-managed Switches)

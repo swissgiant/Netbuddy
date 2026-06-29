@@ -155,6 +155,89 @@ def test_find_poe_faults_and_locate_clients() -> None:
     assert wireless.via_device == "AP1"
 
 
+def _network_factory(
+    store: list[dict[str, object]], recorder: list[httpx.Request]
+) -> unifi_local.ClientFactory:
+    """Fake-Controller mit zustandsbehafteter ``rest/networkconf`` (GET/POST/DELETE)."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        recorder.append(request)
+        p = request.url.path
+        if p == "/api/auth/login":
+            return httpx.Response(200, headers={"X-CSRF-Token": "csrf123"}, json={"meta": {}})
+        if p.endswith("/rest/networkconf"):
+            if request.method == "GET":
+                return httpx.Response(200, json={"data": store})
+            body = json.loads(request.content)
+            created = {**body, "_id": f"id{len(store)}"}
+            store.append(created)
+            return httpx.Response(200, json={"data": [created]})
+        return httpx.Response(404)
+
+    def make(base_url: str) -> httpx.AsyncClient:
+        return httpx.AsyncClient(base_url=base_url, transport=httpx.MockTransport(handler))
+
+    return make
+
+
+async def test_create_vlan_only_network_payload_and_csrf() -> None:
+    store: list[dict[str, object]] = []
+    rec: list[httpx.Request] = []
+    async with unifi_local.UnifiConsole(
+        "https://x:11443", "netbuddy", "pw", client_factory=_network_factory(store, rec)
+    ) as con:
+        net = await con.create_vlan_only_network("Testnetz01", 101)
+    # Login ist auch ein POST → auf den networkconf-Call filtern.
+    post = next(r for r in rec if r.method == "POST" and r.url.path.endswith("/rest/networkconf"))
+    assert post.headers.get("X-CSRF-Token") == "csrf123"
+    body = json.loads(post.content)
+    assert body["purpose"] == "vlan-only" and body["vlan"] == 101 and body["vlan_enabled"] is True
+    assert net.vlan == 101 and net.name == "Testnetz01" and net.id == "id0"
+
+
+async def test_provision_vlan_only_networks_is_idempotent() -> None:
+    # VLAN 101 existiert schon, 102 fehlt → nur 102 wird angelegt.
+    store: list[dict[str, object]] = [
+        {
+            "_id": "x",
+            "name": "Testnetz01",
+            "purpose": "vlan-only",
+            "vlan_enabled": True,
+            "vlan": 101,
+        }
+    ]
+    rec: list[httpx.Request] = []
+    cred = Credential(name="UnifiLocal", username="netbuddy", password="pw")
+    report = await unifi_local.provision_vlan_only_networks(
+        cred,
+        "Cusano",
+        [(101, "Testnetz01"), (102, "Testnetz02")],
+        consoles={"Cusano": "10.123.12.253"},
+        client_factory=_network_factory(store, rec),
+    )
+    assert report.created == [102] and report.existing == [101]
+    assert {n.vlan for n in report.networks} == {101, 102}
+    posts = [r for r in rec if r.method == "POST" and r.url.path.endswith("/rest/networkconf")]
+    assert len(posts) == 1
+
+
+async def test_provision_dry_run_writes_nothing() -> None:
+    store: list[dict[str, object]] = []
+    rec: list[httpx.Request] = []
+    cred = Credential(name="UnifiLocal", username="netbuddy", password="pw")
+    report = await unifi_local.provision_vlan_only_networks(
+        cred,
+        "Cusano",
+        [(101, "Testnetz01"), (102, "Testnetz02")],
+        dry_run=True,
+        consoles={"Cusano": "10.123.12.253"},
+        client_factory=_network_factory(store, rec),
+    )
+    assert report.created == [101, 102] and report.dry_run is True
+    assert not any(r.url.path.endswith("/rest/networkconf") and r.method == "POST" for r in rec)
+    assert store == []
+
+
 async def test_fetch_all_skips_unreachable() -> None:
     def make(base_url: str) -> httpx.AsyncClient:
         def handler(request: httpx.Request) -> httpx.Response:
