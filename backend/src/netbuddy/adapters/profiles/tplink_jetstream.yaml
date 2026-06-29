@@ -11,6 +11,7 @@ port_vlan_control:
   config_enter: ["configure"]
   config_exit: ["end"]
   set_access: ["switchport general allowed vlan {vlan} untagged", "switchport pvid {vlan}"]
+  reset_access: ["switchport general allowed vlan {vlan} untagged", "switchport pvid {vlan}"]
 
 # Globaler LLDP-Schalter (im Config-Mode `lldp` an / `no lldp` aus). Status via "show lldp".
 lldp_control:

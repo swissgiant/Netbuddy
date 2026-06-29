@@ -46,9 +46,13 @@ from netbuddy.services.hosts import normalize_mac
 from netbuddy.services.lldp_control import LldpEnableResult, enable_lldp, read_lldp_enabled
 from netbuddy.services.onboarding import ProfileDraft, suggest_profile
 from netbuddy.services.oui import vendor_for_mac
-from netbuddy.services.port_vlan import PortVlanResult, assign_port_vlan
+from netbuddy.services.port_vlan import PortVlanResult, assign_port_vlan, reset_port_vlan
 from netbuddy.services.sites_net import site_for_ip
-from netbuddy.services.unifi_local import assign_unifi_port_vlan, switch_port_interfaces
+from netbuddy.services.unifi_local import (
+    assign_unifi_port_vlan,
+    reset_unifi_port_vlan,
+    switch_port_interfaces,
+)
 from netbuddy.services.validation import DeviceValidationReport, validate_adapter
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -835,6 +839,76 @@ async def assign_port_vlan_endpoint(
         "device.port_vlan_assign",
         device.hostname,
         {"interface": body.interface, "vlan": body.vlan_id, "verified": result.verified},
+    )
+    return result
+
+
+class PortResetRequest(BaseModel):
+    interface: str
+
+
+@router.post("/{device_id}/interfaces/port-vlan/reset", response_model=PortVlanResult)
+async def reset_port_vlan_endpoint(
+    device_id: uuid.UUID,
+    body: PortResetRequest,
+    session: SessionDep,
+    connection: LiveConnectionDep,
+    user: CurrentUserDep,
+) -> PortVlanResult:
+    """Nimmt die VLAN-Zuweisung eines Ports weg → zurück auf Default (VLAN 1 / Switch-Default).
+
+    ⚠️ Schreibzugriff. CLI über `port_vlan_control.reset_access`, UniFi entfernt den Port-Override.
+    """
+    device = await get_device(device_id, session)
+
+    if adapter_kind(device.adapter_id) == "api":
+        if device.adapter_id not in ("unifi", "unifi_cloud"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Port-VLAN-Reset für {device.adapter_id!r} nicht unterstützt",
+            )
+        site_name, local = await _unifi_local_target(device, session)
+        port_idx = _port_index(body.interface)
+        if port_idx is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Portnummer aus {body.interface!r} nicht ableitbar",
+            )
+        try:
+            await reset_unifi_port_vlan(local, site_name, str(device.mgmt_ip), port_idx)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        await audit(
+            session,
+            user,
+            "device.port_vlan_reset",
+            device.hostname,
+            {"interface": body.interface, "via": "unifi"},
+        )
+        return PortVlanResult(interface=body.interface, vlan_id=1, backed_up=False, verified=None)
+
+    credential = await _device_credential(device, session)
+    if credential is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Keine SSH-Credential für dieses Gerät verknüpft",
+        )
+    profile = get_profile(device.adapter_id)
+    if profile.port_vlan_control is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Adapter {device.adapter_id!r} unterstützt Port-VLAN-Reset nicht",
+        )
+    async with connection(device, credential) as (adapter, transport):
+        result = await reset_port_vlan(
+            session, device, adapter, transport, profile.port_vlan_control, body.interface
+        )
+    await audit(
+        session,
+        user,
+        "device.port_vlan_reset",
+        device.hostname,
+        {"interface": body.interface, "verified": result.verified},
     )
     return result
 

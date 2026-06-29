@@ -300,6 +300,22 @@ async def test_assign_unifi_port_vlan_sets_native_override() -> None:
     assert any(o["port_idx"] == 1 and o.get("poe_mode") == "auto" for o in overrides)
 
 
+async def test_reset_unifi_port_vlan_clears_override() -> None:
+    rec: list[httpx.Request] = []
+    cred = Credential(name="UnifiLocal", username="netbuddy", password="pw")
+    await unifi_local.reset_unifi_port_vlan(
+        cred,
+        "Cusano",
+        "10.123.40.3",
+        1,
+        consoles={"Cusano": "10.123.12.253"},
+        client_factory=_port_factory(rec),
+    )
+    put = next(r for r in rec if r.method == "PUT" and "/rest/device/sw1" in r.url.path)
+    overrides = json.loads(put.content)["port_overrides"]
+    assert all(o["port_idx"] != 1 for o in overrides)  # Override für Port 1 entfernt
+
+
 async def test_fetch_all_skips_unreachable() -> None:
     def make(base_url: str) -> httpx.AsyncClient:
         def handler(request: httpx.Request) -> httpx.Response:

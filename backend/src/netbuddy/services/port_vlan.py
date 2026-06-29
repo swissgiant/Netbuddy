@@ -1,4 +1,4 @@
-"""Access-Port einem VLAN zuweisen (autorisierter Schreibpfad, Feature #34).
+"""Access-Port einem VLAN zuweisen bzw. zurücksetzen (autorisierter Schreibpfad, Feature #34).
 
 Spiegelt das LLDP-Muster (siehe :mod:`netbuddy.services.lldp_control`): Backup vor dem
 Schreiben, eng begrenzte Konfig-Sequenz aus dem Profil (``port_vlan_control``), Verifikation
@@ -25,44 +25,42 @@ class PortVlanResult(BaseModel):
     verified: bool | None  # True/False per Re-Read; None = Adapter liefert keine Port-VLAN
 
 
-async def assign_port_vlan(
+async def _write_port_vlan(
     session: AsyncSession,
     device: Device,
     adapter: SwitchAdapter,
     transport: WriteTransport,
     spec: PortVlanControlSpec,
     interface_name: str,
-    vlan_id: int,
+    body: list[str],
+    result_vlan: int,
 ) -> PortVlanResult:
-    """Setzt einen physischen Port auf Access-Mode + Access-VLAN (Backup vorher, Verify danach).
+    """Gemeinsamer Schreibpfad: Backup → enter → interface → `body` → exit → Verify → Inventar.
 
-    ⚠️ Schreibzugriff auf echte Hardware. Aufrufer muss autorisiert sein; der Eingriff bleibt
-    eng auf die VLAN-Zuweisung eines Ports begrenzt und wird im Audit-Log festgehalten.
+    ⚠️ Schreibzugriff auf echte Hardware. Eng auf einen Port begrenzt, Audit beim Endpoint.
     """
     if not is_physical(interface_name):
         raise ValueError(f"{interface_name!r} ist kein physischer Port")
 
-    # 1) Backup vor dem Schreiben (Rollback-Anker).
-    await backup_device(session, device, adapter)
+    await backup_device(session, device, adapter)  # Rollback-Anker
 
-    # 2) Konfig-Sequenz: enter → interface → set_access (mit {vlan}/{name}) → exit.
     lines: list[str] = [*spec.config_enter, spec.interface_enter.format(name=interface_name)]
-    lines.extend(line.format(vlan=vlan_id, name=interface_name) for line in spec.set_access)
+    lines.extend(body)
     lines.append(spec.interface_exit)
     lines.extend(spec.config_exit)
     await transport.send_config(lines)
 
-    # 3) Verifikation per Re-Read (best effort — nicht jedes Profil liefert Port-VLANs).
+    # Verifikation per Re-Read (best effort — nicht jedes Profil liefert Port-VLANs).
     verified: bool | None = None
     try:
         for itf in await adapter.get_interfaces():
             if itf.name == interface_name:
-                verified = itf.vlan_id == vlan_id if itf.vlan_id is not None else None
+                verified = itf.vlan_id == result_vlan if itf.vlan_id is not None else None
                 break
     except Exception:
         verified = None
 
-    # 4) Inventar sofort konsistent halten (Frontend zeigt das neue VLAN ohne Re-Discovery).
+    # Inventar sofort konsistent halten (Frontend zeigt das neue VLAN ohne Re-Discovery).
     row = (
         (
             await session.execute(
@@ -75,8 +73,39 @@ async def assign_port_vlan(
         .first()
     )
     if row is not None:
-        row.vlan_id = vlan_id
+        row.vlan_id = result_vlan
 
     return PortVlanResult(
-        interface=interface_name, vlan_id=vlan_id, backed_up=True, verified=verified
+        interface=interface_name, vlan_id=result_vlan, backed_up=True, verified=verified
+    )
+
+
+async def assign_port_vlan(
+    session: AsyncSession,
+    device: Device,
+    adapter: SwitchAdapter,
+    transport: WriteTransport,
+    spec: PortVlanControlSpec,
+    interface_name: str,
+    vlan_id: int,
+) -> PortVlanResult:
+    """Setzt einen physischen Port auf Access-Mode + Access-VLAN (Backup vorher, Verify danach)."""
+    body = [line.format(vlan=vlan_id, name=interface_name) for line in spec.set_access]
+    return await _write_port_vlan(
+        session, device, adapter, transport, spec, interface_name, body, vlan_id
+    )
+
+
+async def reset_port_vlan(
+    session: AsyncSession,
+    device: Device,
+    adapter: SwitchAdapter,
+    transport: WriteTransport,
+    spec: PortVlanControlSpec,
+    interface_name: str,
+) -> PortVlanResult:
+    """Setzt einen Port auf das Default-VLAN 1 zurück (nimmt eine Test-VLAN-Zuweisung weg)."""
+    body = [line.format(vlan=1, name=interface_name) for line in spec.reset_access]
+    return await _write_port_vlan(
+        session, device, adapter, transport, spec, interface_name, body, 1
     )

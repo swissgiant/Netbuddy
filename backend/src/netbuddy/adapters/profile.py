@@ -146,6 +146,8 @@ class PortVlanControlSpec(BaseModel):
     interface_enter: str = "interface {name}"
     interface_exit: str = "exit"
     set_access: list[str] = Field(default_factory=list)  # {vlan}/{name} formatierbar
+    # Zurücksetzen auf Default-VLAN 1 (Zuweisung wegnehmen); {vlan} ist hier immer 1.
+    reset_access: list[str] = Field(default_factory=lambda: ["switchport access vlan {vlan}"])
 
 
 class VendorProfile(BaseModel):

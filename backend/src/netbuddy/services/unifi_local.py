@@ -294,6 +294,22 @@ class UnifiConsole:
             {"port_overrides": [*others, target]},
         )
 
+    async def clear_port_override(
+        self, switch_mac: str, port_idx: int, site: str = "default"
+    ) -> None:
+        """⚠️ Schreibpfad: den Port-Override eines Ports entfernen (zurück auf Switch-Default)."""
+        devices = await self.devices(site)
+        dev = next(
+            (d for d in devices if str(d.get("mac", "")).lower() == switch_mac.lower()), None
+        )
+        if dev is None:
+            raise ValueError(f"UniFi-Switch {switch_mac!r} nicht auf dem Controller gefunden")
+        dev_id = str(dev.get("_id") or "")
+        others = [o for o in (dev.get("port_overrides") or []) if o.get("port_idx") != port_idx]
+        await self._write(
+            "PUT", f"/proxy/network/api/s/{site}/rest/device/{dev_id}", {"port_overrides": others}
+        )
+
 
 async def fetch_console(
     site: str,
@@ -520,6 +536,32 @@ async def assign_unifi_port_vlan(
         vlan_id=vlan_id,
         networkconf_id=net.id,
     )
+
+
+async def reset_unifi_port_vlan(
+    credential: Credential,
+    site: str,
+    switch_ip: str,
+    port_idx: int,
+    *,
+    unifi_site: str = "default",
+    consoles: dict[str, str] = CONSOLES,
+    client_factory: ClientFactory = _default_client,
+) -> None:
+    """⚠️ Schreibpfad: Port-Override eines UniFi-Switch-Ports entfernen (zurück auf Default)."""
+    ip = consoles.get(site)
+    if ip is None:
+        raise ValueError(f"Keine UniFi-Konsole für Standort {site!r} bekannt")
+    async with UnifiConsole(
+        f"https://{ip}:{_PORT}",
+        credential.username or "",
+        credential.password or "",
+        client_factory=client_factory,
+    ) as con:
+        sw = await con.device_by_ip(switch_ip, unifi_site)
+        if sw is None:
+            raise ValueError(f"UniFi-Switch {switch_ip} nicht auf dem Controller {site!r} gefunden")
+        await con.clear_port_override(str(sw.get("mac")), port_idx, unifi_site)
 
 
 # UniFi-`media` (Port-Typ/Kapazität) → Mbps, für den Speed-Indikator (wie die Controller-Legende).

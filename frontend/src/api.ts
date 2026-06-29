@@ -227,6 +227,11 @@ export const assignPortVlan = (id: string, iface: string, vlanId: number) =>
     method: "POST",
     body: JSON.stringify({ interface: iface, vlan_id: vlanId }),
   });
+export const resetPortVlan = (id: string, iface: string) =>
+  http<PortVlanResult>(`/devices/${id}/interfaces/port-vlan/reset`, {
+    method: "POST",
+    body: JSON.stringify({ interface: iface }),
+  });
 
 export const fetchCredentials = () => http<Credential[]>("/credentials");
 export const createCredential = (body: CredentialCreate) =>

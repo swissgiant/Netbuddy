@@ -23,6 +23,7 @@ import {
   fetchVlans,
   fetchVpnTunnels,
   lldpStatus,
+  resetPortVlan,
   updateVpnTunnel,
   validateDevice,
 } from "../api";
@@ -164,6 +165,19 @@ export function DeviceDetail({ device }: { device: Device }) {
           ? `Port ${r.interface} auf VLAN ${r.vlan_id} gesetzt, aber Re-Read weicht ab — bitte prüfen.`
           : `Port ${r.interface} → VLAN ${r.vlan_id} zugewiesen (Backup angelegt).`,
       );
+    });
+  };
+
+  const resetVlan = () => {
+    if (!portSel) return;
+    const { iface } = portSel;
+    void act("reset-vlan", async () => {
+      if (!confirm(`VLAN-Zuweisung von Port ${iface.name} entfernen (zurück auf Default)? Schreibzugriff.`))
+        return;
+      const r = await resetPortVlan(device.id, iface.name);
+      setPortSel(null);
+      await loadInventory();
+      setError(`Port ${r.interface} auf Default (VLAN 1) zurückgesetzt.`);
     });
   };
 
@@ -407,6 +421,10 @@ export function DeviceDetail({ device }: { device: Device }) {
                       </button>
                     </>
                   )}
+                  <button className="ghost danger" onClick={resetVlan} disabled={busy !== null}
+                    title="Zuweisung entfernen → Port zurück auf Default (VLAN 1)">
+                    {busy === "reset-vlan" ? "setzt zurück…" : "Zuweisung entfernen"}
+                  </button>
                   <button className="ghost" onClick={() => setPortSel(null)}>abbrechen</button>
                 </div>
               )}

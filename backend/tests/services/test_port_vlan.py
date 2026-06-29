@@ -13,7 +13,7 @@ from netbuddy.adapters.dto import (
 )
 from netbuddy.adapters.profile import PortVlanControlSpec
 from netbuddy.db.models import ConfigBackup, Device, DeviceType, Interface
-from netbuddy.services.port_vlan import assign_port_vlan
+from netbuddy.services.port_vlan import assign_port_vlan, reset_port_vlan
 
 _SPEC = PortVlanControlSpec(set_access=["switchport mode access", "switchport access vlan {vlan}"])
 
@@ -118,6 +118,40 @@ async def test_assign_port_vlan_writes_verifies_and_updates_inventory(db_session
         .first()
     )
     assert row is not None and row.vlan_id == 107
+
+
+async def test_reset_port_vlan_back_to_default(db_session) -> None:  # type: ignore[no-untyped-def]
+    device = Device(
+        hostname="bls-sw-53",
+        mgmt_ip="10.120.10.53",
+        vendor="fs",
+        device_type=DeviceType.SWITCH,
+        adapter_id="fs_centec",
+    )
+    db_session.add(device)
+    await db_session.flush()
+    db_session.add(Interface(device_id=device.id, name="eth-0-5", vlan_id=107))
+    await db_session.flush()
+
+    state: dict[str, int | None] = {"vlan": 107}
+    transport = _FakeWriteTransport(state)
+    result = await reset_port_vlan(
+        db_session, device, _FakeAdapter(state), transport, _SPEC, "eth-0-5"
+    )
+    assert result.vlan_id == 1 and result.verified is True
+    assert "switchport access vlan 1" in transport.config_calls[0]
+    row = (
+        (
+            await db_session.execute(
+                select(Interface).where(
+                    Interface.device_id == device.id, Interface.name == "eth-0-5"
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert row is not None and row.vlan_id == 1
 
 
 async def test_assign_port_vlan_rejects_logical_port(db_session) -> None:  # type: ignore[no-untyped-def]

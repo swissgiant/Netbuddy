@@ -24,6 +24,9 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   (spaltenweise gestapelt wie RJ45), SFP hinten.
 - **Speed-Indikator** (alle Switches): farbiger Punkt je Port (100M/1G/2.5G/5G/10G/25G/100G) +
   Legende. UniFi-Speed aus `media` (Port-Typ); CLI aus Discovery-`speed_mbps`.
+- **Port-VLAN-Reset** („Zuweisung entfernen"): `POST …/port-vlan/reset` → CLI `reset_access`
+  (Default `switchport access vlan 1`; TP-Link pvid/general 1), UniFi entfernt den Port-Override
+  (zurück auf Switch-Default). Frontend-Button im Zuweisungs-Panel. 265 Tests grün.
 
 ## S57 — #34 Port→VLAN über alle Plattformen (29.6.2026)
 
