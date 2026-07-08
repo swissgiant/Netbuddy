@@ -93,6 +93,9 @@ tr:hover td { background: var(--panel-2); }
 .muted { color: var(--muted); }
 .error { color: var(--danger); }
 .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; background: var(--panel-2); border: 1px solid var(--border); }
+.badge.ok { border-color: var(--ok); color: var(--ok); }
+.badge.warn { border-color: #f59e0b; color: #f59e0b; }
+.badge.muted { opacity: 0.6; }
 .topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--panel); }
 
 /* --- Geräte-Detail + Switch-Faceplate ----------------------------------- */

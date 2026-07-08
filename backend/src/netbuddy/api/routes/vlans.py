@@ -222,3 +222,75 @@ async def delete_subnet(vlan_id: uuid.UUID, site_id: uuid.UUID, session: Session
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subnetz nicht gefunden")
     await session.delete(row)
+
+
+# --- VLAN-Survey (S63): Ist-Zustand der VLANs pro Standort einsammeln -------------------------
+
+
+class SurveyRunRead(BaseModel):
+    id: uuid.UUID
+    created_at: datetime
+    data: dict[str, object]
+
+
+_survey_running: dict[str, bool] = {"active": False}
+
+
+async def _survey_task() -> None:
+    """Hintergrund-Lauf mit eigener DB-Session (der Request wartet nicht)."""
+    from loguru import logger
+
+    from netbuddy.db.models import VlanSurveyRun
+    from netbuddy.db.session import SessionLocal
+    from netbuddy.services.vlan_survey import run_vlan_survey
+
+    try:
+        async with SessionLocal() as session:
+            data = await run_vlan_survey(session)
+            session.add(VlanSurveyRun(data=data))
+            await session.commit()
+            logger.info("VLAN-Survey abgeschlossen: {} Sites", len(data.get("sites", {})))
+    except Exception:
+        logger.exception("VLAN-Survey fehlgeschlagen")
+    finally:
+        _survey_running["active"] = False
+
+
+@router.post("/survey/run", status_code=status.HTTP_202_ACCEPTED)
+async def start_vlan_survey() -> dict[str, str]:
+    """Startet den read-only VLAN-Survey über die ganze Fleet (dauert einige Minuten).
+
+    Läuft im Hintergrund; das Ergebnis erscheint als neuer Lauf unter ``GET /vlans/survey``.
+    """
+    import asyncio
+
+    if _survey_running["active"]:
+        return {"status": "already-running"}
+    _survey_running["active"] = True
+    asyncio.get_running_loop().create_task(_survey_task())
+    return {"status": "started"}
+
+
+@router.get("/survey", response_model=SurveyRunRead | None)
+async def get_vlan_survey(session: SessionDep) -> SurveyRunRead | None:
+    """Der jüngste Survey-Lauf (oder null, wenn noch keiner lief)."""
+    from netbuddy.db.models import VlanSurveyRun
+
+    row = (
+        (
+            await session.execute(
+                select(VlanSurveyRun).order_by(VlanSurveyRun.created_at.desc()).limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if row is None:
+        return None
+    return SurveyRunRead(id=row.id, created_at=row.created_at, data=row.data)
+
+
+@router.get("/survey/status")
+async def vlan_survey_status() -> dict[str, bool]:
+    """Läuft gerade ein Survey?"""
+    return {"running": _survey_running["active"]}

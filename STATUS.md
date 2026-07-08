@@ -4,6 +4,39 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S63 — VLAN-Survey pro Standort (Ist-Zustand, unter der Topologie) (2.7.2026)
+
+- **Neues Feature „VLANs pro Standort"** (Basis für VLAN-Konsolidierung): sammelt read-only den
+  Ist-Zustand ein — `services/vlan_survey.py`: CLI-Switches live `show running-config` (enable/Pager
+  je Vendor; die Config-**Backups** waren dafür zu unvollständig), geparst: VLAN-Defs+Namen, SVIs
+  (`interface vlan X`+IP), **`ip helper-address` (DHCP-Relay)**, Access/Trunk-Zuordnung; FortiGate
+  REST (VLAN-Subinterfaces, `dhcp-relay-ip`, DHCP-Server je Interface); UniFi networkconf
+  (vlan/name/dhcpd_enabled). Aggregation pro Site: Namen(-Konflikte), Gateways, DHCP-Art, Träger.
+- **Persistenz** `vlan_survey_run` (JSONB, Migration a7b8c9d0e1f2). API: `POST /vlans/survey/run`
+  (Hintergrund-Task, dauert Minuten), `GET /vlans/survey`, `GET /vlans/survey/status`.
+- **Frontend**: unter der Topologie (rechte Spalte scrollbar, Graph 70vh) Panel „VLANs pro Standort":
+  pro Site aufklappbar, Warn-Badges (n× DHCP-Helper / Namens-Konflikt / ohne Gateway), Tabelle
+  VLAN|Namen|Geroutet über|DHCP|Träger|Access-Ports. „⟳ Survey ausführen"-Button mit Status-Polling.
+- **Erster Lauf (0 Fehler):** Sulgen 20 VLANs (u.a. VLAN 90 „MGMT" ohne GW/DHCP, 1 Träger =
+  Aufräum-Kandidat), Gro/USA/Cusano je 19 (1 + Testnetze + 120/130). 4 Parser-Tests, 270 grün.
+
+## S62 — VLAN 120 Aufsetznetz + 130 Gästenetz (ohne Mesh) + Testnetz-Isolation-Fix (2.7.2026)
+
+- **2 neue VLANs, ohne VPN-Mesh** (rein lokal + Internet): **120 Aufsetznetz** (Update unsicherer
+  Geräte übers Internet), **130 Gästenetz**. Schema wie Testnetze: eigenes /24 pro Site
+  (10.220/221/222/223.**120/130**.0/24, GW .1, DHCP .100-200), VLAN-ID = 3. Oktett.
+- **Alle 4 FortiGates (REST cmdb, vdom=root):** SVI + DHCP (`dns-service local` = FW als DNS) +
+  `system/dns-server` forward-only (System-DNS 10.120.20.10/11) + Internet-Policy (→WAN, NAT).
+  **Beide isoliert** (nur Internet, KEIN LAN) — die anfänglich fälschlich angelegte
+  `Aufsetznetz-Intern`-Policy auf allen 4 FWs wieder gelöscht (#46).
+- **Switches:** Cusano UniFi (2 vlan-only Networks, Auto-Trunk); CLI Sulgen/Gro/USA additiv
+  (os6 = nur VLAN anlegen, Trunk=all; os10/fs/ruijie/tplink = Uplink-Trunks +add). TP-Link:
+  Range-Bug `vlan 120-130` (statt Komma) → Müll-VLANs 121-129 wieder entfernt.
+- **#45 Testnetz-Isolation gefixt (alle 4 FWs):** die breiten `/16↔/16`-Mesh-Policies erlaubten
+  Testnetz01↔alle Testnetze. Ersetzt durch pro-VLAN: Adressgruppe `TN{VV}-Mesh` (die 4 gleichnamigen
+  /24) + Policy `Testnetz{VV}-Mesh` (src=dst=Gruppe) → nur Testnetz-X↔Testnetz-X. 6 breite Policies
+  je FW gelöscht. Verifiziert: same-VLAN cross-site 0% loss, cross-VLAN geblockt.
+
 ## S61 — UniFi: ein `unifi_local`-Adapter statt cloud + API (29.6.2026)
 
 - **`unifi_cloud` + `unifi`-API-Adapter durch `unifi_local` ersetzt** (User-Wunsch). Neuer

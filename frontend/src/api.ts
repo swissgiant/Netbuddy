@@ -271,6 +271,29 @@ export interface Vlan {
   subnets: VlanSubnet[];
 }
 export const fetchVlans = () => http<Vlan[]>("/vlans");
+
+// --- VLAN-Survey (Ist-Zustand pro Standort) ---
+export interface SurveyVlan {
+  vlan_id: number;
+  names: string[];
+  gateways: { device: string; ip: string }[];
+  dhcp_servers: string[];
+  dhcp_helpers: { device: string; helpers: string[] }[];
+  carriers: string[];
+  access_ports: number;
+}
+export interface VlanSurvey {
+  id: string;
+  created_at: string;
+  data: {
+    sites: Record<string, SurveyVlan[]>;
+    device_errors: { device: string; error: string }[];
+  };
+}
+export const fetchVlanSurvey = () => http<VlanSurvey | null>("/vlans/survey");
+export const startVlanSurvey = () =>
+  http<{ status: string }>("/vlans/survey/run", { method: "POST" });
+export const vlanSurveyStatus = () => http<{ running: boolean }>("/vlans/survey/status");
 export const createVlan = (body: { vlan_id: number; name: string; description?: string }) =>
   http<Vlan>("/vlans", { method: "POST", body: JSON.stringify(body) });
 export const updateVlan = (id: string, body: { name?: string; description?: string | null }) =>

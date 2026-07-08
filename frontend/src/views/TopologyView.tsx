@@ -3,6 +3,7 @@ import type { AdapterInfo, LocateResult, Topology } from "../api";
 import { fetchAdapters, fetchTopology, resolveHosts, searchEndpoints } from "../api";
 import type { EndpointHighlight } from "../TopologyGraph";
 import { clearSavedPositions, TopologyGraph } from "../TopologyGraph";
+import { VlanSurveyPanel } from "./VlanSurveyPanel";
 
 const NODE_LAYERS = ["switch", "firewall", "router", "ap", "unknown", "other"] as const;
 const EDGE_LAYERS = ["lldp", "uplink", "wireless", "vpn"] as const;
@@ -223,22 +224,27 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
         ))}
       </aside>
 
-      <div className="graph">
-        {shown ? (
-          <TopologyGraph
-            topology={shown}
-            visibleNodeTypes={nodeLayers}
-            visibleEdgeTypes={edgeLayers}
-            theme={theme}
-            fontSize={fontSize}
-            edgeWidth={edgeWidth}
-            edgeColor={edgeColor}
-            endpoints={endpoints}
-            layoutNonce={layoutNonce}
-          />
-        ) : (
-          <p style={{ padding: 16 }}>Lade Topologie…</p>
-        )}
+      <div className="graph" style={{ overflowY: "auto" }}>
+        <div style={{ height: "70vh", minHeight: 420 }}>
+          {shown ? (
+            <TopologyGraph
+              topology={shown}
+              visibleNodeTypes={nodeLayers}
+              visibleEdgeTypes={edgeLayers}
+              theme={theme}
+              fontSize={fontSize}
+              edgeWidth={edgeWidth}
+              edgeColor={edgeColor}
+              endpoints={endpoints}
+              layoutNonce={layoutNonce}
+            />
+          ) : (
+            <p style={{ padding: 16 }}>Lade Topologie…</p>
+          )}
+        </div>
+        <div style={{ padding: "0 14px 14px" }}>
+          <VlanSurveyPanel />
+        </div>
       </div>
     </div>
   );
