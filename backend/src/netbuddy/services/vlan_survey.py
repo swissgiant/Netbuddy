@@ -35,6 +35,15 @@ class SviInfo(BaseModel):
     helpers: list[str] = Field(default_factory=list)  # ip helper-address (DHCP-Relay)
 
 
+class VlanTransition(BaseModel):
+    """Ein erlaubter Übergang eines VLANs (aus einer FW-Policy abgeleitet)."""
+
+    vlan_id: int
+    to: str  # "internet" | "lan" | "vpn" | "vlan"
+    detail: str | None = None  # Tunnel-Name / Ziel-VLAN-ID / Ziel-Interface
+    policy: str | None = None  # Policy-Name (Nachvollziehbarkeit)
+
+
 class DeviceVlanInfo(BaseModel):
     """VLAN-Sicht eines einzelnen Geräts (aus Config oder API)."""
 
@@ -46,6 +55,7 @@ class DeviceVlanInfo(BaseModel):
     access_ports: dict[int, int] = Field(default_factory=dict)  # vlan -> Anzahl Access-Ports
     trunk_vlans: list[int] = Field(default_factory=list)  # über Trunks getragen
     dhcp_server_vlans: list[int] = Field(default_factory=list)  # Gerät selbst ist DHCP-Server
+    transitions: list[VlanTransition] = Field(default_factory=list)  # FW: erlaubte Übergänge
     error: str | None = None
 
 
@@ -201,12 +211,15 @@ async def _fortigate_info(device: Device, credential: Credential) -> DeviceVlanI
         r = await cl.get("/api/v2/cmdb/system/interface?vdom=root")
         r.raise_for_status()
         iface_vlan: dict[str, int] = {}
+        iface_type: dict[str, str] = {}
         for it in r.json().get("results", []):
+            name = str(it.get("name"))
+            iface_type[name] = str(it.get("type") or "")
             vid = it.get("vlanid")
             if not vid:
                 continue
-            iface_vlan[str(it.get("name"))] = int(vid)
-            info.vlans[int(vid)] = str(it.get("name"))
+            iface_vlan[name] = int(vid)
+            info.vlans[int(vid)] = name
             ip = str(it.get("ip") or "").split(" ")[0]
             svi = SviInfo(vlan_id=int(vid), ip=ip if ip and ip != "0.0.0.0" else None)
             if str(it.get("dhcp-relay-service")) == "enable":
@@ -219,6 +232,40 @@ async def _fortigate_info(device: Device, credential: Credential) -> DeviceVlanI
                 vid = iface_vlan.get(str(srv.get("interface")))
                 if vid is not None:
                     info.dhcp_server_vlans.append(vid)
+        # Erlaubte Übergänge aus den Firewall-Policies (nur accept): VLAN-Interface als Quelle,
+        # Ziel klassifiziert als vpn (Tunnel-Iface) / vlan (anderes VLAN) / internet (NAT) / lan.
+        r = await cl.get("/api/v2/cmdb/firewall/policy?vdom=root")
+        if r.status_code == 200:
+            seen: set[tuple[int, str, str]] = set()
+            for pol in r.json().get("results", []):
+                if str(pol.get("action")) != "accept" or str(pol.get("status")) == "disable":
+                    continue
+                srcs = [str(x.get("name")) for x in pol.get("srcintf", [])]
+                dsts = [str(x.get("name")) for x in pol.get("dstintf", [])]
+                nat = str(pol.get("nat")) == "enable"
+                pname = str(pol.get("name") or pol.get("policyid"))
+                for si_name in srcs:
+                    vid = iface_vlan.get(si_name)
+                    if vid is None:
+                        continue
+                    for di in dsts:
+                        if di == si_name:
+                            continue
+                        if di in iface_vlan:
+                            to, detail = "vlan", str(iface_vlan[di])
+                        elif iface_type.get(di) == "tunnel":
+                            to, detail = "vpn", di
+                        elif nat:
+                            to, detail = "internet", di
+                        else:
+                            to, detail = "lan", di
+                        key = (vid, to, detail)
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        info.transitions.append(
+                            VlanTransition(vlan_id=vid, to=to, detail=detail, policy=pname)
+                        )
     return info
 
 
@@ -295,11 +342,19 @@ def aggregate_survey(
             hit = vlans.get(vid)
             if hit is not None and dev.hostname not in hit["dhcp_servers"]:
                 hit["dhcp_servers"].append(dev.hostname)
+    transitions: dict[str, list[dict[str, Any]]] = {}
+    for dev in per_device:
+        if not dev.transitions:
+            continue
+        lst = transitions.setdefault(dev.site or "—", [])
+        for t in dev.transitions:
+            lst.append({**t.model_dump(), "device": dev.hostname})
     return {
         "sites": {
             site: sorted(vlans.values(), key=lambda e: e["vlan_id"])
             for site, vlans in sorted(sites.items())
         },
+        "transitions": transitions,
         "device_errors": [{"device": d.hostname, "error": d.error} for d in per_device if d.error],
     }
 

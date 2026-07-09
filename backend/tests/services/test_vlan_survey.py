@@ -1,6 +1,7 @@
 from netbuddy.services.vlan_survey import (
     DeviceVlanInfo,
     SviInfo,
+    VlanTransition,
     _expand_vlan_list,
     aggregate_survey,
     parse_cli_config,
@@ -83,3 +84,20 @@ def test_aggregate_merges_names_gateways_dhcp() -> None:
     assert v101["dhcp_servers"] == ["FW1"]
     assert v101["gateways"][0]["ip"] == "10.220.101.1"
     assert v101["access_ports"] == 1
+
+
+def test_aggregate_collects_transitions_per_site() -> None:
+    fw = DeviceVlanInfo(
+        hostname="FW1",
+        site="Sulgen",
+        kind="firewall",
+        vlans={130: "Gaestenetz"},
+        transitions=[
+            VlanTransition(vlan_id=130, to="internet", detail="x3", policy="Gaestenetz-Internet"),
+            VlanTransition(vlan_id=101, to="vpn", detail="BLS-SLO", policy="Testnetz01-Mesh"),
+        ],
+    )
+    out = aggregate_survey([fw], {})
+    ts = out["transitions"]["Sulgen"]
+    assert {t["to"] for t in ts} == {"internet", "vpn"}
+    assert ts[0]["device"] == "FW1"

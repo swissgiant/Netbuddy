@@ -4,6 +4,21 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S64 — VLAN-Topologie (eigene Graph-Seite) + Stromausfall-Einsatz (9.7.2026)
+
+- **Neuer Menüpunkt „🗺️ VLAN-Topologie"**: Cytoscape-Graph NUR mit VLAN-Netzen (keine Switches) —
+  pro Standort ein Container, VLAN-Knoten farbcodiert (Testnetz/Aufsetz/Gäste/Prod/Default),
+  Spezialknoten Internet + LAN je Site. **Übergänge aus den FW-Policies** (Survey erweitert:
+  `_fortigate_info` liest `firewall/policy`, klassifiziert dstintf via Interface-Typ →
+  internet(NAT)/lan/vpn(tunnel)/vlan; `transitions` im Survey-JSON). Cross-Site-Kante (gestrichelt
+  „VPN") nur, wenn beide Sites dasselbe VLAN über Tunnel erlauben. Prod-Lauf: je Site 2×internet
+  (120/130) + 48×vpn (16 Testnetze × 3 Tunnel), 0×lan → bestätigt #45/#46-Fixes. 271 Tests grün.
+- **Stromausfall-Einsatz (2.7.)**: alle 30 Geräte + 4 Konsolen wieder erreichbar; Survey-Diff =
+  identisch (kein Config-Verlust); nur BLS-SW-68 rebootete; BLS-AP-CH-71 hing PoE-stuck an
+  BLS-SW-60 Gi1/0/28 → Port-Bounce, AP nach ~2min wieder online. CU-13/SLO-34 bewusst offline.
+- **USA-Switches „offline"-Meldung (9.7.)**: beide live gesund (SSH/Ping/ARP ok) — nur stale
+  last_seen wegen langsamem transatlantischem SSH; Discovery frisch durchgelaufen.
+
 ## S63 — VLAN-Survey pro Standort (Ist-Zustand, unter der Topologie) (2.7.2026)
 
 - **Neues Feature „VLANs pro Standort"** (Basis für VLAN-Konsolidierung): sammelt read-only den
