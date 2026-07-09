@@ -28,6 +28,7 @@ export function VlanTopologyView({ theme }: { theme: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [survey, setSurvey] = useState<VlanSurvey | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<{ site: string; vlanId: number } | null>(null);
 
   useEffect(() => {
     fetchVlanSurvey().then(setSurvey).catch((e) => setError(String(e)));
@@ -187,8 +188,28 @@ export function VlanTopologyView({ theme }: { theme: string }) {
       layout: { name: "cose", animate: false, nodeRepulsion: () => 12000, gravity: 0.4 } as never,
     });
     cy.fit(undefined, 30);
+    // Klick auf VLAN-Knoten → Info-Panel; Klick ins Leere → schließen.
+    cy.on("tap", 'node[kind = "vlan"]', (ev) => {
+      const [, site, vid] = String(ev.target.id()).split(":");
+      setSelected({ site, vlanId: Number(vid) });
+    });
+    cy.on("tap", (ev) => {
+      if (ev.target === cy) setSelected(null);
+    });
     return () => cy.destroy();
   }, [survey, theme]);
+
+  const sel = (() => {
+    if (!selected || !survey) return null;
+    const v = (survey.data.sites[selected.site] ?? []).find((x) => x.vlan_id === selected.vlanId);
+    if (!v) return null;
+    const ts = (
+      (survey.data as { transitions?: Record<string, Transition[]> }).transitions?.[
+        selected.site
+      ] ?? []
+    ).filter((t) => t.vlan_id === selected.vlanId);
+    return { v, ts };
+  })();
 
   return (
     <div className="content" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -213,7 +234,59 @@ export function VlanTopologyView({ theme }: { theme: string }) {
       {!survey && !error && (
         <p className="muted">Kein Survey vorhanden — zuerst unter „Topologie" den VLAN-Survey ausführen.</p>
       )}
-      <div ref={containerRef} style={{ flex: 1, minHeight: 480 }} />
+      <div style={{ flex: 1, minHeight: 480, position: "relative" }}>
+        <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
+        {sel && selected && (
+          <div className="card" style={{ position: "absolute", top: 8, right: 8, width: 340, maxHeight: "90%", overflow: "auto", zIndex: 5 }}>
+            <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ margin: 0 }}>VLAN {sel.v.vlan_id} <span className="muted" style={{ fontSize: 12 }}>@ {selected.site}</span></h3>
+              <button className="ghost" onClick={() => setSelected(null)}>✕</button>
+            </div>
+            <p style={{ margin: "6px 0" }}>
+              {sel.v.names.map((n) => (
+                <span key={n} className={"badge" + (sel.v.names.length > 1 ? " warn" : "")} style={{ marginRight: 4 }}>{n}</span>
+              ))}
+              {sel.v.names.length === 0 && <span className="muted">ohne Namen</span>}
+            </p>
+            <h4 style={{ margin: "8px 0 4px" }}>Routing / Gateway</h4>
+            {sel.v.gateways.length === 0 ? (
+              <p className="muted" style={{ margin: 0 }}>kein L3-Gateway bekannt</p>
+            ) : (
+              sel.v.gateways.map((g) => (
+                <div key={g.device + g.ip} style={{ fontSize: 13 }}>{g.device} <span className="muted">({g.ip})</span></div>
+              ))
+            )}
+            <h4 style={{ margin: "8px 0 4px" }}>DHCP</h4>
+            {sel.v.dhcp_servers.length > 0 && (
+              <div style={{ fontSize: 13 }}>Server: {sel.v.dhcp_servers.join(", ")}</div>
+            )}
+            {sel.v.dhcp_helpers.map((h) => (
+              <div key={h.device} style={{ fontSize: 13 }} className="warn-text">
+                Helper auf {h.device} → {h.helpers.join(", ")}
+              </div>
+            ))}
+            {sel.v.dhcp_servers.length === 0 && sel.v.dhcp_helpers.length === 0 && (
+              <p className="muted" style={{ margin: 0 }}>kein DHCP</p>
+            )}
+            <h4 style={{ margin: "8px 0 4px" }}>Übergänge (FW-Policies)</h4>
+            {sel.ts.length === 0 ? (
+              <p className="muted" style={{ margin: 0 }}>keine — isoliert</p>
+            ) : (
+              sel.ts.map((t, i) => (
+                <div key={i} style={{ fontSize: 13 }}>
+                  → {t.to === "vpn" ? `VPN ${t.detail}` : t.to === "vlan" ? `VLAN ${t.detail}` : t.to}
+                  {t.policy && <span className="muted"> · Policy „{t.policy}"</span>}
+                </div>
+              ))
+            )}
+            <h4 style={{ margin: "8px 0 4px" }}>Getragen von ({sel.v.carriers.length})</h4>
+            <p className="muted" style={{ fontSize: 12, margin: 0 }}>{sel.v.carriers.join(", ")}</p>
+            {sel.v.access_ports > 0 && (
+              <p style={{ fontSize: 13, marginTop: 6 }}>Access-Ports: {sel.v.access_ports}</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
