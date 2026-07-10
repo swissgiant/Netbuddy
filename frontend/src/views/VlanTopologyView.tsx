@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { VlanSurvey } from "../api";
 import { fetchVlanSurvey } from "../api";
 import { buildVlanTopoElements } from "../vlanTopoElements";
+import { VlanTableView } from "./VlanTableView";
 
 // VLAN-Topologie (S64): NUR die VLAN-Netze + ihre Übergänge (aus FW-Policies) — keine Switches.
 // Pro Standort ein Container; Spezialknoten „Internet" und „LAN" je Standort; Cross-Site-Kanten,
@@ -21,13 +22,14 @@ export function VlanTopologyView({ theme }: { theme: string }) {
   const [survey, setSurvey] = useState<VlanSurvey | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<{ site: string; vlanId: number } | null>(null);
+  const [mode, setMode] = useState<"graph" | "table">("graph");
 
   useEffect(() => {
     fetchVlanSurvey().then(setSurvey).catch((e) => setError(String(e)));
   }, []);
 
   useEffect(() => {
-    if (!containerRef.current || !survey) return;
+    if (mode !== "graph" || !containerRef.current || !survey) return;
     const labelColor = theme === "light" ? "#1e293b" : "#e2e8f0";
     const sites = survey.data.sites;
     const transitions = (survey.data as { transitions?: Record<string, Transition[]> })
@@ -119,7 +121,7 @@ export function VlanTopologyView({ theme }: { theme: string }) {
       if (ev.target === cy) setSelected(null);
     });
     return () => cy.destroy();
-  }, [survey, theme]);
+  }, [survey, theme, mode]);
 
   const sel = (() => {
     if (!selected || !survey) return null;
@@ -144,6 +146,14 @@ export function VlanTopologyView({ theme }: { theme: string }) {
             </span>
           )}
         </h2>
+        <div className="row" style={{ gap: 4 }}>
+          <button className={mode === "graph" ? "" : "ghost"} onClick={() => setMode("graph")}>
+            🗺️ Graph
+          </button>
+          <button className={mode === "table" ? "" : "ghost"} onClick={() => setMode("table")}>
+            ☰ Tabelle
+          </button>
+        </div>
         <div className="legend muted" style={{ margin: 0 }}>
           <span><i className="swatch" style={{ background: "#06b6d4" }} /> Testnetz</span>
           <span><i className="swatch" style={{ background: "#a855f7" }} /> Aufsetznetz</span>
@@ -156,7 +166,8 @@ export function VlanTopologyView({ theme }: { theme: string }) {
       {!survey && !error && (
         <p className="muted">Kein Survey vorhanden — zuerst unter „Topologie" den VLAN-Survey ausführen.</p>
       )}
-      <div style={{ flex: 1, minHeight: 480, position: "relative" }}>
+      {mode === "table" && survey && <VlanTableView survey={survey} />}
+      <div style={{ flex: 1, minHeight: 480, position: "relative", display: mode === "graph" ? "block" : "none" }}>
         <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
         {sel && selected && (
           <div className="card" style={{ position: "absolute", top: 8, right: 8, width: 340, maxHeight: "90%", overflow: "auto", zIndex: 5 }}>

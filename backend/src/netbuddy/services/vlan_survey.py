@@ -375,9 +375,17 @@ async def _meraki_infos(credential: Credential) -> list[DeviceVlanInfo]:
                             .replace("https://api.meraki.com/api/v1", "")
                         )
                         break
-            # pro Netz: appliance-VLANs (MX) + Stack-SVIs, falls vorhanden
+            # pro Netz: appliance-VLANs (MX) + Stack-SVIs + VLAN-Profile (Namen), falls vorhanden
             for nid, nname in nets.items():
                 ninfo = DeviceVlanInfo(hostname=f"Meraki {nname}", site=nname, kind="meraki")
+                rp = await cl.get(f"/networks/{nid}/vlanProfiles")
+                for prof in rp.json() if rp.status_code == 200 else []:
+                    for v in prof.get("vlanNames", []):
+                        vid_raw = v.get("vlanId")
+                        name = str(v.get("name") or "")
+                        if vid_raw is None or not name or name == "default":
+                            continue
+                        ninfo.vlans[int(vid_raw)] = name
                 rv = await cl.get(f"/networks/{nid}/appliance/vlans")
                 if rv.status_code == 200:
                     for v in rv.json():
