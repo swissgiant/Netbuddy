@@ -1,5 +1,5 @@
 import cytoscape from "cytoscape";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { VlanSurvey } from "../api";
 import { fetchVlanSurvey } from "../api";
 import { buildVlanTopoElements } from "../vlanTopoElements";
@@ -23,16 +23,40 @@ export function VlanTopologyView({ theme }: { theme: string }) {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<{ site: string; vlanId: number } | null>(null);
   const [mode, setMode] = useState<"graph" | "table">("graph");
+  const [hiddenSites, setHiddenSites] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchVlanSurvey().then(setSurvey).catch((e) => setError(String(e)));
   }, []);
 
+  const allSites = survey ? Object.keys(survey.data.sites).sort() : [];
+  const toggleSite = (site: string) =>
+    setHiddenSites((prev) => {
+      const next = new Set(prev);
+      if (next.has(site)) next.delete(site);
+      else next.add(site);
+      return next;
+    });
+
+  // Sichtbare Teilmenge des Surveys (wirkt auf Graph UND Tabelle). Memoized — sonst würde
+  // jede Objekt-Neuerzeugung den Graph-useEffect (und damit Cytoscape) bei jedem Render neu bauen.
+  const visible = useMemo(() => {
+    if (!survey) return null;
+    const sites = Object.fromEntries(
+      Object.entries(survey.data.sites).filter(([s]) => !hiddenSites.has(s)),
+    );
+    const allT = (survey.data as { transitions?: Record<string, Transition[]> }).transitions ?? {};
+    const transitions = Object.fromEntries(
+      Object.entries(allT).filter(([s]) => !hiddenSites.has(s)),
+    );
+    return { ...survey, data: { ...survey.data, sites, transitions } };
+  }, [survey, hiddenSites]);
+
   useEffect(() => {
-    if (mode !== "graph" || !containerRef.current || !survey) return;
+    if (mode !== "graph" || !containerRef.current || !visible) return;
     const labelColor = theme === "light" ? "#1e293b" : "#e2e8f0";
-    const sites = survey.data.sites;
-    const transitions = (survey.data as { transitions?: Record<string, Transition[]> })
+    const sites = visible.data.sites;
+    const transitions = (visible.data as { transitions?: Record<string, Transition[]> })
       .transitions ?? {};
 
     // Elemente + Positionen kommen aus der getesteten, deterministischen Berechnung.
@@ -121,7 +145,7 @@ export function VlanTopologyView({ theme }: { theme: string }) {
       if (ev.target === cy) setSelected(null);
     });
     return () => cy.destroy();
-  }, [survey, theme, mode]);
+  }, [visible, theme, mode]);
 
   const sel = (() => {
     if (!selected || !survey) return null;
@@ -166,9 +190,27 @@ export function VlanTopologyView({ theme }: { theme: string }) {
       {!survey && !error && (
         <p className="muted">Kein Survey vorhanden — zuerst unter „Topologie" den VLAN-Survey ausführen.</p>
       )}
-      {mode === "table" && survey && <VlanTableView survey={survey} />}
-      <div style={{ flex: 1, minHeight: 480, position: "relative", display: mode === "graph" ? "block" : "none" }}>
-        <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
+      <div style={{ flex: 1, minHeight: 480, display: "flex", gap: 10 }}>
+        {survey && (
+          <aside style={{ width: 190, flexShrink: 0, overflowY: "auto" }}>
+            <h3 style={{ margin: "4px 0 6px" }}>Standorte</h3>
+            {allSites.map((s) => (
+              <label key={s} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, marginBottom: 4, cursor: "pointer" }}>
+                <input type="checkbox" checked={!hiddenSites.has(s)} onChange={() => toggleSite(s)} />
+                <span>{s}</span>
+                <span className="badge" style={{ marginLeft: "auto" }}>{survey.data.sites[s].length}</span>
+              </label>
+            ))}
+            <div className="row" style={{ gap: 4, marginTop: 6 }}>
+              <button className="ghost" onClick={() => setHiddenSites(new Set())}>alle</button>
+              <button className="ghost" onClick={() => setHiddenSites(new Set(allSites))}>keine</button>
+            </div>
+          </aside>
+        )}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          {mode === "table" && visible && <VlanTableView survey={visible} />}
+          <div style={{ flex: 1, position: "relative", display: mode === "graph" ? "block" : "none" }}>
+            <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
         {sel && selected && (
           <div className="card" style={{ position: "absolute", top: 8, right: 8, width: 340, maxHeight: "90%", overflow: "auto", zIndex: 5 }}>
             <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
@@ -219,6 +261,8 @@ export function VlanTopologyView({ theme }: { theme: string }) {
             )}
           </div>
         )}
+          </div>
+        </div>
       </div>
     </div>
   );
