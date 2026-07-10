@@ -4,6 +4,25 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S65 — Meraki-Aufnahme (Steelco) + VLAN-Topologie-Rewrite (10.7.2026)
+
+- **Cisco Meraki live angebunden** (Dashboard-API, Key als Credential `MerakiCloud` verschlüsselt,
+  `X-Cisco-Meraki-API-Key`; 401-Falle: Org-Setting „Dashboard API access" muss aktiviert sein +
+  ~2min Propagation). Org **Steelco Spa** (weitere Orgs erscheinen nach API-Haken dort).
+- **Import:** 6 Meraki-Netzwerke als Sites (S00 HQ, S00 Valla, S01 Icos Pharma, S02 Service,
+  S05 Benelux, Test HQ) + **196 Geräte** (MS425-Stacks, MS225, MR/MV/MT; Typ-Mapping MS→switch,
+  MR→ap, MX→firewall; alle mit lanIp; DeviceCredential API). org_id in Credential.extra.
+- **Survey-Meraki-Collector:** Bulk `switch/ports/bySwitch` (paginated) → pro Switch Access-VLANs
+  (+Zählung), Voice-VLAN, Trunk-native + explizite allowed-Listen (`all`/Riesen-Ranges ignoriert);
+  pro Netz `appliance/vlans` (inkl. `dhcpRelayServerIps` → Helper!) + Stack-SVIs. Prod-Lauf:
+  **9 Sites, 0 Fehler** — S00 HQ **38 VLANs** (u.a. 1011/1013/1022/…, VLAN 4 mit 575 Access-Ports),
+  S01 20. Befund: MS425-Stacks haben 0 SVIs → L3/DHCP extern (FortiGate-Brücke S01NSW112 bekannt).
+- **VLAN-Topologie sauber neu** (war leerer Container — cose-Layout kollabierte mit Compounds):
+  Elemente+Positionen jetzt **deterministisch als pure Funktion** `vlanTopoElements.ts` (Sites
+  zeilenweise gepackt, VLAN-Raster, Internet oben/LAN unten, preset-Layout) + **vitest** eingeführt
+  (`npm test`): 8 Tests, davon 6 gegen ein **echtes Prod-Survey-Fixture** (Kanten-Integrität,
+  eindeutige IDs/Positionen, VPN nur beidseitig + same-VLAN, 120/130 ohne LAN-Kante).
+
 ## S64 — VLAN-Topologie (eigene Graph-Seite) + Stromausfall-Einsatz (9.7.2026)
 
 - **Neuer Menüpunkt „🗺️ VLAN-Topologie"**: Cytoscape-Graph NUR mit VLAN-Netzen (keine Switches) —

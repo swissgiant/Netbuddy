@@ -299,6 +299,124 @@ async def _unifi_info(site: str, credential: Credential) -> DeviceVlanInfo:
     return info
 
 
+def parse_meraki_switch_ports(
+    hostname: str, site: str, ports: list[dict[str, Any]]
+) -> DeviceVlanInfo:
+    """Meraki-Switch-Ports (Dashboard-Bulk-API) → VLAN-Sicht eines Switches.
+
+    Access-Ports zählen aufs Access-VLAN; Trunks registrieren Native-VLAN + explizite
+    ``allowedVlans``-Listen (``"all"`` und Riesen-Ranges werden ignoriert — die sagen nichts
+    über real genutzte VLANs aus).
+    """
+    info = DeviceVlanInfo(hostname=hostname, site=site, kind="switch")
+    for p in ports:
+        vid = p.get("vlan")
+        ptype = str(p.get("type") or "")
+        if ptype == "access" and vid:
+            v = int(vid)
+            info.vlans.setdefault(v, None)
+            info.access_ports[v] = info.access_ports.get(v, 0) + 1
+            voice = p.get("voiceVlan")
+            if voice:
+                info.vlans.setdefault(int(voice), None)
+        elif ptype == "trunk":
+            if vid:
+                info.vlans.setdefault(int(vid), None)  # native
+            allowed = str(p.get("allowedVlans") or "")
+            if allowed and allowed.lower() != "all":
+                ids = _expand_vlan_list(allowed)
+                if len(ids) <= 200:  # explizite Liste — Riesen-Ranges sind nicht aussagekräftig
+                    for v in ids:
+                        info.vlans.setdefault(v, None)
+                        if v not in info.trunk_vlans:
+                            info.trunk_vlans.append(v)
+    return info
+
+
+async def _meraki_infos(credential: Credential) -> list[DeviceVlanInfo]:
+    """Meraki Dashboard-API: pro Switch die Port-VLANs, pro Netz appliance-VLANs/Stack-SVIs.
+
+    Site-Name = Meraki-Netzwerkname (so wurden die NetBuddy-Sites angelegt).
+    """
+    out: list[DeviceVlanInfo] = []
+    headers = {"X-Cisco-Meraki-API-Key": credential.api_token or ""}
+    async with httpx.AsyncClient(
+        base_url=credential.base_url or "https://api.meraki.com/api/v1",
+        headers=headers,
+        timeout=60,
+        follow_redirects=True,
+    ) as cl:
+        orgs = (await cl.get("/organizations")).json()
+        for org in orgs:
+            oid = org.get("id")
+            nets = {
+                n["id"]: str(n["name"])
+                for n in (await cl.get(f"/organizations/{oid}/networks")).json()
+            }
+            devs = (await cl.get(f"/organizations/{oid}/devices")).json()
+            dev_by_serial = {d.get("serial"): d for d in devs}
+            # Bulk: Ports aller Switches (paginated via Link-Header)
+            url: str | None = f"/organizations/{oid}/switch/ports/bySwitch?perPage=50"
+            while url:
+                r = await cl.get(url)
+                if r.status_code != 200:
+                    break
+                for sw in r.json():
+                    meta = dev_by_serial.get(sw.get("serial"), {})
+                    site = nets.get(str(meta.get("networkId")), "—")
+                    name = str(sw.get("name") or sw.get("serial"))
+                    out.append(parse_meraki_switch_ports(name, site, sw.get("ports", [])))
+                url = None
+                for part in r.headers.get("link", "").split(","):
+                    if "rel=next" in part or 'rel="next"' in part:
+                        url = (
+                            part.split("<")[1]
+                            .split(">")[0]
+                            .replace("https://api.meraki.com/api/v1", "")
+                        )
+                        break
+            # pro Netz: appliance-VLANs (MX) + Stack-SVIs, falls vorhanden
+            for nid, nname in nets.items():
+                ninfo = DeviceVlanInfo(hostname=f"Meraki {nname}", site=nname, kind="meraki")
+                rv = await cl.get(f"/networks/{nid}/appliance/vlans")
+                if rv.status_code == 200:
+                    for v in rv.json():
+                        vid = int(v.get("id"))
+                        ninfo.vlans[vid] = str(v.get("name") or "") or None
+                        ip = str(v.get("applianceIp") or "")
+                        if ip:
+                            ninfo.svis.append(SviInfo(vlan_id=vid, ip=ip))
+                        handling = str(v.get("dhcpHandling") or "")
+                        if handling.startswith("Run"):
+                            ninfo.dhcp_server_vlans.append(vid)
+                        elif handling.startswith("Relay"):
+                            relays = [str(x) for x in (v.get("dhcpRelayServerIps") or [])]
+                            svi = next(
+                                (s for s in ninfo.svis if s.vlan_id == vid),
+                                None,
+                            )
+                            if svi is None:
+                                svi = SviInfo(vlan_id=vid)
+                                ninfo.svis.append(svi)
+                            svi.helpers = relays
+                rs = await cl.get(f"/networks/{nid}/switch/stacks")
+                for st in rs.json() if rs.status_code == 200 else []:
+                    ri = await cl.get(
+                        f"/networks/{nid}/switch/stacks/{st['id']}/routing/interfaces"
+                    )
+                    for i in ri.json() if ri.status_code == 200 else []:
+                        vid = i.get("vlanId")
+                        if vid is None:
+                            continue
+                        ninfo.vlans.setdefault(int(vid), str(i.get("name") or "") or None)
+                        ip = str(i.get("interfaceIp") or "")
+                        if ip:
+                            ninfo.svis.append(SviInfo(vlan_id=int(vid), ip=ip))
+                if ninfo.vlans:
+                    out.append(ninfo)
+    return out
+
+
 # ---------------------------------------------------------------- Aggregation
 
 CLI_ADAPTERS = ("dell_os6", "dell_os10", "fs_centec", "fs_ruijie", "tplink_jetstream")
@@ -460,5 +578,29 @@ async def run_vlan_survey(session: "AsyncSession") -> dict[str, Any]:
                     error=f"{type(exc).__name__}: {exc}",
                 )
             per_device.append(info)
+
+    # Meraki (Dashboard-Cloud): alle Orgs des Keys, Site = Meraki-Netzwerkname.
+    meraki = (
+        (
+            await session.execute(
+                select(Credential).where(
+                    Credential.name == "MerakiCloud", Credential.deleted_at.is_(None)
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if meraki is not None and meraki.api_token:
+        try:
+            per_device.extend(await asyncio.wait_for(_meraki_infos(meraki), timeout=300))
+        except Exception as exc:
+            per_device.append(
+                DeviceVlanInfo(
+                    hostname="Meraki Dashboard",
+                    kind="meraki",
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+            )
 
     return aggregate_survey(per_device, {str(k): v for k, v in sites.items()})

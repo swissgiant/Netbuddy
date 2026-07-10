@@ -2,6 +2,7 @@ import cytoscape from "cytoscape";
 import { useEffect, useRef, useState } from "react";
 import type { VlanSurvey } from "../api";
 import { fetchVlanSurvey } from "../api";
+import { buildVlanTopoElements } from "../vlanTopoElements";
 
 // VLAN-Topologie (S64): NUR die VLAN-Netze + ihre Übergänge (aus FW-Policies) — keine Switches.
 // Pro Standort ein Container; Spezialknoten „Internet" und „LAN" je Standort; Cross-Site-Kanten,
@@ -13,15 +14,6 @@ interface Transition {
   detail: string | null;
   policy: string | null;
   device: string;
-}
-
-function vlanColor(vid: number, names: string[]): string {
-  const n = names.join(" ").toLowerCase();
-  if (n.includes("gäste") || n.includes("gaeste") || n.includes("guest")) return "#f59e0b";
-  if (n.includes("aufsetz")) return "#a855f7";
-  if (vid >= 101 && vid <= 116) return "#06b6d4"; // Testnetze
-  if (vid === 1) return "#64748b"; // Default/Mgmt
-  return "#3b82f6"; // sonstige Prod-VLANs
 }
 
 export function VlanTopologyView({ theme }: { theme: string }) {
@@ -41,81 +33,11 @@ export function VlanTopologyView({ theme }: { theme: string }) {
     const transitions = (survey.data as { transitions?: Record<string, Transition[]> })
       .transitions ?? {};
 
-    const elements: cytoscape.ElementDefinition[] = [];
-    const vlanNode = (site: string, vid: number) => `v:${site}:${vid}`;
-    const haveVlan = new Set<string>();
-
-    for (const [site, vlans] of Object.entries(sites)) {
-      elements.push({ data: { id: `site:${site}`, label: site, kind: "site" } });
-      for (const v of vlans) {
-        const id = vlanNode(site, v.vlan_id);
-        haveVlan.add(id);
-        const name = v.names[0] ?? "";
-        const gw = v.gateways[0]?.ip ?? "";
-        elements.push({
-          data: {
-            id,
-            parent: `site:${site}`,
-            label: `VLAN ${v.vlan_id}${name ? `\n${name}` : ""}${gw ? `\n${gw}` : ""}`,
-            kind: "vlan",
-            color: vlanColor(v.vlan_id, v.names),
-          },
-        });
-      }
-    }
-
-    // Übergänge je Site auswerten.
-    const vpnByVlan: Record<number, string[]> = {}; // vlan -> Sites mit VPN-Erlaubnis
-    for (const [site, ts] of Object.entries(transitions)) {
-      const seen = new Set<string>();
-      for (const t of ts) {
-        const src = vlanNode(site, t.vlan_id);
-        if (!haveVlan.has(src)) continue;
-        if (t.to === "internet") {
-          const inet = `inet:${site}`;
-          if (!seen.has(inet)) {
-            elements.push({
-              data: { id: inet, parent: `site:${site}`, label: "🌍 Internet", kind: "inet" },
-            });
-            seen.add(inet);
-          }
-          elements.push({
-            data: { id: `${src}->inet`, source: src, target: inet, ekind: "inet" },
-          });
-        } else if (t.to === "lan") {
-          const lan = `lan:${site}`;
-          if (!seen.has(lan)) {
-            elements.push({
-              data: { id: lan, parent: `site:${site}`, label: `LAN ${site}`, kind: "lan" },
-            });
-            seen.add(lan);
-          }
-          elements.push({ data: { id: `${src}->lan`, source: src, target: lan, ekind: "lan" } });
-        } else if (t.to === "vlan" && t.detail) {
-          const dst = vlanNode(site, Number(t.detail));
-          if (haveVlan.has(dst)) {
-            elements.push({ data: { id: `${src}->${dst}`, source: src, target: dst, ekind: "vlan" } });
-          }
-        } else if (t.to === "vpn") {
-          (vpnByVlan[t.vlan_id] ??= []).push(site);
-        }
-      }
-    }
-    // Cross-Site: gleiches VLAN, beide Seiten erlauben VPN → gestrichelte Mesh-Kante.
-    for (const [vidStr, siteList] of Object.entries(vpnByVlan)) {
-      const uniq = [...new Set(siteList)].sort();
-      for (let i = 0; i < uniq.length; i++) {
-        for (let j = i + 1; j < uniq.length; j++) {
-          const a = vlanNode(uniq[i], Number(vidStr));
-          const b = vlanNode(uniq[j], Number(vidStr));
-          if (haveVlan.has(a) && haveVlan.has(b)) {
-            elements.push({
-              data: { id: `${a}<->${b}`, source: a, target: b, ekind: "vpn", elabel: "VPN" },
-            });
-          }
-        }
-      }
-    }
+    // Elemente + Positionen kommen aus der getesteten, deterministischen Berechnung.
+    const elements = buildVlanTopoElements({
+      sites,
+      transitions,
+    }) as cytoscape.ElementDefinition[];
 
     const cy = cytoscape({
       container: containerRef.current,
@@ -185,7 +107,7 @@ export function VlanTopologyView({ theme }: { theme: string }) {
           },
         },
       ],
-      layout: { name: "cose", animate: false, nodeRepulsion: () => 12000, gravity: 0.4 } as never,
+      layout: { name: "preset" }, // Positionen sind vorberechnet (deterministisch + getestet)
     });
     cy.fit(undefined, 30);
     // Klick auf VLAN-Knoten → Info-Panel; Klick ins Leere → schließen.

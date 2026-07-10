@@ -101,3 +101,20 @@ def test_aggregate_collects_transitions_per_site() -> None:
     ts = out["transitions"]["Sulgen"]
     assert {t["to"] for t in ts} == {"internet", "vpn"}
     assert ts[0]["device"] == "FW1"
+
+
+def test_parse_meraki_switch_ports() -> None:
+    from netbuddy.services.vlan_survey import parse_meraki_switch_ports
+
+    ports = [
+        {"portId": "1", "type": "access", "vlan": 4, "voiceVlan": 60},
+        {"portId": "2", "type": "access", "vlan": 4},
+        {"portId": "3", "type": "trunk", "vlan": 1, "allowedVlans": "1,20,30-32"},
+        {"portId": "4", "type": "trunk", "vlan": 1, "allowedVlans": "all"},  # ignoriert
+        {"portId": "5", "type": "access", "vlan": None},  # ohne VLAN
+    ]
+    info = parse_meraki_switch_ports("S00NSW104", "S00 - Steelco HQ", ports)
+    assert info.access_ports[4] == 2
+    assert 60 in info.vlans  # voiceVlan registriert
+    assert set(info.trunk_vlans) == {1, 20, 30, 31, 32}
+    assert info.site == "S00 - Steelco HQ"
