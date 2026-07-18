@@ -58,7 +58,10 @@ def _apply_interface(iface: Interface, data: InterfaceData, now: datetime) -> No
     iface.mtu = data.mtu
     iface.interface_type = data.interface_type
     iface.parent_name = data.parent_name
-    iface.vlan_id = data.vlan_id
+    # vlan_id=None heißt bei den meisten CLI-Adaptern „unbekannt" (sie parsen kein Port-VLAN) —
+    # ein per Port→VLAN-Zuweisung gesetzter Wert darf dadurch nicht gelöscht werden.
+    if data.vlan_id is not None:
+        iface.vlan_id = data.vlan_id
     iface.last_polled = now
 
 

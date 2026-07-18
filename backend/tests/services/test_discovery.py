@@ -126,3 +126,26 @@ async def test_discovery_partial_on_capability_error(db_session: AsyncSession) -
 
     assert run.status is DiscoveryStatus.PARTIAL
     assert any(e["capability"] == "read_mac_table" for e in run.errors)
+
+
+async def test_discovery_keeps_assigned_vlan_when_adapter_reports_none(
+    db_session: AsyncSession,
+) -> None:
+    """Ein per Port→VLAN gesetzter Wert überlebt die Discovery (Adapter liefert vlan_id=None)."""
+    device = await _device(db_session)
+    adapter = build_adapter("dell_os10", MockTransport(_responses()))
+    await run_discovery(db_session, device, adapter)
+
+    rows = (
+        (await db_session.execute(select(Interface).where(Interface.device_id == device.id)))
+        .scalars()
+        .all()
+    )
+    assert rows, "Discovery hat Interfaces angelegt"
+    target = rows[0]
+    target.vlan_id = 102  # simulierte Port→VLAN-Zuweisung
+    await db_session.flush()
+
+    await run_discovery(db_session, device, adapter)  # Adapter meldet vlan_id=None
+    await db_session.refresh(target)
+    assert target.vlan_id == 102  # NICHT von None überschrieben
