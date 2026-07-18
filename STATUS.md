@@ -4,6 +4,21 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S66 — Port-Verwechslung geklärt, Save-Lücke gefunden + Fleet-Save (18.7.2026)
+
+- **PC-B98DJ34 lokalisiert** (WLAN: AP BLS-AP-CH-54; Kabel: BLS-SW-62 **Gi1/0/29**, 10.120.40.201,
+  Dell-Dock-MAC). Suchweg: FW-ARP komplett + paralleler Reverse-DNS-Scan → MAC → MAC-Tabellen
+  (Access-Port = ≤3 MACs, Uplinks rausgefiltert). Der Nutzer glaubte Port 31 — real steckte das
+  Kabel in 29 (Nachbarbuchse in der oberen Reihe; kein Nummern-Versatz am Gerät).
+- Gi1/0/29 → VLAN 102 gesetzt (NetBuddy-Pfad, live verifiziert, in Startup); Gi1/0/31 → Default.
+- **Discovery-Fix (f03161a):** vlan_id=None (Adapter parst kein Port-VLAN) überschreibt gesetzte
+  Werte nicht mehr — Port→VLAN-Zuweisungen überleben Discoveries (+Regressionstest).
+- **Save-Lücke entdeckt:** `write memory` ist auf dell_os6 UNGÜLTIG (richtig: `copy running-config
+  startup-config`+y, „Configuration Saved!") — frühere os6-„Saves" (120/130-Rollout) griffen nicht;
+  zudem speichern die NetBuddy-Schreibpfade (port_vlan/lldp) gar nicht persistent (Task #48).
+  **Sofortmaßnahme: Save-Sweep über alle 26 CLI-Switches — 26/26 OK** (os6 copy run start,
+  os10 write memory, fs write, tplink copy run start). Alle Änderungen jetzt reboot-fest.
+
 ## S65 — Meraki-Aufnahme (Steelco) + VLAN-Topologie-Rewrite (10.7.2026)
 
 - **Cisco Meraki live angebunden** (Dashboard-API, Key als Credential `MerakiCloud` verschlüsselt,
