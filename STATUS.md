@@ -4,6 +4,23 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S67 — Performance-Analyse + Fixes (UI-Trägheit, „Memory-Leak") (18.7.2026)
+
+- **Diagnose (gemessen, mit 2 Subagents fan-out):** KEIN Python-Memory-Leak — die „2 GiB" in
+  docker stats waren **Kernel-Slab (dentry-Cache, reclaimable)**, gefüttert vom Healthcheck
+  (Python-Spawn alle 15s über Wochen); Python-Prozess selbst 111 MB anon, PSI 0.00, DB winzig.
+  Authentifizierte Latenz-Messung (temporäre Session, danach revoked): alle Endpoints 3–19 ms
+  AUSSER `/endpoints/aps` ~2 s (Live: UniFi-Cloud + 4 Konsolen seriell bei JEDEM Aufruf, 25s-
+  Timeout je Konsole — Worst Case >100 s wenn Konsolen offline).
+- **Fixes (afc72be):** `/endpoints/aps` default DB-first (46 ms; „live aktualisieren"-Button in
+  PoeView), `fetch_all` parallel + 8s-Timeout + Logging statt stummem except; **3 echte
+  `__aenter__`-Lecks geschlossen** (UnifiConsole/Tplink/Scrapli leakten Client/SSH bei Fehler
+  nach connect); `/adapters` ohne raw_excerpt-TEXT; Survey-Task GC-Schutz; Perf-Indizes
+  (created_at ×3, mac_address_entry.interface_id); TopologyView endpoints-useMemo (Cytoscape-
+  Effekt lief bei jedem Tastendruck); Healthcheck 15s→60s. Neustart: Backend 96 MB, aps 46 ms.
+- Bekannte offene Perf-Schulden (bewusst vertagt): Volltabellen-Loads in topology/suggest/
+  list_lldp_neighbors/list_backups, /vlans N+1, Ein-Worker-uvicorn. 273 Tests grün.
+
 ## S66 — Port-Verwechslung geklärt, Save-Lücke gefunden + Fleet-Save (18.7.2026)
 
 - **PC-B98DJ34 lokalisiert** (WLAN: AP BLS-AP-CH-54; Kabel: BLS-SW-62 **Gi1/0/29**, 10.120.40.201,
