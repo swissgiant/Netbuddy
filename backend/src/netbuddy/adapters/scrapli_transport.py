@@ -134,12 +134,18 @@ class ScrapliTransport:
 
     async def open(self) -> None:
         await self._driver.open()
-        if self._params.enable_required:
-            await self._enter_enable()
-        # Pager direkt am Treiber abschalten (am Read-only-Guard vorbei: reine Session-
-        # Einstellung). Ohne das hängt der GenericDriver bei langen Ausgaben am `--More--`.
-        if self._paging_command:
-            await self._driver.send_command(self._paging_command)
+        try:
+            if self._params.enable_required:
+                await self._enter_enable()
+            # Pager direkt am Treiber abschalten (am Read-only-Guard vorbei: reine Session-
+            # Einstellung). Ohne das hängt der GenericDriver bei langen Ausgaben am `--More--`.
+            if self._paging_command:
+                await self._driver.send_command(self._paging_command)
+        except BaseException:
+            # Scheitert enable/Paging NACH driver.open(), läuft __aexit__ nie → SSH-Session
+            # würde offen bleiben (Leak). Hier deterministisch schließen.
+            await self._driver.close()
+            raise
 
     async def close(self) -> None:
         await self._driver.close()

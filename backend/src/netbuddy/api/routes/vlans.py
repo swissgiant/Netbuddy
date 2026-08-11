@@ -234,6 +234,8 @@ class SurveyRunRead(BaseModel):
 
 
 _survey_running: dict[str, bool] = {"active": False}
+# Harte Referenz auf laufende Survey-Tasks — der Event-Loop hält Tasks nur schwach (GC-Schutz).
+_survey_task_ref: set[object] = set()
 
 
 async def _survey_task() -> None:
@@ -267,7 +269,9 @@ async def start_vlan_survey() -> dict[str, str]:
     if _survey_running["active"]:
         return {"status": "already-running"}
     _survey_running["active"] = True
-    asyncio.get_running_loop().create_task(_survey_task())
+    task = asyncio.get_running_loop().create_task(_survey_task())
+    _survey_task_ref.add(task)
+    task.add_done_callback(_survey_task_ref.discard)
     return {"status": "started"}
 
 

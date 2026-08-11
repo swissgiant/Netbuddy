@@ -11,6 +11,7 @@ from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from typing import Any
 
+from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -134,7 +135,8 @@ async def collect_stuck(
         try:
             async with connection(device, cred) as (_adapter, transport):
                 ports = await scan_poe(transport, spec)
-        except Exception:
+        except Exception as exc:
+            logger.warning("PoE-Scan {} übersprungen: {}", device.hostname, exc)
             continue
         for port in ports:
             ap = port_to_ap.get((device.id, port.port))

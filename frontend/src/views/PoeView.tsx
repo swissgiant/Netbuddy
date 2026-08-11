@@ -30,8 +30,10 @@ export function PoeView() {
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAps = () =>
-    fetchApLocations(true)
+  // Initial: sticky DB-Stand (ms-schnell). Live-Refresh (Cloud + 4 Controller, dauert
+  // Sekunden) nur auf expliziten Klick.
+  const loadAps = (refresh = false) =>
+    fetchApLocations(refresh)
       .then(setAps)
       .catch((e) => setError(String(e)));
   const loadEvents = () =>
@@ -169,7 +171,13 @@ export function PoeView() {
         </table>
       )}
 
-      <h3 style={{ marginTop: 24 }}>📍 AP-Verortung</h3>
+      <h3 style={{ marginTop: 24 }}>
+        📍 AP-Verortung{" "}
+        <button className="ghost" onClick={() => void loadAps(true)}
+          title="Live von UniFi-Cloud + lokalen Controllern neu aufbauen (dauert einige Sekunden)">
+          ↻ live aktualisieren
+        </button>
+      </h3>
       <p className="muted">
         Welcher AP hängt an welchem Switch-Port (UniFi-Cloud × LLDP/MAC). <strong>Mesh</strong> =
         Verdacht auf Wireless-Uplink (online ohne Wired-Port oder mehrere APs an einem Port).

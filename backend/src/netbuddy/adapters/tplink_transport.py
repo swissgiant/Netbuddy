@@ -39,11 +39,17 @@ class TplinkTransport:
             password=p.password.get_secret_value() if p.password else None,
             known_hosts=None,
         )
-        self._proc = await self._conn.create_process(term_type="vt100")
-        await self._read(5.0)  # Login-Banner/erster Prompt
-        if p.enable_required:
-            self._proc.stdin.write("enable\r")
-            await self._read()
+        try:
+            self._proc = await self._conn.create_process(term_type="vt100")
+            await self._read(5.0)  # Login-Banner/erster Prompt
+            if p.enable_required:
+                self._proc.stdin.write("enable\r")
+                await self._read()
+        except BaseException:
+            # Wirft __aenter__ nach connect(), läuft __aexit__ nie → SSH-Verbindung leakt.
+            self._conn.close()
+            self._conn = None
+            raise
         return self
 
     async def __aexit__(

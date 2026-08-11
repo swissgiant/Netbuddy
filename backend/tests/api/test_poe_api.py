@@ -155,7 +155,7 @@ async def test_endpoints_aps_and_stuck(
     )
     app.dependency_overrides[get_live_connection] = _override()
     try:
-        aps = (await api_client.get("/endpoints/aps")).json()
+        aps = (await api_client.get("/endpoints/aps?refresh=true")).json()
         assert any(a["ap_name"] == "BLS-AP-7" and a["port"] == "Gi1/0/7" for a in aps)
 
         stuck = (await api_client.get("/poe/stuck")).json()

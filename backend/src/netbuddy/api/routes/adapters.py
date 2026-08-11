@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -29,11 +30,20 @@ class AdapterInfo(BaseModel):
 @router.get("", response_model=list[AdapterInfo])
 async def list_adapters(session: SessionDep) -> list[AdapterInfo]:
     """Capability-Katalog je Profil + Live-Validierungs-Status (was funktioniert schon)."""
-    result = await session.execute(select(ValidationCheck))
-    checks = result.scalars().all()
+    # Nur die benötigten Spalten — raw_excerpt (roher CLI-Output, TEXT) würde sonst bei jedem
+    # Seitenaufbau komplett mitgeladen (Topologie + Geräteliste rufen diesen Endpoint).
+    result = await session.execute(
+        select(
+            ValidationCheck.adapter_id,
+            ValidationCheck.capability,
+            ValidationCheck.status,
+            ValidationCheck.checked_at,
+        )
+    )
+    checks = result.all()
 
-    # (adapter_id, capability) → Liste der Checks
-    by_key: dict[tuple[str, str], list[ValidationCheck]] = defaultdict(list)
+    # (adapter_id, capability) → Liste der Checks (Row-Tuples mit Attributzugriff)
+    by_key: dict[tuple[str, str], list[Any]] = defaultdict(list)
     for check in checks:
         by_key[(check.adapter_id, check.capability)].append(check)
 

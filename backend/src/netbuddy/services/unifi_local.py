@@ -34,7 +34,8 @@ ClientFactory = Callable[[str], httpx.AsyncClient]
 
 def _default_client(base_url: str) -> httpx.AsyncClient:
     # Interne Controller mit selbstsigniertem Cert → keine TLS-Verifikation.
-    return httpx.AsyncClient(base_url=base_url, verify=False, timeout=25)
+    # Timeout bewusst knapp: eine nicht erreichbare Konsole darf Requests nicht ~25s blockieren.
+    return httpx.AsyncClient(base_url=base_url, verify=False, timeout=8)
 
 
 class UnifiSwitchPort(BaseModel):
@@ -163,11 +164,18 @@ class UnifiConsole:
 
     async def __aenter__(self) -> "UnifiConsole":
         self._client = self._cf(self._base)
-        resp = await self._client.post(
-            "/api/auth/login",
-            json={"username": self._user, "password": self._pw, "rememberMe": False},
-        )
-        resp.raise_for_status()
+        try:
+            resp = await self._client.post(
+                "/api/auth/login",
+                json={"username": self._user, "password": self._pw, "rememberMe": False},
+            )
+            resp.raise_for_status()
+        except BaseException:
+            # Wirft __aenter__, läuft __aexit__ NIE → Client hier schließen, sonst leakt
+            # jeder fehlgeschlagene Login einen httpx-Client samt TLS-Kontext/Socket.
+            await self._client.aclose()
+            self._client = None
+            raise
         # UniFi OS verlangt für Mutationen den CSRF-Token aus der Login-Antwort.
         self._csrf = resp.headers.get("X-CSRF-Token") or resp.headers.get("X-Updated-CSRF-Token")
         return self
@@ -651,18 +659,31 @@ async def fetch_all(
     *,
     client_factory: ClientFactory = _default_client,
 ) -> tuple[list[UnifiDevice], list[UnifiClient]]:
-    """Über alle Konsolen: Geräte + Clients. Eine nicht erreichbare Konsole wird übersprungen."""
+    """Über alle Konsolen (parallel): Geräte + Clients. Nicht erreichbare werden übersprungen.
+
+    Parallel statt seriell: eine tote Konsole kostet so nur ihren eigenen Timeout, nicht die
+    Summe — vorher blockierte z.B. `/endpoints/aps` bis zu ``n_konsolen x timeout``.
+    """
+    import asyncio
+
+    from loguru import logger
+
     username = credential.username or ""
     password = credential.password or ""
-    all_devices: list[UnifiDevice] = []
-    all_clients: list[UnifiClient] = []
-    for site, ip in consoles.items():
+
+    async def one(site: str, ip: str) -> tuple[list[UnifiDevice], list[UnifiClient]]:
         try:
-            devices, clients = await fetch_console(
+            return await fetch_console(
                 site, f"https://{ip}:{_PORT}", username, password, client_factory=client_factory
             )
-        except Exception:
-            continue
+        except Exception as exc:
+            logger.warning("UniFi-Konsole {} ({}) nicht erreichbar: {}", site, ip, exc)
+            return [], []
+
+    results = await asyncio.gather(*[one(site, ip) for site, ip in consoles.items()])
+    all_devices: list[UnifiDevice] = []
+    all_clients: list[UnifiClient] = []
+    for devices, clients in results:
         all_devices.extend(devices)
         all_clients.extend(clients)
     return all_devices, all_clients

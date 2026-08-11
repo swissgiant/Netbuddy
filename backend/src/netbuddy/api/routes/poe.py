@@ -71,12 +71,35 @@ async def _device(device_id: uuid.UUID, session: SessionDep) -> Device:
 
 
 @router.get("/endpoints/aps", response_model=list[ApLocationInfo])
-async def list_ap_locations(session: SessionDep, refresh: bool = True) -> list[ApLocationInfo]:
-    """AP-Switch/Port-Karte. Mesh/Uplink autoritativ vom lokalen Controller, sonst LLDP/MAC."""
-    cred = await _cloud_credential(session)
-    return await build_ap_locations(
-        session, cred, local_devices=await _local_devices(session), persist=refresh
-    )
+async def list_ap_locations(session: SessionDep, refresh: bool = False) -> list[ApLocationInfo]:
+    """AP-Switch/Port-Karte (sticky aus der DB — schnell).
+
+    ``refresh=true`` = Live-Neuaufbau über UniFi-Cloud + lokale Controller (dauert Sekunden);
+    Default liest den letzten persistierten Stand aus :class:`ApLocation`.
+    """
+    if refresh:
+        cred = await _cloud_credential(session)
+        return await build_ap_locations(
+            session, cred, local_devices=await _local_devices(session), persist=True
+        )
+    rows = (await session.execute(select(ApLocation).order_by(ApLocation.ap_name))).scalars().all()
+    names = dict((await session.execute(select(Device.id, Device.hostname))).tuples().all())
+    return [
+        ApLocationInfo(
+            ap_mac=r.ap_mac,
+            ap_name=r.ap_name,
+            ap_model=r.ap_model,
+            ap_ip=r.ap_ip,
+            status=r.status,
+            device_id=r.device_id,
+            device_hostname=names.get(r.device_id) if r.device_id else None,
+            port=r.port,
+            source=r.source,
+            mesh=r.mesh,
+            uplink_ap_mac=r.uplink_ap_mac,
+        )
+        for r in rows
+    ]
 
 
 @router.get("/endpoints/clients", response_model=list[ClientLocation])

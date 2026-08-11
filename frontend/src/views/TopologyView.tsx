@@ -91,12 +91,18 @@ export function TopologyView({ theme }: { theme: "dark" | "light" }) {
   };
 
   // Such-Treffer → ephemere Endgerät-Knoten (eindeutig je Switch+Port+Match).
-  const endpoints: EndpointHighlight[] = hits.map((h, i) => ({
-    id: `ep:${i}`,
-    label: h.name || h.system_name || h.mac || h.match,
-    deviceId: h.device_id,
-    port: h.port,
-  }));
+  // Memoisiert: sonst neue Array-Identität bei JEDEM Render (jeder Tastendruck/Slider-Tick)
+  // → der Cytoscape-Highlight-Effekt liefe ständig neu (graph-weites removeClass/redraw).
+  const endpoints: EndpointHighlight[] = useMemo(
+    () =>
+      hits.map((h, i) => ({
+        id: `ep:${i}`,
+        label: h.name || h.system_name || h.mac || h.match,
+        deviceId: h.device_id,
+        port: h.port,
+      })),
+    [hits],
+  );
 
   const toggle = (set: Set<string>, setter: (s: Set<string>) => void, key: string) => {
     const next = new Set(set);
