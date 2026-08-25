@@ -12,6 +12,10 @@ port_vlan_control:
   config_enter: ["configure terminal"]
   config_exit: ["exit"]
   set_access: ["switchport mode access", "switchport access vlan {vlan}"]
+  save: ["write"]
+  save_marker: "OK"
+  verify_command: "show running-config interface {name}"
+  verify_pattern: 'switchport access vlan {vlan}\b'
 
 # LLDP-Schreibpfad (Centec/FSOS): per Default ist LLDP global AUS ("global enabled : NO").
 # `lldp enable` global + pro physischem Port (eth-0-x). Status via `show lldp local config`.
@@ -21,6 +25,7 @@ lldp_control:
   config_enter: ["configure terminal"]
   config_exit: ["exit"]   # Centec/FSOS kennt kein `end`
   enable_global: ["lldp enable"]
+  save: ["write"]
   # Kein enable_interface: globales `lldp enable` reicht auf Centec, damit der Switch advertised
   # und vom Nachbarn (Core) erkannt wird. Per-Port über CLI wäre bei 48+ Ports zu langsam.
 

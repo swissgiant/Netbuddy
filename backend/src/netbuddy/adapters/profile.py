@@ -103,6 +103,8 @@ class LldpControlSpec(BaseModel):
     enable_interface: list[str] = Field(default_factory=list)
     interface_enter: str = "interface {name}"
     interface_exit: str = "exit"
+    # Persistentes Speichern nach dem Schreiben (running → startup), inkl. Confirm-Zeilen.
+    save: list[str] = Field(default_factory=list)
 
 
 class PoeControlSpec(BaseModel):
@@ -148,6 +150,14 @@ class PortVlanControlSpec(BaseModel):
     set_access: list[str] = Field(default_factory=list)  # {vlan}/{name} formatierbar
     # Zurücksetzen auf Default-VLAN 1 (Zuweisung wegnehmen); {vlan} ist hier immer 1.
     reset_access: list[str] = Field(default_factory=lambda: ["switchport access vlan {vlan}"])
+    # Persistentes Speichern nach dem Schreiben (running → startup); inkl. Confirm-Zeilen
+    # (z.B. os6: "y"). `save_marker` = Erfolgs-String im Output (None = kein Marker prüfbar).
+    save: list[str] = Field(default_factory=list)
+    save_marker: str | None = None
+    # Verifikation per gezieltem Show-Kommando ({name}) + Regex ({vlan} wird eingesetzt) —
+    # zuverlässiger als der Re-Read über get_interfaces (viele Profile parsen kein Port-VLAN).
+    verify_command: str | None = None
+    verify_pattern: str | None = None
 
 
 class VendorProfile(BaseModel):

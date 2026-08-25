@@ -160,11 +160,10 @@ export function DeviceDetail({ device }: { device: Device }) {
       const r = await assignPortVlan(device.id, iface.name, vlan);
       setPortSel(null);
       await loadInventory();
-      setError(
-        r.verified === false
-          ? `Port ${r.interface} auf VLAN ${r.vlan_id} gesetzt, aber Re-Read weicht ab — bitte prüfen.`
-          : `Port ${r.interface} → VLAN ${r.vlan_id} zugewiesen (Backup angelegt).`,
-      );
+      const verify =
+        r.verified === true ? "✓ verifiziert" : r.verified === false ? "⚠ NICHT verifiziert — bitte prüfen" : "nicht verifizierbar";
+      const save = r.saved === true ? "gespeichert" : r.saved === false ? "⚠ Save fehlgeschlagen" : "ohne Save";
+      setError(`Port ${r.interface} → VLAN ${r.vlan_id}: ${verify}, ${save} (Backup angelegt).`);
     });
   };
 
@@ -177,7 +176,10 @@ export function DeviceDetail({ device }: { device: Device }) {
       const r = await resetPortVlan(device.id, iface.name);
       setPortSel(null);
       await loadInventory();
-      setError(`Port ${r.interface} auf Default (VLAN 1) zurückgesetzt.`);
+      const verify =
+        r.verified === true ? "✓ verifiziert" : r.verified === false ? "⚠ NICHT verifiziert" : "nicht verifizierbar";
+      const save = r.saved === true ? "gespeichert" : r.saved === false ? "⚠ Save fehlgeschlagen" : "ohne Save";
+      setError(`Port ${r.interface} auf Default (VLAN 1) zurückgesetzt: ${verify}, ${save}.`);
     });
   };
 

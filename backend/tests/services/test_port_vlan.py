@@ -183,3 +183,84 @@ def test_cli_profiles_advertise_port_vlan_capability() -> None:
         assert profile.port_vlan_control is not None
         adapter = build_adapter(adapter_id, _FakeWriteTransport({"vlan": None}))
         assert Capability.CONFIGURE_PORT_VLAN in adapter.capabilities()
+
+
+_SPEC_FULL = PortVlanControlSpec(
+    set_access=["switchport mode access", "switchport access vlan {vlan}"],
+    save=["enable", "copy running-config startup-config", "y"],
+    save_marker="Configuration Saved",
+    verify_command="show interfaces switchport {name}",
+    verify_pattern=r"Access Mode VLAN:\s*{vlan}\b",
+)
+
+
+class _FakeVerifyTransport:
+    """send_config trackt Aufrufe (Config + Save getrennt); send_command liefert Show-Verify."""
+
+    def __init__(self, state: dict[str, int | None]) -> None:
+        self._state = state
+        self.config_calls: list[list[str]] = []
+
+    async def send_config(self, lines: list[str]) -> str:
+        self.config_calls.append(lines)
+        for line in lines:
+            if line.startswith("switchport access vlan"):
+                self._state["vlan"] = int(line.split()[-1])
+        if "copy running-config startup-config" in lines:
+            return "This operation may take a few minutes.\nConfiguration Saved!"
+        return "ok"
+
+    async def send_command(self, command: str) -> str:
+        v = self._state.get("vlan")
+        if v in (None, 1):
+            return "Port: X\nVLAN Membership Mode: Access Mode\nAccess Mode VLAN: 1 (default)"
+        return f"Port: X\nVLAN Membership Mode: Access Mode\nAccess Mode VLAN: {v}"
+
+
+async def test_assign_saves_and_verifies_via_show(db_session) -> None:  # type: ignore[no-untyped-def]
+    device = Device(
+        hostname="sw",
+        mgmt_ip="10.120.10.53",
+        vendor="fs",
+        device_type=DeviceType.SWITCH,
+        adapter_id="fs_centec",
+    )
+    db_session.add(device)
+    await db_session.flush()
+    state: dict[str, int | None] = {"vlan": None}
+    t = _FakeVerifyTransport(state)
+    res = await assign_port_vlan(
+        db_session, device, _FakeAdapter(state), t, _SPEC_FULL, "eth-0-5", 103
+    )
+    assert res.saved is True  # Marker "Configuration Saved" gefunden
+    assert res.verified is True  # Show-Verify matcht "Access Mode VLAN: 103"
+    # zwei send_config-Aufrufe: Konfig + Save-Sequenz
+    assert len(t.config_calls) == 2
+    assert t.config_calls[1] == ["enable", "copy running-config startup-config", "y"]
+
+
+async def test_reset_verify_accepts_missing_access_line(db_session) -> None:  # type: ignore[no-untyped-def]
+    device = Device(
+        hostname="sw2",
+        mgmt_ip="10.120.10.54",
+        vendor="fs",
+        device_type=DeviceType.SWITCH,
+        adapter_id="fs_centec",
+    )
+    db_session.add(device)
+    await db_session.flush()
+    state: dict[str, int | None] = {"vlan": 103}
+    t = _FakeVerifyTransport(state)
+    spec = _SPEC_FULL.model_copy(
+        update={"verify_pattern": r"switchport access vlan {vlan}\b"}  # Pattern das NICHT matcht
+    )
+    res = await reset_port_vlan(db_session, device, _FakeAdapter(state), t, spec, "eth-0-5")
+    # Show-Output enthält keine "switchport access vlan"-Zeile -> Reset gilt als verifiziert
+    assert res.verified is True and res.vlan_id == 1
+
+
+def test_all_profiles_have_save_sequences() -> None:
+    for adapter_id in ("dell_os10", "dell_os6", "fs_centec", "fs_ruijie", "tplink_jetstream"):
+        profile = get_profile(adapter_id)
+        assert profile.port_vlan_control.save, adapter_id
+        assert profile.lldp_control.save, adapter_id

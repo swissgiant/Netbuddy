@@ -11,6 +11,9 @@ port_vlan_control:
   config_enter: ["configure terminal"]
   config_exit: ["end"]
   set_access: ["switchport mode access", "switchport access vlan {vlan}"]
+  save: ["write memory"]
+  verify_command: "show running-configuration interface {name}"
+  verify_pattern: 'switchport access vlan {vlan}\b'
 
 # OS10: LLDP global per Default aktiv; globaler Schalter `lldp enable`. `show lldp timers`
 # antwortet nur, wenn LLDP läuft → als Status-Marker genutzt.
@@ -20,6 +23,7 @@ lldp_control:
   config_enter: ["configure terminal"]
   config_exit: ["end"]
   enable_global: ["lldp enable"]
+  save: ["write memory"]
 
 capabilities:
   read_system_info:

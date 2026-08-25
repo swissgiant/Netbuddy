@@ -28,12 +28,13 @@ class WriteTransport(Protocol):
 
 
 class LldpEnableResult(BaseModel):
-    """Ergebnis eines LLDP-Aktivierungslaufs (Backup → schreiben → verifizieren)."""
+    """Ergebnis eines LLDP-Aktivierungslaufs (Backup → schreiben → speichern → verifizieren)."""
 
     was_enabled: bool  # LLDP-Status vor dem Eingriff
     backed_up: bool  # eine Konfig-Sicherung wurde angelegt
     interfaces_configured: int  # Anzahl physischer Ports, die `lldp enable` bekamen
     enabled_after: bool  # LLDP-Status nach dem Eingriff (Verifikation)
+    saved: bool | None = None  # startup-config geschrieben; None = Profil kennt kein Save
 
 
 async def read_lldp_enabled(transport: WriteTransport, spec: LldpControlSpec) -> bool:
@@ -76,11 +77,18 @@ async def enable_lldp(
     lines.extend(spec.config_exit)
     await transport.send_config(lines)
 
-    # 3) Verifikation.
+    # 3) Persistieren (running → startup), falls das Profil eine Save-Sequenz kennt.
+    saved: bool | None = None
+    if spec.save:
+        await transport.send_config(list(spec.save))
+        saved = True
+
+    # 4) Verifikation.
     enabled_after = await read_lldp_enabled(transport, spec)
     return LldpEnableResult(
         was_enabled=was_enabled,
         backed_up=backed_up,
         interfaces_configured=configured,
         enabled_after=enabled_after,
+        saved=saved,
     )

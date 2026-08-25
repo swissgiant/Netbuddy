@@ -220,6 +220,7 @@ export interface PortVlanResult {
   interface: string;
   vlan_id: number;
   backed_up: boolean;
+  saved: boolean | null;
   verified: boolean | null;
 }
 export const assignPortVlan = (id: string, iface: string, vlanId: number) =>

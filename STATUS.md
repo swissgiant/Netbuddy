@@ -4,6 +4,25 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S68 — #48: Schreibpfade speichern persistent + echter Verify (25.8.2026)
+
+- **Anlass:** Adrians Port-Zuweisung (SLO-20 Gi1/0/18 → Testnetz03) war korrekt, aber `verified:
+  None` (os6 nicht rücklesbar) führte zu Wiederhol-Klicks, und die Zuweisung lag nur in der
+  Running-Config (manuelles Nach-Save nötig). Der Switch war NICHT „umgebaut" — Fehlalarm durch
+  Speed-/LLDP-Punkte im Faceplate.
+- **PortVlanControlSpec + LldpControlSpec erweitert:** `save`-Sequenz (+`save_marker`) je Vendor
+  (os6: enable+copy run start+y/„Configuration Saved"; os10: write memory; fs: write/„OK";
+  tplink: enable+copy run start/„Saving user config OK") — jede send_config-Save-Sequenz läuft
+  als eigene SSH-Session (os6/tplink brauchen deshalb führendes `enable`). Confirm-Prompts
+  überlebt send_config via 2.5s-Stille-Fallback.
+- **Echter Verify:** `verify_command`/`verify_pattern` je Vendor (os6 `show interfaces switchport
+  {name}`→„Access Mode VLAN: X" [live-validiert]; os10/fs `show running-config interface {name}`;
+  tplink Member-Tabelle). Reset gilt auch als verifiziert, wenn keine access-vlan-Zeile mehr da.
+  Fallback bleibt der alte get_interfaces-Re-Read. `PortVlanResult.saved` + LldpEnableResult.saved.
+- **UI:** Zuweisen/Entfernen melden jetzt „✓ verifiziert, gespeichert" (bzw. Warnungen).
+- **Live-Test BLS-SW-62 Gi1/0/31:** assign 102 → saved=True/verified=True + Zeile in Startup;
+  reset → True/True + Startup clean. 276 Tests grün. #48 erledigt.
+
 ## S67 — Performance-Analyse + Fixes (UI-Trägheit, „Memory-Leak") (18.7.2026)
 
 - **Diagnose (gemessen, mit 2 Subagents fan-out):** KEIN Python-Memory-Leak — die „2 GiB" in

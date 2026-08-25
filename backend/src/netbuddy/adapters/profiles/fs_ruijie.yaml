@@ -11,6 +11,10 @@ port_vlan_control:
   config_enter: ["configure terminal"]
   config_exit: ["end"]
   set_access: ["switchport mode access", "switchport access vlan {vlan}"]
+  save: ["write"]
+  save_marker: "OK"
+  verify_command: "show running-config interface {name}"
+  verify_pattern: 'switchport access vlan {vlan}\b'
 
 # FS/Ruijie: globaler Schalter `lldp enable`; Status via `show lldp status`
 # ("Global status of LLDP : Enable"). UNVALIDIERT — gegen den Grosuplje-Core zu prüfen.
@@ -20,6 +24,7 @@ lldp_control:
   config_enter: ["configure terminal"]
   config_exit: ["end"]
   enable_global: ["lldp enable"]
+  save: ["write"]
 
 capabilities:
   read_system_info:
