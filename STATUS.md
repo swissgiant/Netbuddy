@@ -4,6 +4,22 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S69 — Neuer 25G-Switch Grosuplje: gefunden, Link-Fix, adoptiert (27.8.2026)
+
+- **BLS-SW-SLO-23** (Ubiquiti ECS 48 PoE / USWF069, 48×2.5G-PoE + 4×SFP28) neu am Core
+  BLS-SW-SLO-30 TF 0/27. Link kam nicht hoch: erst Faser gekreuzt (RX −40→−11.8 dBm, Alex),
+  dann **FEC-Mismatch** — UniFi fährt BASE-R, Core wollte RS → `fec mode base-r` auf 0/27
+  (Backup in DB, Config gespeichert) → 25G Full up. RX −11.8 dBm bleibt grenzwertig (SR-Spec
+  ~−10.3) — Stecker/Patchweg bei Gelegenheit prüfen.
+- Adoptiert über Grosuplje-Controller (UnifiConsole `_write` devmgr adopt), umbenannt,
+  per Cloud-Import in NetBuddy inventarisiert, 52 Ports persistiert. Dahinter hingen die
+  zwei neuen U7-APs → adoptiert als **BLS-AP-SLO-70/-71** (Nummern 12.x-Schema nicht
+  anwendbar, da DHCP in VLAN 1; Empfehlung: DHCP-Reservierung statt statischer IP —
+  UniFi-Geräte sterben bekanntlich an Controller-Static-IP ohne validiertes GW/DNS,
+  Cusano-Problem erklärt).
+- Merker: Cloud-Import direkt nach Rename legt Duplikat unter altem Namen an (Sync-Lag)
+  — Duplikat „U7 Long-Range" soft-deleted, ggf. Import-Upsert mal auf MAC statt hostname.
+
 ## S68 — #48: Schreibpfade speichern persistent + echter Verify (25.8.2026)
 
 - **Anlass:** Adrians Port-Zuweisung (SLO-20 Gi1/0/18 → Testnetz03) war korrekt, aber `verified:
