@@ -4,6 +4,26 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S70 — Fleet-Audit Uplink-Trunks: Test-VLANs wurden vielerorts nicht durchgereicht (28.8.2026)
+
+- **Anlass:** PC an SLO-20 Gi1/0/17 → VLAN 103 bekam kein DHCP. Ursache: SLO-20-Uplinks
+  (Tw1/0/4, Gi1/0/48=FW-lan2) im Access Mode → VLAN 103 endete am Switch. Nach Trunk-Fix
+  zog der PC sofort 10.221.103.100 von der FW (DHCP-Server läuft auf der FortiGate, SVI
+  Testnetz03 auf lan2). Adrians Gi1/0/18-Zuweisung konnte deshalb nie funktionieren.
+- **Fleet-Audit + Fixes (alle mit Backup + Save + Verify):**
+  - Grosuplje OS6: SLO-20 Tw1/0/4+Gi1/0/48+Gi1/0/47(HA-FW BLS-SL01), SLO-21/22/25 Tw1/0/4 → Trunk
+  - Grosuplje Core SLO-30 (ruijie): TF0/3 (USW-Ultra) + TF0/27 (SLO-23) ACCESS → Trunk
+  - Sulgen OS10-Cores: **alle Trunks erlaubten nur 101–116 — VLAN 120/130 hingen nur an
+    Po1000!** → `switchport trunk allowed vlan 120,130` additiv auf Core1 (17,35,36) und
+    Core2 (19 Ports inkl. FW-Breakouts 1/1/1:1+1/1/2:1); Core2 1/1/17 (SW-66-Redundanz)
+    war gar kein Trunk → Trunk mit 101-116,120,130; SW-66 Tw1/0/4 → Trunk
+  - USA TP-Link: US-11 1/0/1 + US-12 1/0/1 fehlten 120/130 → `switchport general allowed
+    vlan 120,130 tagged` (FW-Port 1/0/2 und US-11 1/0/24 waren komplett)
+  - Sauber bestätigt: Sulgen OS6/Centec-Uplinks, SLO-24/26 (Centec, allowed inkl. 120/130)
+- **Offen/Notiert:** unbekannter Switch „BLS-SW-68" dual-homed an Core1+Core2 1/1/22
+  (access-only, nicht inventarisiert — nicht angefasst); TP-Link-Transport-Bug → Task #49
+  (Backups nur 42 Zeichen, Pager stoppt an '#'-Zeilen); SLO-26 hat `lldp disable` am Uplink.
+
 ## S69 — Neuer 25G-Switch Grosuplje: gefunden, Link-Fix, adoptiert (27.8.2026)
 
 - **BLS-SW-SLO-23** (Ubiquiti ECS 48 PoE / USWF069, 48×2.5G-PoE + 4×SFP28) neu am Core
