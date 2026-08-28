@@ -4,6 +4,25 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S71 — Testnetz-Routing-Audit, SW-68-Anbindung, LLDP-Sweep, Ping-Forensik (28.8.2026)
+
+- **FW-Schicht komplett verifiziert (alle 4 FortiGates):** Testnetz-Routen (10.22x/16 über
+  die richtigen Tunnel) + alle 16 TN-Mesh-Policies vorhanden/enabled (Service ALL, NAT off);
+  Phase2 „Testnetze" 10.221/16↔10.220/16 SA up; SVI Testnetz03 Sulgen allowaccess ping.
+- **Ping-Forensik 10.221.103.x → 10.220.103.1/.100:** beide Ursachen client-/testseitig:
+  (1) Windows-FW der Server-VM (ICMP nur local-subnet — S56-Beweis lief von FW-SVI, darum
+  damals ok), vom User bestätigt/behoben; (2) `exec ping` ohne `ping-options source` nimmt
+  lan2-IP → matcht keinen P2-Selektor → 100% loss ist erwartbar; mit source 10.221.103.1 ok.
+  Nebenbefund: TN03-Policy auf BLS-SLO2 wurde heute in der GUI neu angelegt (#24→#38, ohne
+  Namen) — im Zeitfenster ohne Policy starb aller TN03-Cross-Site-Traffic an der Gro-FW.
+- **„BLS-SW-68"** (Core1/2 1/1/22) entpuppte sich als bereits inventarisierter UniFi-Switch
+  (Sulgen-Konsole); Core-Ports 1/1/22 beidseitig → Trunk 101-116,120,130 (Save+Verify).
+  Achtung Verify-Falle: OS10 komprimiert `show vlan`-Portlisten zu Ranges (1/1/20-1/1/29
+  enthält die 22 ohne Substring-Match).
+- **LLDP-Sweep alle 26 CLI-Switches:** überall aktiv; einzig SLO-26 hat `lldp disable` auf
+  eth-0-53/54 — `no lldp disable` = Invalid, `lldp enable` (Interface) hängt die Session →
+  OFFEN, FS-Doku nötig. Grosuplje-Topologiekante SLO-26↔Core fehlt deshalb weiterhin.
+
 ## S70 — Fleet-Audit Uplink-Trunks: Test-VLANs wurden vielerorts nicht durchgereicht (28.8.2026)
 
 - **Anlass:** PC an SLO-20 Gi1/0/17 → VLAN 103 bekam kein DHCP. Ursache: SLO-20-Uplinks
