@@ -17,7 +17,9 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   in derselben Session kam nie an (Switch IP-los, Power-Cycle nötig; Startup hatte zum Glück
   DHCP + alles andere gespeichert). **Fix-Pattern: alle Zeilen in EINEM stdin.write()** —
   dann liegt der komplette Batch im CLI-Puffer des Switches, bevor die IP wegfällt.
-  (Exec-Channel mit Multi-Line-String funktioniert auf Centec NICHT.)
+  (Exec-Channel mit Multi-Line-String funktioniert auf Centec NICHT.) Noch besser (Alex):
+  **erst statische IP setzen, DANN `no ip address dhcp`** — Verbindung bleibt durchgehend.
+  Reboot-Test bestanden: SLO-27 kam nach Power-Cycle vollständig mit Startup-Config hoch.
 - In NetBuddy aufgenommen (fs_centec, Credential Dell, protocol=ssh — Pflichtfeld in
   device_credential!), 54 Interfaces discovered, **LLDP-Kante Core 0/29 ↔ SLO-27 eth-0-54
   sichtbar**. An eth-0-15 hängt bereits ein 2.5G-Client.
