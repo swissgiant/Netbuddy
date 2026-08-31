@@ -20,6 +20,10 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   (Exec-Channel mit Multi-Line-String funktioniert auf Centec NICHT.) Noch besser (Alex):
   **erst statische IP setzen, DANN `no ip address dhcp`** — Verbindung bleibt durchgehend.
   Reboot-Test bestanden: SLO-27 kam nach Power-Cycle vollständig mit Startup-Config hoch.
+- **Nachtrag:** Core TF 0/29 stand noch auf ACCESS (Trunk-Sweep lief vor Inbetriebnahme des
+  Ports) → Trunk + Save. Danach Client an SLO-27 eth-0-15 (VLAN 103) sofort mit Lease
+  10.221.103.101 versorgt — Kette PC→SLO-27→Core→FW end-to-end bewiesen. Merke für neue
+  Uplinks: FEC/Link UND Trunk-Mode gehören zusammen konfiguriert.
 - In NetBuddy aufgenommen (fs_centec, Credential Dell, protocol=ssh — Pflichtfeld in
   device_credential!), 54 Interfaces discovered, **LLDP-Kante Core 0/29 ↔ SLO-27 eth-0-54
   sichtbar**. An eth-0-15 hängt bereits ein 2.5G-Client.
