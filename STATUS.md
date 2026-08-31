@@ -4,6 +4,24 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S72 — Neuer FS S5800 in Grosuplje: BLS-SW-SLO-27 komplett provisioniert (31.8.2026)
+
+- **Link-Fix TF 0/29 (Core SLO-30):** 25G-SR beidseitig, Licht ok, aber Link down. Lösung:
+  `fec mode rs` **+ Port-Bounce** (shutdown/no shutdown) — FEC-Wechsel allein reicht auf dem
+  N8560 nicht, erst der Bounce startet das Link-Training neu. (Merke: UniFi ECS brauchte
+  base-r OHNE Bounce, FS S5800 rs MIT Bounce.) 25G Full up, Core-Config gespeichert.
+- **Provisioning S5800 (SN CG2202218416N00011, 7.0.4.21):** hostname BLS-SW-SLO-27,
+  Fleet-User (Factory admin/admin ersetzt), VLANs 101-116/120/130, Uplink eth-0-54 Trunk
+  mit allen Testnetzen, `lldp enable`, Default-Route, statische Mgmt-IP **10.121.10.27/16**.
+- **Lockout-Lektion:** `no ip address dhcp` killt die SSH-Session sofort — die statische IP
+  in derselben Session kam nie an (Switch IP-los, Power-Cycle nötig; Startup hatte zum Glück
+  DHCP + alles andere gespeichert). **Fix-Pattern: alle Zeilen in EINEM stdin.write()** —
+  dann liegt der komplette Batch im CLI-Puffer des Switches, bevor die IP wegfällt.
+  (Exec-Channel mit Multi-Line-String funktioniert auf Centec NICHT.)
+- In NetBuddy aufgenommen (fs_centec, Credential Dell, protocol=ssh — Pflichtfeld in
+  device_credential!), 54 Interfaces discovered, **LLDP-Kante Core 0/29 ↔ SLO-27 eth-0-54
+  sichtbar**. An eth-0-15 hängt bereits ein 2.5G-Client.
+
 ## S71 — Testnetz-Routing-Audit, SW-68-Anbindung, LLDP-Sweep, Ping-Forensik (28.8.2026)
 
 - **FW-Schicht komplett verifiziert (alle 4 FortiGates):** Testnetz-Routen (10.22x/16 über
