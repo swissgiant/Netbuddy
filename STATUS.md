@@ -4,6 +4,17 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S73 — Voll-Discovery Slowenien (2.9.2026)
+
+- Alle 33 Grosuplje-Geräte discovered (9 CLI/API + 24 UniFi): sämtliche Switches/FW success
+  mit frischem Inventar (SLO-27 dabei: 54 If). UniFi-Batch mit EINER geteilten
+  UnifiConsole-Session — pro Gerät einloggen triggert 429-Rate-Limit am Controller!
+- AP-SLO-70/71 hatten neue feste IPs im 12er-Schema (10.121.12.70/.71, von Alex per
+  Reservierung) → DB-IPs nachgezogen, Discovery success. Merker: DHCP-UniFi-Geräte können
+  die IP wechseln — Import/Discovery sollte IPs am Controller-Stand abgleichen.
+- **Befund: USW Ultra 60W offline** — Controller state 0, Core-Port TF 0/3 down, kein LLDP
+  (lief noch am 28.8.). Physisch prüfen (Strom/Faser); an Alex gemeldet.
+
 ## S72 — Neuer FS S5800 in Grosuplje: BLS-SW-SLO-27 komplett provisioniert (31.8.2026)
 
 - **Link-Fix TF 0/29 (Core SLO-30):** 25G-SR beidseitig, Licht ok, aber Link down. Lösung:
