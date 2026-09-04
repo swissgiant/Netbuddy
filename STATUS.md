@@ -4,6 +4,19 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S75 — DHCP-Option 121 (Classless Static Routes) auf allen Testnetz-Scopes (4.9.2026)
+
+- **Problem:** Dual-homed Clients (WLAN prod + Kabel Testnetz) schicken Cross-Site-Testnetz-
+  Traffic über die WLAN-Default-Route → verworfen. Lösung ohne Client-Eingriff: DHCP-Option
+  121 (RFC 3442) auf den FortiGate-Testnetz-DHCP-Servern.
+- **Ausgerollt auf 64 Scopes** (Testnetz01–16 × Sulgen/Gro/USA/Cusano) per REST
+  `PUT system.dhcp/server/{id}?vdom=root` `{"options":[{code:121,type:hex,value}]}`,
+  Read-back-Verify 64/64. Wert je Scope = `0e 0adc <gw>` (10.220.0.0/14 via Scope-GW)
+  + `00 <gw>` (Default 0.0.0.0/0 — Pflicht, da Clients bei Option 121 die Option 3
+  ignorieren). Aufsetz-/Gästenetz (120/130) bewusst NICHT (isoliert, kein Cross-Site).
+- Wirksam beim nächsten Lease-Renew (`ipconfig /renew`); Kontrolle am Client:
+  `route print` → 10.220.0.0/255.252.0.0 via Testnetz-GW auf der Kabelkarte.
+
 ## S74 — TN02-Ping-Forensik 10.221.102.x → 10.220.102.56 (4.9.2026)
 
 - FW-Schicht beidseitig sauber (Routen, TN02-Mesh #23/#90 mit je ~38 MB, P2 up, SVIs).
