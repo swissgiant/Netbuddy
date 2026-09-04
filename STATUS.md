@@ -4,6 +4,20 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S74 — TN02-Ping-Forensik 10.221.102.x → 10.220.102.56 (4.9.2026)
+
+- FW-Schicht beidseitig sauber (Routen, TN02-Mesh #23/#90 mit je ~38 MB, P2 up, SVIs).
+  Server-VM war per ARP auf der Sulgen-FW auflösbar (00:50:56:ba:19:25, VLAN 102 an
+  Core2 1/1/35) → L2/L3 zustellbar. **Ursache: fehlendes Default-Gateway auf der VM**
+  (Alex). Merkmuster für „ARP ja, Antwort nein": Default-GW fehlt / falsches Subnetz —
+  neben Windows-FW-Scope (S71) und `exec ping` ohne `ping-options source`.
+- Nebenbefund: USW Ultra 60W wurde vom Core (TF 0/3, down) auf **SLO-27 eth-0-23 (VLAN
+  102)** umgesteckt → Testnetz02-Lease 10.221.102.100, vom Controller abgeschnitten =
+  das „offline" aus S73. Testmaschinen (PC-FT7DJ34/3K7DJ34/3J7DJ34) hängen dahinter.
+  Offen: gewollt (unmanaged Testnetz-Verteiler) oder Trunk native 1 + Client-Ports 102?
+- Session-API-Merker: `?dstaddr=` wird vom FortiOS-Monitor ignoriert → client-seitig
+  nach `daddr`/`saddr` filtern; Sulgen liefert max. 1000 Sessions (Cap).
+
 ## S73 — Voll-Discovery Slowenien (2.9.2026)
 
 - Alle 33 Grosuplje-Geräte discovered (9 CLI/API + 24 UniFi): sämtliche Switches/FW success
