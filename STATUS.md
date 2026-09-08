@@ -4,6 +4,29 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S76 — WLAN-Forensik BLS-AP-SLO-70/71 (U7 Long-Range): 11r/WPA3-Roaming-Bug (8.9.2026)
+
+- **Symptom:** User-Beschwerden; je AP ~150 Disconnects/Tag, **85 % bei gutem Signal**
+  (Median −53 dBm), Session-Median 37 min, 46–62 % Reconnect zum selben AP ≤90 s.
+  Alte UALR6v2 brechen nur bei −73…−88 dBm ab (normales Roaming).
+- **Root Cause (AP-Log via SSH, ~1 Tag SLO-70):** 10 146 FT-Roam-ins, 730 PMKID-Mismatch,
+  381 „Bad RSNIE" (wpa_check_pmkid), **3 201 Deauth Reason 6**, 535 Assoc-Rejects — alte APs
+  (6.7.57): 0/0/0. Mechanismus: 802.11r-Reassoc → Firmware 8.0.76 verwirft RSN-IE/PMKID →
+  State-Mismatch → AP deauth r6 → Client voll neu. Betroffen v. a. Intel-Clients (a0:d3:65)
+  auf SSID BelimedLS (WPA3-Transition + PMF optional + Fast Roaming).
+- **Verstärker:** neue APs standen auf tx_power **medium = 11 dBm** (Flotte auto 16–18) →
+  74 % der Roams weg von 70/71 zu schlechterem Signal (−56→−74) → >10 000 Roams/Tag.
+- **Firmware:** 8.0.76 ist laut fw-update.ubnt.com die aktuellste für UAPA6B3; 8.7.11
+  (U7/E7) nennt U7-LR als „support upcoming" → kein Upgrade möglich, Controller korrekt.
+- **Fix (Alex, Controller):** SSID BelimedLS Fast Roaming AUS; SLO-70/71 TX-Power + Kanal
+  auf Auto (live 16/17 dBm, SLO-71 ch48→44). Sofort danach: 0 Reason-6-Deauths in 10 min.
+  60-min-Verifikation läuft (Baseline 16:46: r6 3273/2063, BadRSNIE 381/291).
+- **Ausgeschlossen:** Uplink (2.5G, 0 Fehler), CPU/Neustarts, Kanalauslastung (7–10 %),
+  DHCP, Wi-Fi-7-Clients (13/309). **Werkzeuge:** v2 `system-log/all` (stat/event = 404),
+  AP-SSH mit mgmt.x_ssh_username/-password aus get/setting; U7 Pro SLO-69 SSH-Timeout.
+- **Nebenbefunde (offen):** SLO-03↔SLO-34 389 Ping-Pong-Roams/Tag (PC-27F5VF4 228×);
+  SLO-68 Fr. 14–15 Uhr 84–89 % Drop-Rate; USW Ultra 60W weiterhin an SLO-27 eth-0-23/VLAN 102.
+
 ## S75 — DHCP-Option 121 (Classless Static Routes) auf allen Testnetz-Scopes (4.9.2026)
 
 - **Problem:** Dual-homed Clients (WLAN prod + Kabel Testnetz) schicken Cross-Site-Testnetz-
