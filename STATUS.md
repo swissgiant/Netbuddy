@@ -4,6 +4,18 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S78 — Testnetz-DHCP-Audit Sulgen + DNS auf FW-SVI in allen Testnetzen (9.9.2026)
+
+- **Audit Sulgen (16 Scopes):** Default-GW = SVI-IP, Maske, Pool, Lease, Option 121 und
+  Status durchgängig sauber — 0 Befunde.
+- **Befund DNS:** alle TN-Scopes (4 FWs) hatten dns-service `default` → Clients bekamen die
+  System-DNS der FW (Sulgen 10.120.20.10/.11 im LAN, sonst 96.45.45.45/9.9.9.9), die aus den
+  isolierten Testnetzen unerreichbar sind (nur TN-Mesh-Policies) → DNS-Timeouts.
+- **Fix (Alex: „DNS soll auf die FW im Testnetz zeigen"):** nach Aufsetznetz-Muster auf allen
+  **64 Scopes** dns-service `local` + `system/dns-server` (mode forward-only) je Testnetz-
+  Interface, per REST mit Read-back 64/64 ok. Clients bekommen beim nächsten Renew die
+  SVI (.1) als DNS; die FW forwardet an ihre System-DNS. Isolation unverändert.
+
 ## S77 — BLS-SW-SLO-23 auf feste IP 10.121.10.23 (9.9.2026)
 
 - UniFi ECS 48 PoE von DHCP 10.121.41.144 auf statisch 10.121.10.23/16 (GW 10.121.10.1, DNS
