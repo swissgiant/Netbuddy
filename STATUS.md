@@ -21,6 +21,17 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - **Fix (Alex, Controller):** SSID BelimedLS Fast Roaming AUS; SLO-70/71 TX-Power + Kanal
   auf Auto (live 16/17 dBm, SLO-71 ch48→44). Sofort danach: 0 Reason-6-Deauths in 10 min.
   60-min-Verifikation läuft (Baseline 16:46: r6 3273/2063, BadRSNIE 381/291).
+- **Verifikation 9.9. (Sampler 06–08 CEST auf VM, Log-Forensik bis 11:30):** Bug-Pfad weg —
+  Bad RSNIE 0/21 (vorher 381/291), Reason-6-Deauths auf SLO-70 = 0; die 169 r6 auf SLO-71
+  gehen zu 90 % an ZWEI Geister-Clients mit Zufalls-MAC (36:17:54:c2:74:26, 6e:97:54:10:f9:f4
+  — nie assoziiert, im Controller unbekannt) → harmlos für Nutzer. SAE-Rejects Status 13
+  (nur ra0/2.4 GHz, Intel-Clients) 667/636 → 85/14, Status 30 66/148 → 1/14. Das Muster
+  „lange Session, gutes Signal, Reconnect selber AP" ist verschwunden; Rest-Disconnects sind
+  Kurz-Sessions (Bandsteering-Deny ra0 assoc_status 64, SAE-Fehlversuche) + Watches/Phones.
+  06:00–08:30: neu 18 Disconnects (2 APs, ~20 Clients/AP) vs alt 72 (20 APs). **Fix bestätigt.**
+- **Restrisiko / nächster Hebel:** WPA3-Transition auf BelimedLS erzeugt weiterhin SAE-
+  Fehlversuche (28–32/Tag je AP) und Rest-Bad-RSNIE — bei weiteren Klagen WPA2-only setzen.
+  AP-Log-Zeit = CEST (nicht UTC!); r6-Zähler ohne MAC-Aufschlüsselung sind irreführend.
 - **Ausgeschlossen:** Uplink (2.5G, 0 Fehler), CPU/Neustarts, Kanalauslastung (7–10 %),
   DHCP, Wi-Fi-7-Clients (13/309). **Werkzeuge:** v2 `system-log/all` (stat/event = 404),
   AP-SSH mit mgmt.x_ssh_username/-password aus get/setting; U7 Pro SLO-69 SSH-Timeout.
