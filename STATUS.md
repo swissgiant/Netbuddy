@@ -4,6 +4,14 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S77 — BLS-SW-SLO-23 auf feste IP 10.121.10.23 (9.9.2026)
+
+- UniFi ECS 48 PoE von DHCP 10.121.41.144 auf statisch 10.121.10.23/16 (GW 10.121.10.1, DNS
+  .20.13/.15) per Controller `PUT rest/device/{id} config_network` — Gateway+DNS+IP werden als
+  EIN Block provisioniert (Alex' Regel „Gateway zuerst" damit erfüllt; Cusano-Lockouts kamen
+  vom fehlenden GW). Wechsel nach 20 s, state 1, SSH auf neuer IP, alte tot. NetBuddy-DB +
+  Discovery über neue IP ok. Merker: UniFi-static ist unproblematisch, wenn GW/DNS mitgehen.
+
 ## S76 — WLAN-Forensik BLS-AP-SLO-70/71 (U7 Long-Range): 11r/WPA3-Roaming-Bug (8.9.2026)
 
 - **Symptom:** User-Beschwerden; je AP ~150 Disconnects/Tag, **85 % bei gutem Signal**
