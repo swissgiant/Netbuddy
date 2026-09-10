@@ -18,8 +18,10 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   SLO-22 bpdu-protection; SLO-25 8192 + bpdu-protection + portfast Gi1/0/1-48; Core SLO-30
   `spanning-tree portfast bpduguard default` + portfast auf Edge-Ports TF0/1 (AP), 0/37+0/39
   (ESXi) — nie auf Downlinks. Root unverändert SLO-22 (alle geänderten MACs > 1c72…).
-- **Offen (Alex: „muss nicht so bleiben"):** Core SLO-30 auf Priority 4096 → Root; SLO-22 auf
-  8192 belassen. Kurze RSTP-Rekonvergenz site-weit. **UniFi:** kein BPDU-Guard-Feld in der
+- **Core = Root umgesetzt (10.9., Alex):** SLO-30 `spanning-tree priority 4096` → DesignatedRoot
+  4096.649d.99d8.8c3f; alle 7 Access-Switches (SLO-20/21/22/25 Tw1/0/4, SLO-24 eth-0-53,
+  SLO-26/27 eth-0-54) sehen den Core als Root, Root-Port = Uplink. Danach running→startup auf
+  allen 8 Gro-CLI-Switches gespeichert. Grosuplje ist damit vollständig im Schema. **UniFi:** kein BPDU-Guard-Feld in der
   Network-API (nur stp_version/stp_priority, Port: stp_edge_port read-only) → SLO-23/USW Ultra
   ohne BPDU-Guard. Transiente Scrapli-Auth-Timeouts am Core → Retry-Schleife nötig.
 - **Core-Nachtrag:** `bpduguard default` allein zeigt an den Ports „PortBPDUGuard: Disabled"
