@@ -4,6 +4,25 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S79 — RSTP-Schema + BPDU-Guard Grosuplje (10.9.2026)
+
+- **Schema (aus Sulgen abgeleitet):** Core = Root Priority 4096 (Core2; Core1 16384), alle
+  Access-Switches einheitlich **8192**, RSTP; Dell: `spanning-tree bpdu-protection` global +
+  `spanning-tree portfast` auf allen Gi-Access-Ports; Centec: `spanning-tree priority 8192`,
+  `spanning-tree enable`, `spanning-tree edgeport bpdu-guard`.
+- **Ist Grosuplje vorher:** Root = Access-Switch SLO-22 (8192, Rack D/Internet, historisch),
+  Core SLO-30 auf Default 32768; SLO-24 + neuer SLO-27 STP komplett AUS; SLO-20/25 auf 32768;
+  SLO-22/25 ohne BPDU-Guard; SLO-25 ohne Portfast; UniFi SLO-23 rstp/32768.
+- **Umgesetzt (Backup+Save+Verify je Gerät):** SLO-27 RSTP an/8192/bpdu-guard; SLO-23 rstp/8192
+  (Controller PUT stp_version/stp_priority); SLO-24 RSTP an/8192/bpdu-guard; SLO-20 8192;
+  SLO-22 bpdu-protection; SLO-25 8192 + bpdu-protection + portfast Gi1/0/1-48; Core SLO-30
+  `spanning-tree portfast bpduguard default` + portfast auf Edge-Ports TF0/1 (AP), 0/37+0/39
+  (ESXi) — nie auf Downlinks. Root unverändert SLO-22 (alle geänderten MACs > 1c72…).
+- **Offen (Alex: „muss nicht so bleiben"):** Core SLO-30 auf Priority 4096 → Root; SLO-22 auf
+  8192 belassen. Kurze RSTP-Rekonvergenz site-weit. **UniFi:** kein BPDU-Guard-Feld in der
+  Network-API (nur stp_version/stp_priority, Port: stp_edge_port read-only) → SLO-23/USW Ultra
+  ohne BPDU-Guard. Transiente Scrapli-Auth-Timeouts am Core → Retry-Schleife nötig.
+
 ## S78 — Testnetz-DHCP-Audit Sulgen + DNS auf FW-SVI in allen Testnetzen (9.9.2026)
 
 - **Audit Sulgen (16 Scopes):** Default-GW = SVI-IP, Maske, Pool, Lease, Option 121 und
