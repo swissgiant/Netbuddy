@@ -22,6 +22,12 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   8192 belassen. Kurze RSTP-Rekonvergenz site-weit. **UniFi:** kein BPDU-Guard-Feld in der
   Network-API (nur stp_version/stp_priority, Port: stp_edge_port read-only) → SLO-23/USW Ultra
   ohne BPDU-Guard. Transiente Scrapli-Auth-Timeouts am Core → Retry-Schleife nötig.
+- **Core-Nachtrag:** `bpduguard default` allein zeigt an den Ports „PortBPDUGuard: Disabled"
+  (= kein expliziter Portwert) → zusätzlich `spanning-tree bpduguard enable` je Edge-Port;
+  Verify via `show spanning-tree interface TF x` → PortFast/BPDUGuard Enabled auf 0/1, 0/37,
+  0/39, Disabled auf allen Downlinks. **Transport-Bug fs_ruijie:** `show running-config …`
+  und `| include` liefern nur die Kopfzeile (Pager nicht deaktiviert) — Verify dort nur über
+  Show-Kommandos mit kurzer Ausgabe. → TODO wie TP-Link-Pager (Task #49).
 
 ## S78 — Testnetz-DHCP-Audit Sulgen + DNS auf FW-SVI in allen Testnetzen (9.9.2026)
 
