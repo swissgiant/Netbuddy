@@ -4,6 +4,22 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S80 — WatchGuard-Adressen Riese / Cusano IC aus Meraki-Daten abgeleitet (15.9.2026, für #47)
+
+- **Riese (S00 – Steelco HQ):** WatchGuard **FireCluster**, OUI 00:01:21:5a. Member
+  **10.0.21.252** (S00NSW103, LAG „Firewall CED LC80") und **10.0.21.253** (S00NSW102), Mgmt-VLAN 21;
+  **Cluster-VIP 10.0.21.254** = Default-Gateway aller 53 Meraki-Switches; HA-Link 172.30.1.1
+  (VLAN 400, Port „WG_HA" an S00NSFW2/47). Zusätzlich Cato-Socket 10.137.8.1 (b6:d0:04…) gesehen.
+- **Cusano IC (S01 – Icos Pharma):** Default-Gateway **10.1.21.254 = Cato-Socket** („CATO
+  Firewall 2", S01NSW101/6, MACs b6:d0:04:…). Zwei WatchGuard-Einheiten (00:01:21:46:b8:d0 /
+  :46:87:ec) an LAG_TO_FIREWALL-1/-2 (S01NSW100/101 Ports 11+12), fast ohne Traffic, von Meraki
+  mit 10.0.42.116 / 10.0.2.10 geführt (unplausibel, unverifiziert) → vermutlich Alt-/Standby.
+  BLS-Cusano-Crosslink-Next-Hop 192.168.109.254 = VRRP-VIP (00:00:5e:00:01:32), wahrsch. Cato.
+- **Erreichbarkeit von BLS:** TCP 4117/4105/443 auf alle Kandidaten Timeout. Sulgen-FW und Gro-FW
+  haben Routen 10.0.0.0/16 (port19 / lan1) — Policy/Pfad für #47 noch zu klären.
+- Merker Meraki-API: Client-„switchport" AGGR/n = Index in `/switch/linkAggregations` (0-basiert,
+  Lücken!); Fireboxen senden kein LLDP; Cato-Sockets = MAC b6:d0:04:… .
+
 ## S79 — RSTP-Schema + BPDU-Guard Grosuplje (10.9.2026)
 
 - **Schema (aus Sulgen abgeleitet):** Core = Root Priority 4096 (Core2; Core1 16384), alle
