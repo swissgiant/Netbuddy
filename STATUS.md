@@ -4,6 +4,19 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S81 — Riese: erster autorisierter Meraki-Write (S00NSW111/3 → VLAN 1041) + Befunde (20.9.2026)
+
+- **S00SDC3** (VM, 10.137.41.23, Steelco-vCenter): in Meraki 30d unsichtbar; Subnetz eindeutig
+  **VLAN 1041** (Schema 10.137.NN.x ↔ VLAN 10NN, Nachbarn T0DC13/15, s00sdcger1) → VM aus/
+  vNIC disconnected/falsche Portgroup. Alt-DC S00SDC2 = 10.0.2.207 VLAN 2.
+- **PC-43MGCY3 (AC:91:A1:B9:8E:14)** an S00NSW111 Port 3, war Access VLAN 4 (172.16.200.71).
+  Changelog 24h leer → Alex' Dashboard-Änderung war nie gespeichert. Auf Freigabe per API
+  `PUT /devices/{serial}/switch/ports/3 {vlan:1041}` gesetzt, Read-back ok, Changelog-Eintrag
+  unter Alex' Admin-Name. Port zum Zeitpunkt Disconnected (Kabel absichtlich gezogen).
+- **Riese-Switches:** 53/55 online. **S00NSFW1 (CED HQ Rack 03) + S00NSFW2 (CED LC80 Rack 01)
+  seit 15.9. 13:23 offline** (gleiche Minute; DMZ_EXTERNAL-Ports, WG-HA-Link) — Core-Ports
+  „Firewall CED HQ" Disconnected. Ursache unklar (Cato-Umbau vs. Ausfall) — Alex gemeldet.
+
 ## S80 — WatchGuard-Adressen Riese / Cusano IC aus Meraki-Daten abgeleitet (15.9.2026, für #47)
 
 - **Riese (S00 – Steelco HQ):** WatchGuard **FireCluster**, OUI 00:01:21:5a. Member
