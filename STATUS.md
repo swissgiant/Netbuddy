@@ -4,6 +4,36 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S82 — Riese-Incident 20./21.9.: Forensik, Notzugänge, TVCC-Inventur (21.9.2026)
+
+- **Incident-Timeline Riese (Meraki-Events/Clients):** 14:57 NSFW1/2 wieder online, 15:17 Firewall-
+  Legs gezogen (Internet-Trennung), **15:40–15:48 alle 124 Server-VMs auf esx1/2/5/6 gleichzeitig
+  aus** (koordinierter Shutdown, Hosts blieben an), 18:04–18:13 Dario deaktiviert NSFW-Ports,
+  18:43–18:49 Nexus-Reboot (Alex). Netz durchgängig ok: Nexus s00ncs101/102 (N9K, vPC Po25/Po44
+  zu Meraki, Peer-Link Po54, Keepalive alive), **Nexus routet NICHT** (nur SVI 1/1063) — Gateways
+  = WatchGuard/Cato. Fehldeutungen korrigiert: Po40–43/46 down = Altlasten (Interim-Migration),
+  Meraki-30d-Clientliste ohne Pagination = 1000er-Cap (jetzt `rel=next` ohne Quotes parsen).
+- **Notzugänge per Meraki-Port-VLAN (alle Steelco-Writes auf Alex' Go):** NSW111/3 → 1051 (ESXi
+  10.137.51.200–.203), NSW110/10 → 1063→4 (Nexus .251/.252, NetApp .65; jetzt WatchGuard
+  172.16.200.243), NSW110/14 → 1062. Realtek-USB-NICs mit identischer MAC → Meraki-Tracking
+  zeigt nur einen Port; Port über Link-Up-Event identifizieren. 1063 hat DHCP (iLO-Netz).
+- **Icos S01:** Server alle aktiv (srvdc01/02, s01sfile1/2, SQL, MES, vCenter **10.1.2.4** seit
+  11.9.), keine Exfil-/Verschlüsselungsmuster im Meraki-Traffic (Top-Talker = Kameras). ESXi =
+  Lenovo Flex, Emulex-NICs **10.1.2.201–.204**, IMM/CMM 10.1.21.102–105/.240; 10.1.4.2 existiert
+  nicht. BLS-Cusano-FW: Alex' Route 10.1.0.0/16 hatte kein Gateway → auf 192.168.109.254 gesetzt;
+  Policy #10 nur WDS3→Icos (funktioniert lt. Alex).
+- **Laterale Pfade BLS→Steelco (offen, empfohlen zu sperren):** Cusano #10 (WDS3→Icos ALL),
+  Gro #4 (lan2→lan1 10.0.x ALL/NAT), Sulgen #35 (10.121/16→port19 ALL), #12/#14 (BL_IC).
+- **TVCC (UniFi Riese):** UDM Pro 10.136.13.3 (VLAN 1013, NSW104:45 „ubiquity wan", WAN3 eth0);
+  WAN eth8 + WAN2 eth7 **unplugged** → dauerhaft `wan_downtime`/`wan2_failover_active`, ISP-
+  Metriken 0 = die „Uplink down"-Alarme; LLDP-Mgmt-IP 188.125.108.110 = ISP-Block der WatchGuard
+  → UDM-WAN hing im WAN-Segment (VLAN 300, NSFW1/2) → mit NSFW-Trennung tot. UDM-LAN an
+  NSW104:47 in VLAN 1022 bridged 11 Kameras (Hikvision 10.137.22.x) ins Meraki. 14 USW (13 Pro
+  24 PoE + Aggregation CED00), **8 offline**, 22 wired Clients lt. Site Manager. Controller
+  172.16.80.x/10.136.13.3 von BLS unerreichbar; Cloud: /ea/hosts (wans, internetIssues5min),
+  /ea/isp-metrics/5m, /v1/sites statistics. NSW104 = extrem noisy (4805 Events/7d, Port 4 AS400
+  flappt).
+
 ## S81 — Riese: erster autorisierter Meraki-Write (S00NSW111/3 → VLAN 1041) + Befunde (20.9.2026)
 
 - **S00SDC3** (VM, 10.137.41.23, Steelco-vCenter): in Meraki 30d unsichtbar; Subnetz eindeutig
