@@ -31,8 +31,21 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   NSW104:47 in VLAN 1022 bridged 11 Kameras (Hikvision 10.137.22.x) ins Meraki. 14 USW (13 Pro
   24 PoE + Aggregation CED00), **8 offline**, 22 wired Clients lt. Site Manager. Controller
   172.16.80.x/10.136.13.3 von BLS unerreichbar; Cloud: /ea/hosts (wans, internetIssues5min),
-  /ea/isp-metrics/5m, /v1/sites statistics. NSW104 = extrem noisy (4805 Events/7d, Port 4 AS400
-  flappt).
+  /ea/isp-metrics/5m, /v1/sites statistics.
+- **NSW104-Analyse (9311 Events/7d, zweimal geprüft):** NSW104 ist **Stack-Master** des 6er-Stacks
+  „S00 – CED HQ" (NSW104–109) — `stp_port_delay_monitor_tx` (5806/7d) + `events_dropped2` (87×,
+  je ~30 Events) werden NUR auf dem Master geloggt, betreffen aber Ports aller Member (Port-Feld
+  `<Member-MAC>/<Port>`; NSW109 1393, NSW106 1281, …). 164 Bursts à ~38 Ports = jeweils ALLE
+  Forwarding-Ports des Stacks gleichzeitig → CPU-Starvation des STP-Prozesses auf dem Master,
+  nicht ein Port-Problem. Bursts/Tag: Werktage 15.–18.9. 25–47, Wochenende 7–8, 21.9. (Site
+  ohne Server) 2 → lastabhängig. Treiber: Port 4 AS400 16–20 Link-Flaps/Tag (heute 17:46Z noch
+  einer, 25 s down), Port 7 Kabelschaden (10 Mbit/s an 1G, seit 21.9. 17:53Z down), Ports
+  9/10/24 tägliches An-/Abstecken (NBS144, ES-Display, Toradex), 223 Rollenwechsel an Port 19
+  ohne Link-Event. **Sauber:** Uplink 49 (10G LAG → NSW101), Stack-Ports 53/54, 0 CRC/Frag/Jabber
+  auf allen Ports (24h), PoE, Firmware 18.1.8 = Flotte, 0 Config-Changes/7d, Offline-Fenster
+  (15.9. 13:23–21:38Z, 20.9. 16:46–16:50Z = Nexus-Reboot) waren standortweit. Merker Meraki-API:
+  `assurance/alerts` ignoriert `deviceSerial` (org-weit), `clients` ignoriert `recentDeviceSerial`
+  (clientseitig filtern), `ports/statuses/packets` max `timespan=86400`.
 
 ## S81 — Riese: erster autorisierter Meraki-Write (S00NSW111/3 → VLAN 1041) + Befunde (20.9.2026)
 
