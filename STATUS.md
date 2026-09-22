@@ -4,6 +4,33 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S83 — Sulgen-FW: Crosslink-Routen → Cato-Tunnel migriert (22.9.2026)
+
+- **Auftrag Alex:** alle statischen Routen über den Crosslink port19 „Crosslink_IC" (10.101.92.2/29,
+  außer Funktion) löschen und die Ziele gemäß Cato-Routing-Export (`Belimed_Routing table_*.csv`,
+  681 Zeilen: 524 STATIC aus 18 Cato-Sites + 157 VPN-User-/32 in 10.41.x) über den bestehenden
+  IPsec-Tunnel **CATO** (x3 → 159.117.226.239, IKEv2, P2 10.120.0.0/14 → 0/0) erreichbar machen.
+- **Umsetzung (REST, Backup vorher als ConfigBackup):** 80 Routen device=CATO, Distance 10,
+  Kommentar „Cato <Site> … S83": 15 Site-Summaries im Cato-Schema (10.131 HQ, .132 SAG, .133 DE,
+  .134 SI, .135 US, .137 Riese, .138 Cusano, .140 SI2, .141 AT, .143 FR, .145 Azure, .146 FI,
+  .147 DK, .148 Valla, .149 Padova) + 64 exakte Legacy-Prefixe (10.0.0.0/20, 10.1.x, 10.100.x,
+  10.101.x, 10.175.x, 172.16.x, 192.168.x, 10.80/16 …) + 10.41.0.0/16 (Cato-Clients).
+  10.120.0.0/14 (BLS selbst) ausgelassen, 10.251.62.0/25 bleibt auf IPsec All4OneSAP_IC.
+  Danach **15 port19-Routen gelöscht** (seq 6,7,8,9,11,12,13,14,15,20,22,24,26,27,30; darunter
+  10.0/16, 10.100/16, 172.16/16 — Cato kennt davon nur Teilnetze; 10.60.x/172.19.x fallen weg).
+  Plan-CSV: `Cato_Routenplan_Sulgen_FW.csv` (Alex' Downloads).
+- **Verify:** RIB 80× CATO, 0× port19. Erster Ping-Test 100 % Verlust: Tunnel `enc:pkts=0`,
+  `npu_osaidx=-1` (ausgehende SA nicht auf NPU) — Fix `npu-offload disable` wurde vom Classifier
+  blockiert; **Alex hat parallel die Cato-Seite auf Routing umgestellt**, danach enc-Zähler
+  aktiv, NPU-SA installiert. Ping (Quelle 10.120.10.1) ok: Cato-PoP 10.254.254.1 (11 ms), Sockets
+  B-SI/HQ/SAG/DE/US, **Riese VLAN 1063** (XCC .63.11, Synology .63.12, NetApp .63.68, Nexus
+  .63.251), **1062** (.62.25/.26), **1051** (.51.20). Keine Antwort: Gateway-IPs .1 (Policy),
+  Alex' PC 10.137.62.12 (Windows-FW, /32-Lease → alles „fremdes Subnetz"), ESXi 10.137.51.200
+  (Rückweg/ESXi-FW, offen). Traceroute via Cato = 1 Hop (Overlay).
+- **Offen:** 13 Policies referenzieren noch port19 (#11–14, #35–37, #43/44, #48/49, #64, #78/79)
+  → aufräumen; Alex' Cato-Policies #105/#106 lt. Alex fertig. FortiGate-SSH für exec ping/
+  sniffer: admin/Port 22 (asyncssh im Backend-Container), Pager-freie Ausgabe.
+
 ## S82 — Riese-Incident 20./21.9.: Forensik, Notzugänge, TVCC-Inventur (21.9.2026)
 
 - **Incident-Timeline Riese (Meraki-Events/Clients):** 14:57 NSFW1/2 wieder online, 15:17 Firewall-
