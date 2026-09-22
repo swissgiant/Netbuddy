@@ -47,7 +47,7 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - **Notzugänge per Meraki-Port-VLAN (alle Steelco-Writes auf Alex' Go):** NSW111/3 → 1051 (ESXi
   10.137.51.200–.203), NSW110/10 → 1063→4 (Nexus .251/.252, NetApp .65; jetzt WatchGuard
   172.16.200.243), NSW110/14 → 1062. **Stand 22.9. 08:30Z:** NSW110/10 und /14 zurück auf
-  VLAN 4 (Client-Netz), Alex hängt nur noch an **NSW111/3 = VLAN 1062 → seit 22.9. ~10:40Z VLAN 1051** (DHCP 10.137.62.12 vom
+  VLAN 4 (Client-Netz), Alex hängt nur noch an **NSW111/3 = VLAN 1062 → 22.9. kurz 1051 (kein DHCP-Lease, 169.254.x), zurück auf 1062** (DHCP 10.137.62.12 vom
   Cato-Socket 10.254.254.1, /32-Leases; DHCP in Riese läuft über Cato, nicht über die VMs) —
   **offen: NSW111/3 zurück auf VLAN 4**, wenn Alex fertig ist. Realtek-USB-NICs mit identischer MAC → Meraki-Tracking
   zeigt nur einen Port; Port über Link-Up-Event identifizieren. 1063 hat DHCP (iLO-Netz).
