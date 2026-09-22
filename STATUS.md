@@ -27,8 +27,12 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   .63.251), **1062** (.62.25/.26), **1051** (.51.20). Keine Antwort: Gateway-IPs .1 (Policy),
   Alex' PC 10.137.62.12 (Windows-FW, /32-Lease → alles „fremdes Subnetz"), ESXi 10.137.51.200
   (Rückweg/ESXi-FW, offen). Traceroute via Cato = 1 Hop (Overlay).
-- **Offen:** 13 Policies referenzieren noch port19 (#11–14, #35–37, #43/44, #48/49, #64, #78/79)
-  → aufräumen; Alex' Cato-Policies #105/#106 lt. Alex fertig. FortiGate-SSH für exec ping/
+- **Nachtrag:** Route 10.212.134.0/23 (Cato: B-SAG) wieder gelöscht — überlappt den SSL-VPN-Pool
+  SSLVPN_TUNNEL_ADDR1 (10.212.134.20–.138.240); jetzt **79 CATO-Routen**. Policy-Cleanup vom
+  Classifier blockiert und von Alex zurückgestellt: die **14 port19-Policies bleiben** (#11–14,
+  #35–37, #43/44, #48/49, #64, #78/79), Alex baut SSL-VPN→Cato und SLO→Cato selbst um.
+  Merker SSL-VPN via CATO: Pool liegt außerhalb des P2-Selektors 10.120.0.0/14 → Policy
+  ssl.root→CATO braucht IP-Pool mit LAN-Adresse (NAT auf CATO-Iface ohne IP geht nicht). FortiGate-SSH für exec ping/
   sniffer: admin/Port 22 (asyncssh im Backend-Container), Pager-freie Ausgabe.
 
 ## S82 — Riese-Incident 20./21.9.: Forensik, Notzugänge, TVCC-Inventur (21.9.2026)
