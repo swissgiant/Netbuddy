@@ -15,7 +15,10 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   Meraki-30d-Clientliste ohne Pagination = 1000er-Cap (jetzt `rel=next` ohne Quotes parsen).
 - **Notzugänge per Meraki-Port-VLAN (alle Steelco-Writes auf Alex' Go):** NSW111/3 → 1051 (ESXi
   10.137.51.200–.203), NSW110/10 → 1063→4 (Nexus .251/.252, NetApp .65; jetzt WatchGuard
-  172.16.200.243), NSW110/14 → 1062. Realtek-USB-NICs mit identischer MAC → Meraki-Tracking
+  172.16.200.243), NSW110/14 → 1062. **Stand 22.9. 08:30Z:** NSW110/10 und /14 zurück auf
+  VLAN 4 (Client-Netz), Alex hängt nur noch an **NSW111/3 = VLAN 1062** (DHCP 10.137.62.12 vom
+  Cato-Socket 10.254.254.1, /32-Leases; DHCP in Riese läuft über Cato, nicht über die VMs) —
+  **offen: NSW111/3 zurück auf VLAN 4**, wenn Alex fertig ist. Realtek-USB-NICs mit identischer MAC → Meraki-Tracking
   zeigt nur einen Port; Port über Link-Up-Event identifizieren. 1063 hat DHCP (iLO-Netz).
 - **Icos S01:** Server alle aktiv (srvdc01/02, s01sfile1/2, SQL, MES, vCenter **10.1.2.4** seit
   11.9.), keine Exfil-/Verschlüsselungsmuster im Meraki-Traffic (Top-Talker = Kameras). ESXi =
