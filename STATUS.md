@@ -63,6 +63,20 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   Clients) hat in Riese KEINE Route → Default/Internet. 6 klassische BOVPN: Valla, Benelux, S08,
   SteelcoService (enabled), Azure + Miele (disabled). Fireware-CLI kennt keine VPN-Runtime-Stats
   (`show policy`/`show ipsec` gibt es nicht; Policies nur über `show policy-type`/Web UI).
+- **Cusano-Firebox erreicht (Jump: BLS-Cusano-FortiGate `execute ssh netbuddy@192.168.109.254 4118`,
+  Crosslink ist L2-adjazent; 10.1.2.254/alle VIPs aus BLS gefiltert):** M390-Cluster MASTER
+  C03A055BA6385 aktiv / SLAVE C03A0532C63C1 Backup, conn UP, Fireware 12.12 (B733447), Uptime 15 d,
+  Prompt [FAULT] (Monitor-Interface 6-WAN-DHCP/7-SERVIZIO down). WAN 4-Inasset 185.202.184.130/29
+  (GW .129) + 5-Eolo 88.149.222.11/29 (GW .9), **Default ECMP über beide**, Dynamic-NAT 192.168/16,
+  172.16/12, 10/8 → Any-External vorhanden. Client 192.168.104.10 (8c:3b:4a:63:a1:03) in ARP auf
+  vlan4 aufgelöst → L2 ok; „kein Internet" = Policy (CLI zeigt keine Policies) oder DNS.
+  **BOVPN-VIF „BOVPN-Steelco-HQ" (bvpn1)** 185.202.184.131 ↔ 188.125.108.99, IKEv2/GCM, mit
+  statischen Routen über den VIF: 10.0.0.0/16 + 192.168.1.0/24 (dist 1), 172.16.200/21, 192.168.11/
+  16/70, 10.1xx/16 als Backup (dist 3) zu Cato (dist 2). **Riese-Seite hat KEINE Routen über
+  BOVPN-Steelco-ICOS und keine Route für 192.168.103/104/105/106/109/170.x → Rückverkehr geht in
+  den Default (Internet) → Cusano↔Riese über WatchGuard asymmetrisch/tot, unabhängig vom
+  Tunnelstatus.** Fix = statische Routen auf der Riese-Firebox über den VIF für die Cusano-Legacy-
+  Netze (WatchGuard-Write, Alex/Bluedigit). Dump: scratchpad `wg_cusano.txt`, `wg_riese*.txt`.
 
 ## S83 — Sulgen-FW: Crosslink-Routen → Cato-Tunnel migriert (22.9.2026)
 
