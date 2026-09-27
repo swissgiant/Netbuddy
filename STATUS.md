@@ -20,6 +20,16 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   in Meraki-Clientliste unsichtbar) → **Korrektur zu S83-Empfehlung: .33/.34 sind belegt.**
   Alt-Server 10.0.2.14/.15 zuletzt vor dem Incident.
 - Meraki-DHCP-Policy überall „allow all", keine Whitelist.
+- **S01 WLAN/Erreichbarkeit (27.9.):** 20/20 MR online, aber **Dario hat am 22.9. 07:16–07:21Z alle
+  Firmen-SSIDs deaktiviert** (CLIENT-ICOS, PROD-ICOS, STEELCOWMS, STEELCOMOBILE, UFF-TEC-ICOS,
+  STEELCOGROUP, SteelcoBelimedNet/Mobile, Belimed-EWP); aktiv nur GUEST-ICOS (open, VLAN 1011,
+  Cato-DHCP, Quad9-DNS) + Visitors (NAT). Firmen-PCs (PCI/NBI…) hängen seitdem im Gastnetz.
+  Meraki Live-Ping (switch/AP → Ziel): aus S01 (Mgmt-VLAN 21, GW Cato-Socket) erreichbar
+  10.137.41.23/.33/.34, 10.137.51.20, 10.137.63.11 (Riese Cato-Netze); NICHT 192.168.1.5 (AS400
+  Riese, Cato routet 192.168.1.0/24 → B-DE!), 10.0.2.x (→ B-SI), 192.168.105.x/WatchGuard S01
+  (Legacy-Netze nicht am Cato). Aus Riese (S00NSW101, GW WatchGuard-VIP .21.254, antwortet) kein
+  einziges Ziel erreichbar; NSFW1/2 seit 21.9. 15:49Z offline (Uplinks der WatchGuard). Merker:
+  `POST /devices/{serial}/liveTools/ping` + Poll `pingId`; trafficAnalysis S01 = basic (keine Ziele).
 
 ## S83 — Sulgen-FW: Crosslink-Routen → Cato-Tunnel migriert (22.9.2026)
 
