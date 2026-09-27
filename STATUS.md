@@ -45,6 +45,24 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   BOVPN-Status/Block-Rules NICHT von außen lesbar (kein WatchGuard-API, #47) — Riese-Core über
   WatchGuard erreicht Cusano-VIPs weiter nicht (kann Policy sein). Merker: NSFW-Cloud-Pfad läuft
   über VLAN 1 → Gateway 10.0.254.254 → ASCO-NAT 188.125.108.98.
+- **WatchGuard-Zugang (27.9.):** Fireware-CLI per SSH **Port 4118**, Konto `netbuddy` (Rolle Device
+  Administrator — Device Monitor darf nicht in die CLI), Credentials `WatchguardRiese`/`WatchguardCusano`
+  in NetBuddy (ssh_port dort noch 22 → im Skript überschrieben). Riese erreichbar über Cato-VIP
+  **172.16.200.243** (von AlexPC 10.120.20.251 via Policy #105 LAN→CATO; NetBuddy-VM nicht in der
+  Policy!). Cusano 10.1.2.254:4118 gefiltert → Policy „WatchGuard" auf der Cusano-Firebox fehlt.
+  Erste Fehlversuche lagen am falsch eingetragenen Passwort, nicht an `$`-Zeichen.
+- **Riese-Firebox-Befund (CLI, read-only):** M590 FireCluster Active/Passive, Fireware 12.12.2,
+  Prompt **[FAULT]**: Unit „SLAVE" (C03B033485B82, LC80) ist Master, Unit „MASTER" (HQ) Backup —
+  Monitor-Interface LAG0 des HQ-Members ohne Link (= NSW100/101 Port 16 down). WAN_ASCO
+  188.125.108.98/28 (GW .97), WAN_EOLO 78.134.38.194/29 (GW .193), beide up, Default via ASCO.
+  **Kein BOVPN-Tunnel nach Cusano**, sondern **BOVPN-VIF „BOVPN-Steelco-ICOS" (bvpn1)**: lokal
+  188.125.108.99 (WAN_ASCO) ↔ remote **185.202.184.131** (Cusano-Firebox), IKEv2, enabled —
+  aber in der Routing-Tabelle nur 169.254.0.20 auf bvpn1, **keine Cusano-Netze über den VIF** →
+  Tunnel down oder ohne Routen. Cato-Transit vlan1000 10.137.0.0/28 via **10.137.0.14** trägt
+  10.138/16, 10.1.23/24, 10.120/14, 10.13x/16, 172.16.0/21, 10.41/16. 192.168.104.x (Cusano-
+  Clients) hat in Riese KEINE Route → Default/Internet. 6 klassische BOVPN: Valla, Benelux, S08,
+  SteelcoService (enabled), Azure + Miele (disabled). Fireware-CLI kennt keine VPN-Runtime-Stats
+  (`show policy`/`show ipsec` gibt es nicht; Policies nur über `show policy-type`/Web UI).
 
 ## S83 — Sulgen-FW: Crosslink-Routen → Cato-Tunnel migriert (22.9.2026)
 
