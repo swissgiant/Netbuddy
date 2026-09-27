@@ -30,6 +30,13 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   (Legacy-Netze nicht am Cato). Aus Riese (S00NSW101, GW WatchGuard-VIP .21.254, antwortet) kein
   einziges Ziel erreichbar; NSFW1/2 seit 21.9. 15:49Z offline (Uplinks der WatchGuard). Merker:
   `POST /devices/{serial}/liveTools/ping` + Poll `pingId`; trafficAnalysis S01 = basic (keine Ziele).
+- **NSFW1/2 Riese (27.9.):** Korrektur — Core-Ports 16 (NSW100–103, „Firewall CED HQ/LC80") sind
+  die LAN-LAGs zu den WatchGuard-Membern (LC80 up mit Traffic, HQ seit >3 d ohne Link), NICHT die
+  NSFW-Uplinks. NSFW-Mgmt = 10.0.254.11/.12 VLAN 1, GW 10.0.254.254, Public 188.125.108.98 (ASCO-
+  Block) → Cloud-Pfad über die WAN-Seite, nicht über das Meraki-Core. Dario hatte 20.9. 16:04–16:13Z
+  die WAN-Ports NSFW1/2+6, NSFW2/1+2+6 (ASCO/EOLO) deaktiviert; **auf Alex' Go 27.9. ~15:35Z alle
+  fünf wieder enabled** (wartet in der Cloud auf den Check-in). Beide Switches seit 21.9. 15:49Z
+  offline; Alex: Kabel wieder gesteckt, Link da → Check-in steht aus (Gateway .254 / ASCO-Router?).
 
 ## S83 — Sulgen-FW: Crosslink-Routen → Cato-Tunnel migriert (22.9.2026)
 
