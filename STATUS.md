@@ -4,6 +4,23 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S84 — Steelco DHCP-Inventar aus Meraki-Paketmitschnitten (27.9.2026)
+
+- **Quelle:** `GET /networks/{id}/switch/dhcp/v4/servers/seen` (30d) — `lastPacket.fields` enthält den
+  kompletten letzten DHCP-ACK inkl. Optionen (Mask, Router, DNS, Domain, Lease, Opt 66/43/103); `sname`
+  = echter Server, `giaddr` = Relay. 72 (Server, VLAN)-Paare über 5 Netze → CSV
+  `Steelco_DHCP_Inventar_Meraki_2026-09-27.csv` (Alex' Downloads).
+- **S01 Icos:** Client-VLANs 1/3/4/9 → WatchGuard (VRRP 00:00:5e:00:01:32) **relayt** an srvdc01
+  192.168.105.110 (DNS .105.111/.110, Domain icos.pn); VLAN 2/46/48/106 → S01SDC1 10.1.2.10 (seit
+  12.–15.9. nicht mehr gesehen); neue 10.138er-VLANs 1011 (guest.lan, /32, DNS 9.9.9.9/1.1.1.1),
+  1013, 21, 40 → Cato-Socket 10.254.254.1; 1022/1063 → 10.138.0.14 (Opt 3 = 10.1.40.254, Lease 180 s).
+- **S00 Riese:** Cato-Socket 10.254.254.1 bedient alle 10.137.x-VLANs (/32-Leases, DNS 10.0.2.10 +
+  192.168.1.110 = tote VMs, 30-s-Leases in 1027/1034/1037/1043/1055/1056/1063); WatchGuard relayt
+  VLAN 2/4/9/16/80/1000 an **10.137.41.33 und 10.137.41.34** (aktive DHCP-Server, zuletzt 27.9.,
+  in Meraki-Clientliste unsichtbar) → **Korrektur zu S83-Empfehlung: .33/.34 sind belegt.**
+  Alt-Server 10.0.2.14/.15 zuletzt vor dem Incident.
+- Meraki-DHCP-Policy überall „allow all", keine Whitelist.
+
 ## S83 — Sulgen-FW: Crosslink-Routen → Cato-Tunnel migriert (22.9.2026)
 
 - **Auftrag Alex:** alle statischen Routen über den Crosslink port19 „Crosslink_IC" (10.101.92.2/29,
