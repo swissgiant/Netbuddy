@@ -36,7 +36,15 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   Block) → Cloud-Pfad über die WAN-Seite, nicht über das Meraki-Core. Dario hatte 20.9. 16:04–16:13Z
   die WAN-Ports NSFW1/2+6, NSFW2/1+2+6 (ASCO/EOLO) deaktiviert; **auf Alex' Go 27.9. ~15:35Z alle
   fünf wieder enabled** (wartet in der Cloud auf den Check-in). Beide Switches seit 21.9. 15:49Z
-  offline; Alex: Kabel wieder gesteckt, Link da → Check-in steht aus (Gateway .254 / ASCO-Router?).
+  offline; nach Reboot vor Ort **NSFW1 online 15:38:33Z, NSFW2 15:40:47Z** (NSFW1 kurz
+  config_stale). WAN-Seite danach komplett: ASCO VLAN 300 = MikroTik 188.125.108.97 (NSFW2/4) +
+  WatchGuard-External-VRRP :39 **188.125.108.108** (NSFW1/1); EOLO VLAN 301 = MikroTik
+  78.134.38.193 (NSFW1/7) + WatchGuard-External-VRRP :38 **78.134.38.195** (NSFW1/5); HA
+  172.30.1.1/.2 auf NSFW2/47 + NSFW1/47. Beide ISP-Router von innen (NSFW1-Live-Ping) und vom
+  Internet (Sulgen-FW, x3) erreichbar; WatchGuard-External-IPs antworten nicht auf Ping (Default).
+  BOVPN-Status/Block-Rules NICHT von außen lesbar (kein WatchGuard-API, #47) — Riese-Core über
+  WatchGuard erreicht Cusano-VIPs weiter nicht (kann Policy sein). Merker: NSFW-Cloud-Pfad läuft
+  über VLAN 1 → Gateway 10.0.254.254 → ASCO-NAT 188.125.108.98.
 
 ## S83 — Sulgen-FW: Crosslink-Routen → Cato-Tunnel migriert (22.9.2026)
 
