@@ -77,6 +77,15 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   den Default (Internet) → Cusano↔Riese über WatchGuard asymmetrisch/tot, unabhängig vom
   Tunnelstatus.** Fix = statische Routen auf der Riese-Firebox über den VIF für die Cusano-Legacy-
   Netze (WatchGuard-Write, Alex/Bluedigit). Dump: scratchpad `wg_cusano.txt`, `wg_riese*.txt`.
+- **Ursache gefunden (Config-Export 20.9. 15:55Z, `WG_STEELCO_HQ_MASTER.xml`):** Alex' Routen-
+  Export/Import hat auf der Riese-Firebox **28 von 45 statischen Routen** (alle Cato-Spezialrouten:
+  DNS 1.1.1.1/8.8.8.8/9.9.9.9/208.67.x, MS/Azure-Blöcke 13.107.x/20.x/40.x/52.x/150.171.97.0,
+  192.168.100.0/24 via 172.14.4.253) und **alle 26 VPN-Routes der BOVPN-VIFs** entfernt:
+  BOVPN-Steelco-ICOS = 192.168.0/103/104/105/106/108/109/116/170.0/24 (dist 1) + 10.1.0.0/16
+  (dist 2); BOVPN-Steelco-Belimed (VIF derzeit disabled) = 16 Backup-Routen dist 3 (10.100/101/
+  105/106/107/140/141/143/145–149/16, 10.175.0/22, 10.202.24/24, 172.16.13/24). Klassische BOVPN-
+  Tunnel (Valla/S08/SteelcoService/Benelux) unberührt (Tunnel-Routes in der Tunnel-Definition).
+  Liste als CSV in Alex' Downloads: `Riese_Firebox_fehlende_Routen_vs_Export_2026-09-20.csv`.
 
 ## S83 — Sulgen-FW: Crosslink-Routen → Cato-Tunnel migriert (22.9.2026)
 
