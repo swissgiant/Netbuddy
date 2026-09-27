@@ -86,6 +86,16 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   105/106/107/140/141/143/145–149/16, 10.175.0/22, 10.202.24/24, 172.16.13/24). Klassische BOVPN-
   Tunnel (Valla/S08/SteelcoService/Benelux) unberührt (Tunnel-Routes in der Tunnel-Definition).
   Liste als CSV in Alex' Downloads: `Riese_Firebox_fehlende_Routen_vs_Export_2026-09-20.csv`.
+- **FIX ausgeführt (27.9. 17:38–17:45Z, Alex' Go):** Backup-Image `RIESE-vor-ICOS-Routen-2026-09-27`
+  auf der Firebox, dann per Fireware-CLI `configure` → `ip route vpn-route BOVPN-Steelco-ICOS <net>
+  <distance>` die 10 VIF-Routen (9× 192.168.x/24 dist 1, 10.1.0.0/16 dist 2) angelegt; `show route`
+  zeigt alle 10 auf bvpn1. **Alex bestätigt: aus Cusano AS400 192.168.1.5 und 10.0.2.37 wieder
+  erreichbar** → Tunnel stand die ganze Zeit, es fehlten nur die Rückrouten. Cusano-VIPs antworten
+  weiterhin nicht auf Ping aus Riese-VLAN 21 (Policy, kein Fehler). CLI-Fallen: `?` am Zeilenende
+  führt die Zeile danach AUS (so kam 192.168.104.0/24 „versehentlich" zuerst); Metric ist per CLI
+  nicht setzbar (Default), Edit Mode muss in Web UI/Policy Manager frei sein; `configure`-Exit
+  applied direkt. **Offen:** 28 statische Cato-Routen (`ip route <net> 10.137.0.14 1`) und die 16
+  Belimed-VIF-Routen (VIF disabled) noch nicht wiederhergestellt; Cusano-Policy „WatchGuard" für BLS.
 
 ## S83 — Sulgen-FW: Crosslink-Routen → Cato-Tunnel migriert (22.9.2026)
 
