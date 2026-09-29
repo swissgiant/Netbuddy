@@ -4,6 +4,17 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S85 — Riese: Defender-Verdachtsliste verortet (29.9.2026)
+
+- 18 Hostnamen (Defender-stumm) in allen Steelco-Meraki-Netzen (30 d) gesucht: **17 in Riese**,
+  1 nicht gefunden (pcsitr-8y0xlsgc). 13× VLAN 9 (192.168.9.x, prod-steelco/steelcospa.lan),
+  3× VLAN 4 (172.16.20x.x), 1× VLAN 14 (linl18c Kabel), s00sprint4 = VM 10.0.2.174. Am 29.9. 06:23Z
+  noch online: s00cd007, pcs071, lin004 (WLAN prod-steelco), s00pkik019 (WLAN VLAN 4), pha002
+  (NSW129/23). 12 seit 15.–18.9. offline. CSV: `Defender_Verdachtsrechner_Meraki_2026-09-29.csv`
+  (Alex' Downloads). **Entscheidung Alex: kein Block (weder Firebox-VLAN noch Meraki-Client-
+  Policy), Geräte werden physisch eingesammelt; später Offline-Verifikation** → Skript
+  `find_hosts.py` (scratchpad) erneut laufen lassen, Erwartung: alle Status Offline.
+
 ## S84 — Steelco DHCP-Inventar aus Meraki-Paketmitschnitten (27.9.2026)
 
 - **Quelle:** `GET /networks/{id}/switch/dhcp/v4/servers/seen` (30d) — `lastPacket.fields` enthält den
