@@ -4,6 +4,28 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S86 — Cusano: Internet-Trennung, Meraki-Cloud-Pfad, neue ESXi an S01NSW110 (30.9.–1.10.2026)
+
+- **Cusano komplett vom Internet getrennt (30.9.)**; alle 17 MS + 20 MR offline in der Cloud. Pfad der
+  Meraki-Geräte nach draußen = **Cato-Socket** (GW 10.1.21.254/10.1.40.254), dessen WAN-Bein in
+  **VLAN 999 „999-Inet" (10.99.0.14/.15, NSW110 Ports 19/21)** über die Firebox läuft; Firebox-Log
+  zeigte Deny `BlcokAny-00` 10.99.0.15 → Cato-PoP :443 + DNS. Nach Alex' Regel 14:13Z alle wieder
+  online (Allow nicht geloggt oder über WAN Eolo). Cusano-Firebox inzwischen Fireware **12.12.3**.
+- **Neue ESXi (4× HPE/Broadcom, Mgmt vmk0 10.123.20.51–.54 = BLS-Cusano!, vmk1 „IcosServer")** an
+  **S01NSW110 Ports 2/3/4/39** (Stack CED Ellero mit NSW211/NSW112). Ports = Trunk, allowed all,
+  Namen ESX-neu-2/3/4/39; Port 1 war Fehlannahme → zurück auf Access VLAN 1. Lernkurve: native 2
+  (untagged) kollidierte mit VLAN-ID 2 auf der Portgruppe → Rückrichtung untagged verworfen;
+  **Endstand native 1 + Portgruppe VLAN 2 (Alex' Wahl „2")**. Verify 15:03Z: alle vier vmk1 in
+  VLAN 2 gelernt (.211 Port 2, .212 Port 3, .213 Port 39, .214 Port 4), Firebox pingt alle vier,
+  Meraki führt sie als Clients. **vCenter neu = 10.1.2.215** (frei), GW 10.1.2.254, DNS 192.168.105.110.
+- Merker Meraki: `liveTools/macTable` ist pro Switch, Stack-Member zeigen aber gemeinsame Einträge;
+  Port-Änderungen an offline Switches warten in der Cloud; `trafficInKbps`-recv 0 bei Link up =
+  Host sendet nichts (hier: vmk noch nicht konfiguriert). CED Ellero: Stack-Uplink NSW112/52 down.
+- Riese: 10.0.2.206 = WIN-F6B3F1MSD2B (Template-Name, 3 VMs seit 20.9.; .99→.206 = Alex' Jump-Host,
+  a-alex.kohler-Session auf Firebox von dort). VLAN 6 Riese „6 - Altri Device" 192.168.6.0/24 GW .243:
+  Zucchetti-Terminals, Sauter, Lantronix, Miele-Meraki-MX 192.168.6.50. 192.168.32.38 Valla = PC
+  NSW150/8, 3,3 GB/Tag, GUID-Name. s7831fd0 nirgends gefunden (Dell-Service-Tag-Name).
+
 ## S85 — Riese: Defender-Verdachtsliste verortet (29.9.2026)
 
 - 18 Hostnamen (Defender-stumm) in allen Steelco-Meraki-Netzen (30 d) gesucht: **17 in Riese**,
