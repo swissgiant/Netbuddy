@@ -19,6 +19,25 @@ class MerakiDeviceNotFoundError(AdapterError):
     """Gerät nicht in der Org-Geräteliste (nach lanIp) gefunden."""
 
 
+def _meraki_neighbor_name(name: str | None) -> str | None:
+    """``"Meraki MS225-48FP - S00NSW104"`` → ``"S00NSW104"``; andere Namen unverändert."""
+    if not name:
+        return None
+    if name.startswith("Meraki ") and " - " in name:
+        return name.split(" - ", 1)[1].strip() or None
+    return name
+
+
+def _device_type_for(model: str | None) -> DeviceType:
+    """Meraki-Modellpräfix → Gerätetyp (MR = AP, MX = Firewall, MS/sonst = Switch)."""
+    prefix = (model or "")[:2].upper()
+    if prefix == "MR":
+        return DeviceType.AP
+    if prefix == "MX":
+        return DeviceType.FIREWALL
+    return DeviceType.SWITCH
+
+
 @register_api_adapter
 class MerakiAdapter:
     """Read-only-Adapter für Cisco Meraki über die Dashboard-API (cloud, JSON).
@@ -26,14 +45,17 @@ class MerakiAdapter:
     Org-scoped: findet das Gerät per Management-IP (`lanIp`) in
     `/organizations/{org}/devices`, danach Switch-Ports + LLDP/CDP über die Seriennummer.
     Keine standardisierte MAC-Table-API → `READ_MAC_TABLE` wird nicht angeboten.
-    **Unvalidiert** — Feld-Mapping nach Doku, bis echter API-Key vorliegt.
+    Live-validiert gegen die Steelco-Org (Okt 2026): Geräteliste, Switch-Ports, lldpCdp.
     """
 
     adapter_id: ClassVar[str] = "meraki"
     capabilities_set: ClassVar[frozenset[Capability]] = frozenset(
         {Capability.READ_SYSTEM_INFO, Capability.READ_INTERFACES, Capability.READ_LLDP}
     )
-    provenance: ClassVar[str] = "Cisco Meraki Dashboard-API — unvalidiert (kein API-Key)"
+    provenance: ClassVar[str] = (
+        "Cisco Meraki Dashboard-API — live-validiert (Steelco-Org, MS225/MS425/MS150/MR): "
+        "sysinfo/ports/lldpCdp"
+    )
 
     def __init__(
         self, client: ApiClient, *, match_ip: str, options: dict[str, Any] | None = None
@@ -64,11 +86,13 @@ class MerakiAdapter:
             model=device.get("model"),
             os_version=device.get("firmware"),
             serial_number=device.get("serial"),
-            device_type=DeviceType.SWITCH,
+            device_type=_device_type_for(device.get("model")),
         )
 
     async def get_interfaces(self) -> list[InterfaceData]:
         device = await self._dev()
+        if _device_type_for(device.get("model")) is not DeviceType.SWITCH:
+            return []  # APs/MX haben keine Switch-Port-API (/switch/ports → 404)
         ports = await self._client.get_json(f"/devices/{device['serial']}/switch/ports")
         interfaces: list[InterfaceData] = []
         for port in ports:
@@ -84,22 +108,33 @@ class MerakiAdapter:
         return interfaces
 
     async def get_lldp_neighbors(self) -> list[LldpNeighborData]:
+        """LLDP-Nachbarn je Port; Ports mit nur CDP (Meraki↔Meraki) werden aus CDP ergänzt.
+
+        Live-Format (S00, Okt 2026): Meraki-Nachbarn melden ``systemName`` als
+        ``"Meraki MS225-48FP - S00NSW104"`` → der Gerätename hinter `` - `` wird als
+        ``remote_system_name`` geliefert (Topologie-Match per Hostname), die Management-IP
+        kommt aus ``lldp.managementAddress`` oder ``cdp.address``.
+        """
         device = await self._dev()
         payload = await self._client.get_json(f"/devices/{device['serial']}/lldpCdp")
         neighbors: list[LldpNeighborData] = []
         for port_id, info in (
             payload.get("ports", {}) if isinstance(payload, dict) else {}
         ).items():
-            lldp = info.get("lldp", {}) if isinstance(info, dict) else {}
-            if not lldp:
+            lldp = info.get("lldp") or {} if isinstance(info, dict) else {}
+            cdp = info.get("cdp") or {} if isinstance(info, dict) else {}
+            if not lldp and not cdp:
                 continue
+            name = lldp.get("systemName") or cdp.get("deviceId")
             neighbors.append(
                 LldpNeighborData(
                     local_interface=str(port_id),
-                    remote_chassis_id=lldp.get("chassisId", ""),
-                    remote_port_id=lldp.get("portId", ""),
-                    remote_system_name=lldp.get("systemName"),
-                    remote_system_description=lldp.get("systemDescription"),
+                    remote_chassis_id=lldp.get("chassisId") or cdp.get("deviceId", ""),
+                    remote_port_id=lldp.get("portId") or cdp.get("portId", ""),
+                    remote_port_description=lldp.get("portDescription"),
+                    remote_system_name=_meraki_neighbor_name(name),
+                    remote_system_description=lldp.get("systemDescription") or cdp.get("platform"),
+                    mgmt_address=lldp.get("managementAddress") or cdp.get("address"),
                 )
             )
         return neighbors
