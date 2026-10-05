@@ -1,0 +1,13 @@
+Legend:
+        * - primary entry, G - Gateway MAC, (R) - Routed MAC, O - Overlay MAC
+        age - seconds since last seen,+ - primary entry using vPC Peer-Link,
+        (T) - True, (F) - False, C - ControlPlane MAC, ~ - vsan,
+        (NA)- Not Applicable A - ESI Active Path, S - ESI Standby Path
+        TL - True Learned, PS - Peer Sync, RO - Re-originate
+   VLAN     MAC Address      Type      age     Secure NTFY Ports
+G    1     6c4f.a162.c3bf   static   -         F      F    sup-eth1(R)
+G 1063     6c4f.a162.c3bf   static   -         F      F    sup-eth1(R)
++    1     0000.5e00.013a   dynamic  NA         F      F    Po44
+*    1     0050.5680.3f01   dynamic  NA         F      F    Po44
++    1     0050.5680.0cdd   dynamic  NA         F      F    vPC Peer-Link
+*    1     0003.ac62.ebac   dynamic  NA         F      F    Po25

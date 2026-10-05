@@ -6,6 +6,7 @@ from netbuddy.db.models import Credential, Device
 # (read-only `show` braucht keine Vendor-Privilege-Logik). Wächst mit jedem Vendor.
 _SCRAPLI_PLATFORM = {
     "cisco_ios": "cisco_iosxe",
+    "cisco_nxos": "cisco_nxos",  # Nexus 9000; Core-Treiber regelt Pager (terminal length 0)
     "dell_os10": "generic",
     "dell_os6": "generic",
     "fs_centec": "generic",

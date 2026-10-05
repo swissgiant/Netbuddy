@@ -4,6 +4,55 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S87 — Riese: Nexus-Core im NetBuddy, `cisco_nxos`-Profil, Netz-Struktur-/Stabilitätsanalyse (5.10.2026)
+
+- **Nexus-Paar s00ncs101/102 (N9K-C93180YC-FX3, NX-OS 10.5(3), 10.137.63.251/.252) als Devices in
+  NetBuddy** (Site „S00 - Steelco HQ", Credential `NexusRiese`/SSH), Running-Config beider als
+  `ConfigBackup` + Volldump (`show version/run/vlan/interface status|trunk|description/port-channel/
+  vpc/spanning-tree/cdp/mac/arp/route/counters errors/logging`) in Scratchpad `nexus_s00ncs10x.txt`.
+- **Neues CLI-Profil `cisco_nxos.yaml`** (ntc-templates `cisco_nxos`, Scrapli-Core-Treiber
+  `cisco_nxos` in `connection.py`): sysinfo/interfaces/lldp/mac/arp + `backup_command`,
+  `lldp_control` (`feature lldp`), `port_vlan_control` (copy run start / „Copy complete"). Fixtures
+  aus echten Captures (version/interface/mac/arp), LLDP-Fixture synthetisch. **Live read-only
+  validiert gegen beide Nexus:** sysinfo ok (Modell C93180YC-FX3, 10.5(3), Serial), 68/69
+  Interfaces (admin/oper/MAC/Speed/MTU, SVI „up, autostate" → up), MAC 1809 Einträge/42 VLANs,
+  ARP 2 (nur Mgmt-SVI), Config 9,5 kB. **LLDP liefert 0: auf den Nexus ist `feature lldp` NICHT
+  aktiv (nur CDP)** → Meraki/NetBuddy sehen den Core nur per CDP. ntc-Grenze: LLDP-„System Name"
+  mit Leerzeichen (Meraki) wird vom Template verworfen. 282 Tests grün, mypy strict ok.
+  **Prod-Deploy (rsync + `up -d --build backend worker`) + Umstellen der zwei Devices von
+  `cisco_ios` auf `cisco_nxos` noch offen** (Classifier blockt Prod-Deploy; Alex führt aus).
+- **Antwort CL02/CL03:** Nexus-Ports Eth1/3-4 (esx2) und Eth1/9-12 (esx05/06) sind auf BEIDEN Nexus
+  identisch (`switchport mode trunk`, kein native/allowed → native 1 + alle VLANs, `edge trunk`,
+  MTU 9216). VLAN 90 „90-External" existiert und läuft über Peer-Link + vPCs. Unterschied ist
+  host-seitig: Portgruppe „1-Default" braucht VLAN-ID 0 (untagged) — am Nexus nichts zu ändern.
+- **Struktur Riese:** Nexus-vPC-Paar (Domain 10, Peer-Link Po54 2×100G, Keepalive mgmt0
+  10.137.65.x, Peer-Gateway/Auto-Recovery) = STP-Root (prio 4096) aller VLANs, routet NICHT (nur
+  Mgmt-SVI 1063, Default → Cato 10.137.63.1). Gateways: Legacy-VLANs → WatchGuard über **Po45 =
+  nur Eth1/45 (Po46/Eth1/46 Transceiver fehlt auf beiden Nexus → zweiter Firebox-Pfad fehlt)**;
+  10.137er-VLANs → Cato-Sockets Eth1/47+48 (einzelne Trunks, kein LACP). Meraki-Fleet (55 MS,
+  88 MR, 14 Stacks) hängt über zwei 10G-vPCs: Po25 „Interim" → Core HQ (MS425, prio 8192) und
+  Po44 → Core LC80 (MS425, prio 16384). Po40–43 (Callaudi/Archivio/Feeder/CED-HQ) down,
+  Transceiver fehlen = nie in Betrieb genommen. NetApp n01/n02 je 25G-vPC (Po21/22), ESX direkt
+  am Nexus (esx1/2 10G, esx5/6 25G, esx3/4 Transceiver fehlen). **Meraki-Baum = reiner Baum ohne
+  einen einzigen redundanten Uplink** (LLDP: jeder Stack/Switch genau ein Uplink, 10G außer zwei
+  1G-Kupfer-Ketten); tiefste Kette 4 Switch-Hops: Core HQ → Uff. IT (NSW110/111) → NSW112 →
+  Palestra (4er-Stack) → Uff. Software → APs (Hop 5). Weitere Ketten: Core HQ → ATS → Officina →
+  NSW139; Core HQ → Archivio → Ricambi → SNW150 (1G); Core LC80 → Ex Cerantola SPED → Pharma/
+  NSW132; Core LC80 → CED LC80 → NSW141 (1G). NSFW1/2 ohne LLDP-Kante zum Core (WAN-seitig).
+- **Stabilität (7 d Meraki-Events, 97.379):** 44.884 Port-Flaps + 44.226 STP-Rollenwechsel +
+  7.790 MAC-Flaps; nur 23 Geräte-Offline-Events in 14 d (Cluster 22.9. und 1.10. = Standort-
+  Ereignisse; beide Nexus 20.9. 16:47 „Module PowerCycled", 1.10. 11:46 PSU2-Fault auf beiden).
+  Switches selbst stabil, Problem sind Ports/Endgeräte: NSW131/9 13.206 Flaps (VLAN 1022 Kamera-
+  Port, 100 Mbit, 0 W PoE, nie ein Client), NSW124/8 6.085 (Ajax-Alarmzentrale), SNW152/1 1.037
+  (Hikvision), NSW125/16 3.880 + NSW118/1, NSW127/31, SNW153/16 bei **10 Mbit/s** (PCs, Kabel/
+  NIC-Fehler). **MAC-Flap-Hauptverursacher QNAP 24:5E:BE:36:BA:D8 (192.168.70.40, VLAN 70):
+  3.488 Flaps, 4 NICs an NSW129/29+30+31 (Port 31 „QNAP") + NSW128/43 — alles einzelne Access-
+  Ports ohne LAG, QNAP bündelt selbst** → MAC wandert im VLAN 70 bis auf den Core-LAG. Nexus
+  fehlerfrei (0 CRC) außer **Output-Errors Richtung WatchGuard Eth1/45 (205 k) und Cato Eth1/47+48
+  (je 345 k)** = Engpass auf den Firewall-/Cato-Uplinks; Po44 726 OutDiscards. esx1 (Eth1/1-2)
+  5.10. 17:53 + 18:08 auf beiden Nexus kurz down (Host-seitig). 1G-Daisy-Chains NSW119/4↔SNW150,
+  NSW133/48↔NSW141. **Keine Änderungen vorgenommen.**
+
 ## S86 — Cusano: Internet-Trennung, Meraki-Cloud-Pfad, neue ESXi an S01NSW110 (30.9.–1.10.2026)
 
 - **Cusano komplett vom Internet getrennt (30.9.)**; alle 17 MS + 20 MR offline in der Cloud. Pfad der

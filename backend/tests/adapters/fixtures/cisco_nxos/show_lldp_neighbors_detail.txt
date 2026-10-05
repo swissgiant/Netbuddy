@@ -1,0 +1,33 @@
+Capability codes:
+  (R) Router, (B) Bridge, (T) Telephone, (C) DOCSIS Cable Device
+  (W) WLAN Access Point, (P) Repeater, (S) Station, (O) Other
+
+Chassis id: 6c4f.a1b4.d8a3
+Port id: Ethernet1/53
+Local Port id: Eth1/53
+Port Description: vPC-Peer-Link-member-2-to-S00NCS101
+System Name: s00ncs102
+System Description: Cisco Nexus Operating System (NX-OS) Software 10.5(3)
+TAC support: http://www.cisco.com/tac
+Copyright (c) 2002-2025, Cisco Systems, Inc. All rights reserved.
+Time remaining: 101 seconds
+System Capabilities: B, R
+Enabled Capabilities: B, R
+Management Address: 10.137.63.252
+Management Address IPV6: not advertised
+Vlan ID: 1
+
+Chassis id: 00a0.98f2.1a02
+Port id: e2a
+Local Port id: Eth1/21
+Port Description: e2a
+System Name: stobchz-005-01
+System Description: NetApp Release 9.14.1P6
+Time remaining: 97 seconds
+System Capabilities: B
+Enabled Capabilities: B
+Management Address: 0.0.0.0
+Management Address IPV6: not advertised
+Vlan ID: not advertised
+
+Total entries displayed: 2

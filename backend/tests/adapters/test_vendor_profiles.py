@@ -90,3 +90,47 @@ async def test_fs_centec() -> None:
     arp = await a.get_arp()
     assert arp[0].ip_address == "10.120.10.1"
     assert arp[0].mac_address == "649d.992f.0001"
+
+
+async def test_cisco_nxos() -> None:
+    a = _adapter("cisco_nxos")
+    info = await a.get_system_info()  # validiert (s00ncs101 / N9K-C93180YC-FX3)
+    assert (info.hostname, info.vendor, info.model, info.os_version, info.serial_number) == (
+        "s00ncs101",
+        "cisco",
+        "C93180YC-FX3",
+        "10.5(3)",
+        "FIC30060D4E",
+    )
+    interfaces = await a.get_interfaces()  # echtes `show interface` (Live-Capture s00ncs101)
+    assert {i.name for i in interfaces} == {
+        "mgmt0",
+        "Ethernet1/1",
+        "Ethernet1/5",
+        "port-channel54",
+        "Vlan1063",
+    }
+    eth1 = next(i for i in interfaces if i.name == "Ethernet1/1")
+    assert (eth1.admin_status.value, eth1.oper_status.value) == ("up", "up")
+    assert eth1.description == "esx1-vmnic0"
+    assert eth1.speed_mbps == 10000
+    assert eth1.mtu == 9216
+    absent = next(i for i in interfaces if i.name == "Ethernet1/5")
+    assert absent.oper_status.value == "down"  # "down (XCVR not inserted)" → down
+    assert absent.admin_status.value == "up"
+    svi = next(i for i in interfaces if i.name == "Vlan1063")
+    assert svi.admin_status.value == "up"  # "up, autostate enabled" → up
+    assert svi.interface_type == "EtherSVI"
+    neighbors = await a.get_lldp_neighbors()
+    assert len(neighbors) == 2
+    assert neighbors[0].remote_system_name == "s00ncs102"
+    assert neighbors[0].local_interface == "Eth1/53"
+    assert neighbors[0].mgmt_address == "10.137.63.252"
+    assert neighbors[1].mgmt_address is None  # "0.0.0.0" wird via ip_or_none verworfen
+    macs = await a.get_mac_table()
+    assert len(macs) == 6
+    assert any(m.entry_type.value == "static" for m in macs)
+    assert next(m for m in macs if m.mac_address == "0000.5e00.013a").interface == "Po44"
+    arp = await a.get_arp()
+    assert arp[0].ip_address == "10.137.63.1"
+    assert arp[0].interface == "Vlan1063"
