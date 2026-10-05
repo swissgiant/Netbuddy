@@ -26,6 +26,22 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   Eth1/25 Port 13, NSW102/103 an Eth1/44 Port 1, esx1/2 nur Chassis-MAC „null"-Name), MAC 1826,
   ARP 2, Config. esx05/06 fallen im LLDP weg (Systemname = Adapter-String mit Leerzeichen,
   ntc-Grenze); NetApp/WatchGuard/Cato senden kein LLDP zum Nexus.
+- **Meraki-LLDP-Check org-weit:** 76/76 MS online, LLDP auf Meraki MS nicht abschaltbar (kein
+  Feld in Port-/Switch-Settings), 72 empfangen LLDP, 62 werden von anderen Switches gesehen;
+  Rest = Stack-Member ohne eigenen Uplink / Einzelswitches / nur Endgeräte. Keine Änderung nötig.
+- **Meraki-Adapter topologie-tauglich** (Commit 28cf66d): Nachbarname „Meraki MS225-48FP -
+  S00NSW104" → „S00NSW104", `mgmt_address` aus `lldp.managementAddress`/`cdp.address`, CDP-only-
+  Ports übernommen, MR/MX = AP/Firewall ohne `/switch/ports`-404. Deployt.
+- **Voll-Discovery aller 5 Meraki-Standorte (S00 HQ, S00 Valla, S01 Icos, S02 Service, S05
+  Benelux):** zuvor war von 195 Meraki-Geräten nur EINS je discovert (Scheduled-Discovery nimmt
+  nur SSH-Credentials). 4 fehlende Switches angelegt (S00SNW152/153/154, S00NSW151-VallaOffice
+  — Namensdublette zu HQ-NSW151), 7 veraltete Mgmt-IPs per Serial korrigiert (S01NSW102/103/111/
+  112 → .202/.203/.211/.212, NAP168/192, S02NAP100), Namen an die Org angeglichen
+  (Q2KW-3VNH-ZC43 → S00NSW120, S01 Core-Umbenennungen), S01NSW121 (nicht mehr in der Org)
+  deaktiviert. Ergebnis: **198/199 Geräte discovert**, Nexus↔Meraki-Core-Kanten in beide
+  Richtungen in der DB (NSW100/101 Port 13 ↔ Eth1/25, NSW102/103 Port 1 ↔ Eth1/44). Offen:
+  Scheduled-Discovery deckt API-Adapter (meraki) nicht ab → Meraki-Inventar veraltet ohne
+  manuellen Lauf (Skript `nb_meraki_full_discovery.py`, 130 s für 199 Geräte).
 - **Antwort CL02/CL03:** Nexus-Ports Eth1/3-4 (esx2) und Eth1/9-12 (esx05/06) sind auf BEIDEN Nexus
   identisch (`switchport mode trunk`, kein native/allowed → native 1 + alle VLANs, `edge trunk`,
   MTU 9216). VLAN 90 „90-External" existiert und läuft über Peer-Link + vPCs. Unterschied ist
