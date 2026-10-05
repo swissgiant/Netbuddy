@@ -19,8 +19,13 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   ARP 2 (nur Mgmt-SVI), Config 9,5 kB. **LLDP liefert 0: auf den Nexus ist `feature lldp` NICHT
   aktiv (nur CDP)** → Meraki/NetBuddy sehen den Core nur per CDP. ntc-Grenze: LLDP-„System Name"
   mit Leerzeichen (Meraki) wird vom Template verworfen. 282 Tests grün, mypy strict ok.
-  **Prod-Deploy (rsync + `up -d --build backend worker`) + Umstellen der zwei Devices von
-  `cisco_ios` auf `cisco_nxos` noch offen** (Classifier blockt Prod-Deploy; Alex führt aus).
+  **Auf Alex' Go: `feature lldp` auf beiden Nexus aktiviert + `copy run start`** (ConfigBackup
+  vorher), danach Prod-Deploy (rsync + `up -d --build backend worker`, 5/5 healthy), beide Devices
+  auf `cisco_nxos` umgestellt und **end-to-end über die Adapter-Factory validiert**: sysinfo,
+  68/69 Interfaces, 9 LLDP-Nachbarn je Nexus (Peer über mgmt0+Po54, Meraki-Cores NSW100/101 an
+  Eth1/25 Port 13, NSW102/103 an Eth1/44 Port 1, esx1/2 nur Chassis-MAC „null"-Name), MAC 1826,
+  ARP 2, Config. esx05/06 fallen im LLDP weg (Systemname = Adapter-String mit Leerzeichen,
+  ntc-Grenze); NetApp/WatchGuard/Cato senden kein LLDP zum Nexus.
 - **Antwort CL02/CL03:** Nexus-Ports Eth1/3-4 (esx2) und Eth1/9-12 (esx05/06) sind auf BEIDEN Nexus
   identisch (`switchport mode trunk`, kein native/allowed → native 1 + alle VLANs, `edge trunk`,
   MTU 9216). VLAN 90 „90-External" existiert und läuft über Peer-Link + vPCs. Unterschied ist

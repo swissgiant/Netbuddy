@@ -1,10 +1,10 @@
 # Cisco NX-OS (Nexus 9000) — read-only. Geparst via ntc-templates (platform cisco_nxos).
 # Live-validiert gegen s00ncs101/s00ncs102 (N9K-C93180YC-FX3, NX-OS 10.5(3), vPC-Paar Riese):
-# system_info, interfaces, mac, arp, config. LLDP: ntc-Template vorhanden, auf den Riese-Nexus
-# ist `feature lldp` aber NICHT aktiv (nur CDP) → read_lldp liefert dort einen CLI-Fehler.
+# system_info, interfaces, lldp (nach `feature lldp`, 9 Nachbarn je Switch), mac, arp, config.
+# Ohne `feature lldp` antwortet NX-OS mit "% Invalid command" → read_lldp liefert leer, kein Fehler.
 adapter_id: cisco_nxos
 ntc_platform: cisco_nxos
-provenance: "Cisco NX-OS — live-validated (N9K-C93180YC-FX3 10.5(3)): sysinfo/interfaces/mac/arp/config; lldp via ntc, Gerät ohne feature lldp"
+provenance: "Cisco NX-OS — live-validated (N9K-C93180YC-FX3 10.5(3)): sysinfo/interfaces/lldp/mac/arp/config"
 
 backup_command: "show running-config"
 
