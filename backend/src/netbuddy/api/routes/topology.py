@@ -26,7 +26,7 @@ class TopologyNode(BaseModel):
     id: str  # z.B. "device:<uuid>" / "site:<uuid>"
     label: str
     type: str  # "site" | "switch" | "firewall" | "router" | "ap" | "other"
-    # "core" = Backbone-Switch des Standorts (Name/Plattform-Heuristik) → Wurzel im Baum-Layout
+    # "core" | "distribution" = Backbone-Switch (Name/Plattform-Heuristik) → Wurzel/2. Ebene im Baum
     role: str | None = None
     stack: str | None = None  # logischer Stack-Name (Member werden als Einheit gezeichnet)
     parent: str | None = None  # Compound: Geräte liegen IM Standort-Container
@@ -55,15 +55,25 @@ _CORE_MODEL = re.compile(r"MS425|MS4\d\d|N9K|Nexus|S5248|N8560|C9[35]\d\d", re.I
 _CORE_NAME = re.compile(r"core|ncs|-cs\d|^cs\d", re.IGNORECASE)
 
 
-def is_core_switch(device: Device) -> bool:
-    """Backbone-/Core-Switch? Name (core/ncs), DC-Plattform oder Aggregations-Modell."""
+def switch_role(device: Device) -> str | None:
+    """Rolle im Baum: ``core`` (Name core/ncs oder DC-Plattform), ``distribution``
+    (Aggregations-Modell wie MS425/N9K ohne Core-Namen), sonst None (Access)."""
     if device.device_type != DeviceType.SWITCH:
-        return False
-    if _CORE_NAME.search(device.hostname):
-        return True
-    if device.adapter_id in ("dell_os10", "fs_ruijie", "cisco_nxos"):
-        return True
-    return bool(device.model and _CORE_MODEL.search(device.model))
+        return None
+    if _CORE_NAME.search(device.hostname) or device.adapter_id in (
+        "dell_os10",
+        "fs_ruijie",
+        "cisco_nxos",
+    ):
+        return "core"
+    if device.model and _CORE_MODEL.search(device.model):
+        return "distribution"
+    return None
+
+
+def is_core_switch(device: Device) -> bool:
+    """Backbone-Switch (Core oder Distribution) — Wurzelkandidat der Site-Topologie."""
+    return switch_role(device) is not None
 
 
 @router.get("", response_model=Topology)
@@ -88,7 +98,7 @@ async def get_topology(session: SessionDep) -> Topology:
                 label=device.hostname,
                 type=device.device_type.value,
                 parent=f"site:{device.site_id}" if device.site_id else None,
-                role="core" if is_core_switch(device) else None,
+                role=switch_role(device),
                 stack=device.stack_name,
             )
         )

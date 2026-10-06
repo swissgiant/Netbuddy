@@ -82,9 +82,14 @@ export function computeStructuredPositions(topo: Topology): Record<string, XY> {
   }
   const degree = (id: string) => adj[id]?.size ?? 0;
   const coreIds = new Set<string>();
-  for (const n of topo.nodes)
-    if (n.type === "switch" && (n.role === "core" || (n.label || "").toLowerCase().includes("core")))
-      coreIds.add(n.id);
+  const distIds = new Set<string>();
+  const stackOf: Record<string, string> = {};
+  for (const n of topo.nodes) {
+    if (n.stack) stackOf[n.id] = n.stack;
+    if (n.type !== "switch") continue;
+    if (n.role === "core" || (n.label || "").toLowerCase().includes("core")) coreIds.add(n.id);
+    else if (n.role === "distribution") distIds.add(n.id);
+  }
 
   type N = (typeof topo.nodes)[number];
   type Bucket = { infra: N[]; apsBySwitch: Record<string, N[]>; loose: N[] };
@@ -152,15 +157,20 @@ export function computeStructuredPositions(topo: Topology): Record<string, XY> {
         }
       }
     };
+    // Wurzeln nach Rang: Firewall/Router → Core → Distribution (MS425/N9K ohne Core-Namen)
+    // → sonst der Switch mit den meisten Switch-Nachbarn. Rangniedrigere Backbone-Switches
+    // werden per BFS als Kinder erreicht (Nexus oben, Meraki-Core darunter).
     const fwRoots = b.infra.filter((n) => n.type === "firewall" || n.type === "router").map((n) => n.id);
     const coreRoots = b.infra.filter((n) => coreIds.has(n.id)).map((n) => n.id);
-    let roots = [...fwRoots, ...coreRoots.filter((id) => !fwRoots.includes(id))];
+    const distRoots = b.infra.filter((n) => distIds.has(n.id)).map((n) => n.id);
+    let roots = fwRoots.length ? fwRoots : coreRoots.length ? coreRoots : distRoots;
     if (!roots.length) {
       const sw = b.infra.filter((n) => n.type === "switch" && degree(n.id) > 0);
       const max = Math.max(0, ...sw.map((n) => degree(n.id)));
       roots = sw.filter((n) => degree(n.id) === max).map((n) => n.id);
     }
-    visit(roots.sort((p, q) => label[p].localeCompare(label[q])));
+    const rootKey = (id: string) => `${stackOf[id] ?? label[id]}\u0000${label[id]}`;
+    visit(roots.sort((p, q) => rootKey(p).localeCompare(rootKey(q))));
     const mainRoots = roots.filter((r) => parent[r] === null);
     // Zweiter Baum: Waisen unter „Unbekannter Switch"
     const unknownRoots = b.infra.filter((n) => n.type === "unknown" && depth[n.id] === undefined).map((n) => n.id);
@@ -174,8 +184,9 @@ export function computeStructuredPositions(topo: Topology): Record<string, XY> {
       const p = parent[id];
       if (p) (children[p] ??= []).push(id);
     }
+    const sibKey = (id: string) => `${stackOf[id] ?? label[id]}\u0000${label[id]}`;
     for (const p of Object.keys(children))
-      children[p].sort((x, y) => label[x].localeCompare(label[y]));
+      children[p].sort((x, y) => sibKey(x).localeCompare(sibKey(y)));
 
     // Teilbaum-Breiten (Knoten + AP-Grid vs. Summe der Kinder), dann rekursiv platzieren.
     const subW: Record<string, number> = {};

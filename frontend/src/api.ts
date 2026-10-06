@@ -5,7 +5,7 @@ export interface TopologyNode {
   label: string;
   type: "site" | "switch" | "firewall" | "router" | "ap" | "unknown" | "other";
   parent: string | null;
-  role?: "core" | null; // Backbone-Switch → Wurzel im Baum-Layout
+  role?: "core" | "distribution" | null; // Backbone-Switch → Wurzel bzw. 2. Ebene im Baum-Layout
   stack?: string | null; // logischer Stack-Name (Member liegen nebeneinander)
 }
 export interface TopologyEdge {
