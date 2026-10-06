@@ -143,6 +143,9 @@ async def get_topology(session: SessionDep) -> Topology:
     # Gerät aufgelöst — auch das sind echte, gemessene LLDP-Kanten, keine Fabrikation.
     lldp = (await session.execute(select(LldpNeighbor))).scalars().all()
     hub_reporters: dict[tuple[uuid.UUID, str], set[uuid.UUID]] = defaultdict(set)
+    # Standorte, deren Core bereits über aufgelöste LLDP-Kanten hängt: dort KEINE Hub-Heuristik
+    # (sonst würden geteilte Endgeräte wie Telefone/ESX-Adapter jeden Switch an den Core hängen).
+    core_linked_sites: set[uuid.UUID | None] = set()
     for n in lldp:
         local = devices_by_id.get(n.local_device_id)
         if local is None:
@@ -163,6 +166,9 @@ async def get_topology(session: SessionDep) -> Topology:
                 add_edge(remote.id, local.id, "uplink", None)
             elif not is_ap(local.id):
                 add_edge(local.id, remote.id, "lldp")
+                core = site_core.get(local.site_id) if local.site_id else None
+                if core is not None and core.id in (local.id, remote.id):
+                    core_linked_sites.add(local.site_id)
             continue
         if is_ap(local.id):
             continue
@@ -173,6 +179,8 @@ async def get_topology(session: SessionDep) -> Topology:
             hub_reporters[(local.site_id, key)].add(local.id)
     for (sid, _key), reporters in hub_reporters.items():
         core = site_core.get(sid)
+        if sid in core_linked_sites:
+            continue
         if core is not None and len(reporters) >= 2:  # geteilter Hub = der Core (Clients raus)
             for r in reporters:
                 add_edge(r, core.id, "lldp")
