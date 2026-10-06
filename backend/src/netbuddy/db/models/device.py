@@ -63,6 +63,9 @@ class Device(TimestampMixin, SoftDeleteMixin, Base):
         nullable=True,
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Logischer Stack (z.B. Meraki-Switch-Stack "S00 - CED HQ"): Member teilen sich den
+    # Uplink → Topologie zeichnet sie als Einheit (stack-Kanten), nicht als Waisen.
+    stack_name: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
 
     __table_args__ = (
         Index(

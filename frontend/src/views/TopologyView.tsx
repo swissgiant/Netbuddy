@@ -6,10 +6,11 @@ import { clearSavedPositions, TopologyGraph } from "../TopologyGraph";
 import { VlanSurveyPanel } from "./VlanSurveyPanel";
 
 const NODE_LAYERS = ["switch", "firewall", "router", "ap", "unknown", "other"] as const;
-const EDGE_LAYERS = ["lldp", "uplink", "wireless", "vpn"] as const;
+const EDGE_LAYERS = ["lldp", "uplink", "stack", "wireless", "vpn"] as const;
 const EDGE_LABEL: Record<string, string> = {
   lldp: "LLDP (Backbone)",
   uplink: "AP-/Switch-Uplinks",
+  stack: "Stack-Member",
   wireless: "Mesh (drahtlos)",
   vpn: "VPN-Tunnel (Site↔Site)",
 };

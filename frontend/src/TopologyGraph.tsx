@@ -43,14 +43,12 @@ const labelColor = (theme: "dark" | "light") => (theme === "dark" ? "#e2e8f0" : 
 // mit seinen APs als kompaktes Grid. So hängen APs sichtbar + kurz an ihrem Switch.
 type XY = { x: number; y: number };
 
-function computeStructuredPositions(topo: Topology): Record<string, XY> {
+export function computeStructuredPositions(topo: Topology): Record<string, XY> {
   const AP_DX = 64,
     AP_DY = 64,
     SW_H = 72,
     GROUP_GAP = 44,
     ROW_GAP = 72,
-    BB_DX = 150,
-    BACKBONE_H = 104,
     SITE_GAP = 120; // Abstand zwischen Standort-Boxen
 
   const nodeType: Record<string, string> = {};
@@ -66,121 +64,205 @@ function computeStructuredPositions(topo: Topology): Record<string, XY> {
     if (e.type === "wireless" && nodeType[e.source] === "ap" && switchOfAp[e.target])
       switchOfAp[e.source] = switchOfAp[e.target];
 
-  // Core-Switch-Erkennung: Ziel inferierter/Uplink-Switch-Kanten, FW-Nachbar (LLDP) oder Name.
-  const fwIds = new Set(
-    topo.nodes.filter((n) => n.type === "firewall" || n.type === "router").map((n) => n.id),
-  );
-  const coreIds = new Set<string>();
+  // Infrastruktur-Graph (Switch/Firewall/Router/Unbekannt) aus echten Kanten: lldp/uplink/
+  // inferred = Hierarchie-Kanten, stack = gleiche Ebene (ein logischer Switch).
+  const INFRA = new Set(["switch", "firewall", "router", "unknown"]);
+  const isInfra = (id: string) => INFRA.has(nodeType[id]);
+  const adj: Record<string, Set<string>> = {};
+  const stackAdj: Record<string, Set<string>> = {};
+  const link = (m: Record<string, Set<string>>, a: string, b: string) => {
+    (m[a] ??= new Set()).add(b);
+    (m[b] ??= new Set()).add(a);
+  };
   for (const e of topo.edges) {
-    if (e.type === "lldp") {
-      if (fwIds.has(e.source) && nodeType[e.target] === "switch") coreIds.add(e.target);
-      if (fwIds.has(e.target) && nodeType[e.source] === "switch") coreIds.add(e.source);
-    } else if (e.type === "inferred" && nodeType[e.target] === "switch") {
-      coreIds.add(e.target); // FW→Core bzw. Access→Core: Ziel ist der Core
-    } else if (
-      e.type === "uplink" &&
-      nodeType[e.source] === "switch" &&
-      nodeType[e.target] === "switch"
-    ) {
-      coreIds.add(e.target);
-    }
+    if (!isInfra(e.source) || !isInfra(e.target) || e.source === e.target) continue;
+    if (e.type === "stack") link(stackAdj, e.source, e.target);
+    else if (e.type === "lldp" || e.type === "uplink" || e.type === "inferred")
+      link(adj, e.source, e.target);
   }
+  const degree = (id: string) => adj[id]?.size ?? 0;
+  const coreIds = new Set<string>();
   for (const n of topo.nodes)
-    if (n.type === "switch" && (n.label || "").toLowerCase().includes("core")) coreIds.add(n.id);
+    if (n.type === "switch" && (n.role === "core" || (n.label || "").toLowerCase().includes("core")))
+      coreIds.add(n.id);
 
   type N = (typeof topo.nodes)[number];
-  type Bucket = { backbone: N[]; switches: N[]; apsBySwitch: Record<string, N[]>; loose: N[] };
+  type Bucket = { infra: N[]; apsBySwitch: Record<string, N[]>; loose: N[] };
   const buckets: Record<string, Bucket> = {};
-  const bucket = (id: string) =>
-    (buckets[id] ??= { backbone: [], switches: [], apsBySwitch: {}, loose: [] });
+  const bucket = (id: string) => (buckets[id] ??= { infra: [], apsBySwitch: {}, loose: [] });
   const siteOrder = topo.nodes.filter((n) => n.type === "site").map((n) => n.id);
 
   for (const n of topo.nodes) {
     if (n.type === "site") continue;
     const b = bucket(n.parent ?? "site:none");
-    if (n.type === "firewall" || n.type === "router") b.backbone.push(n);
-    else if (n.type === "switch" || n.type === "unknown") b.switches.push(n);
+    if (INFRA.has(n.type)) b.infra.push(n);
     else if (n.type === "ap" && switchOfAp[n.id]) (b.apsBySwitch[switchOfAp[n.id]] ??= []).push(n);
     else b.loose.push(n);
   }
 
   const byLabel = (a: { label: string }, c: { label: string }) => a.label.localeCompare(c.label);
 
-  // Phase 1: Layout EINES Standorts als Hierarchie von oben nach unten:
-  // Firewall/Router → Core-Switch(es) → Access-Switches (je mit AP-Grid darunter) → Loose.
+  // Phase 1: Layout EINES Standorts als echter Baum von oben nach unten (Reingold-Tilford-
+  // artig): Wurzeln = Firewall/Router, sonst Core-Switches, sonst der Switch mit den meisten
+  // Switch-Nachbarn. Kinder = per LLDP/Uplink erreichte Switches, zentriert unter ihrem
+  // Uplink-Switch; Stack-Member liegen auf derselben Ebene direkt nebeneinander; jeder Switch
+  // trägt seine APs als kompaktes Grid darunter. Darunter ein zweiter Baum unter „Unbekannter
+  // Switch" (Waisen), dann nicht angebundene Infrastruktur und lose APs.
   function layoutSite(b: Bucket): { local: Record<string, XY>; w: number; h: number } {
     const local: Record<string, XY> = {};
-    type Row = { ids: string[]; width: number };
-    const rows: Row[] = [];
-    let y = 0;
+    const label: Record<string, string> = {};
+    for (const n of b.infra) label[n.id] = n.label;
+    const infraIds = new Set(b.infra.map((n) => n.id));
 
-    // platziert eine Reihe von Switch-Gruppen (Switch + AP-Grid darunter) ab atY, links bündig
-    const placeGroups = (switches: N[], atY: number): { width: number; height: number; ids: string[] } => {
-      let gx = 0,
-        maxH = 0;
-      const ids: string[] = [];
-      for (const sw of switches) {
-        const aps = (b.apsBySwitch[sw.id] ?? []).slice().sort(byLabel);
-        const cols = Math.min(5, Math.max(1, Math.ceil(Math.sqrt(aps.length || 1))));
-        const groupW = Math.max(AP_DX, cols * AP_DX);
-        local[sw.id] = { x: gx + groupW / 2 - AP_DX / 2, y: atY };
-        ids.push(sw.id);
-        aps.forEach((ap, i) => {
-          local[ap.id] = {
-            x: gx + (i % cols) * AP_DX,
-            y: atY + SW_H + Math.floor(i / cols) * AP_DY,
-          };
-          ids.push(ap.id);
-        });
-        maxH = Math.max(maxH, SW_H + Math.ceil((aps.length || 1) / cols) * AP_DY);
-        gx += groupW + GROUP_GAP;
-      }
-      return { width: Math.max(0, gx - GROUP_GAP), height: maxH, ids };
+    const apCols = (id: string) => {
+      const aps = b.apsBySwitch[id] ?? [];
+      return Math.min(5, Math.max(1, Math.ceil(Math.sqrt(aps.length || 1))));
+    };
+    const groupW = (id: string) => Math.max(AP_DX, apCols(id) * AP_DX);
+    const groupH = (id: string) => {
+      const aps = b.apsBySwitch[id] ?? [];
+      return SW_H + Math.ceil((aps.length || 1) / apCols(id)) * AP_DY;
     };
 
-    // Band: Backbone (Firewall/Router)
-    if (b.backbone.length) {
-      const ids: string[] = [];
-      b.backbone.sort(byLabel).forEach((n, i) => {
-        local[n.id] = { x: i * BB_DX, y };
-        ids.push(n.id);
+    // Baum aus Wurzeln per BFS (nur Knoten dieses Standorts); Stack-Peers = Geschwister.
+    const depth: Record<string, number> = {};
+    const parent: Record<string, string | null> = {};
+    const children: Record<string, string[]> = {};
+    const visit = (roots: string[]) => {
+      const queue: string[] = [];
+      for (const r of roots) {
+        if (depth[r] !== undefined) continue;
+        depth[r] = 0;
+        parent[r] = null;
+        queue.push(r);
+      }
+      while (queue.length) {
+        const x = queue.shift() as string;
+        for (const y of [...(stackAdj[x] ?? [])].sort((p, q) => label[p].localeCompare(label[q]))) {
+          if (!infraIds.has(y) || depth[y] !== undefined) continue;
+          depth[y] = depth[x];
+          parent[y] = parent[x];
+          queue.push(y);
+        }
+        for (const y of [...(adj[x] ?? [])].sort((p, q) => label[p].localeCompare(label[q]))) {
+          if (!infraIds.has(y) || depth[y] !== undefined) continue;
+          depth[y] = depth[x] + 1;
+          parent[y] = x;
+          queue.push(y);
+        }
+      }
+    };
+    const fwRoots = b.infra.filter((n) => n.type === "firewall" || n.type === "router").map((n) => n.id);
+    const coreRoots = b.infra.filter((n) => coreIds.has(n.id)).map((n) => n.id);
+    let roots = [...fwRoots, ...coreRoots.filter((id) => !fwRoots.includes(id))];
+    if (!roots.length) {
+      const sw = b.infra.filter((n) => n.type === "switch" && degree(n.id) > 0);
+      const max = Math.max(0, ...sw.map((n) => degree(n.id)));
+      roots = sw.filter((n) => degree(n.id) === max).map((n) => n.id);
+    }
+    visit(roots.sort((p, q) => label[p].localeCompare(label[q])));
+    const mainRoots = roots.filter((r) => parent[r] === null);
+    // Zweiter Baum: Waisen unter „Unbekannter Switch"
+    const unknownRoots = b.infra.filter((n) => n.type === "unknown" && depth[n.id] === undefined).map((n) => n.id);
+    visit(unknownRoots);
+    const looseInfra = b.infra.filter((n) => depth[n.id] === undefined).sort(byLabel).map((n) => n.id);
+    for (const id of looseInfra) {
+      depth[id] = 0;
+      parent[id] = null;
+    }
+    for (const id of Object.keys(depth)) {
+      const p = parent[id];
+      if (p) (children[p] ??= []).push(id);
+    }
+    for (const p of Object.keys(children))
+      children[p].sort((x, y) => label[x].localeCompare(label[y]));
+
+    // Teilbaum-Breiten (Knoten + AP-Grid vs. Summe der Kinder), dann rekursiv platzieren.
+    const subW: Record<string, number> = {};
+    const measure = (id: string): number => {
+      const kids = children[id] ?? [];
+      const kidsW = kids.reduce((s, k) => s + measure(k), 0) + Math.max(0, kids.length - 1) * GROUP_GAP;
+      return (subW[id] = Math.max(groupW(id), kidsW));
+    };
+    const rowH: Record<number, number> = {};
+    const place = (id: string, x0: number, levelBase: number) => {
+      const d = levelBase + (depth[id] ?? 0);
+      rowH[d] = Math.max(rowH[d] ?? 0, groupH(id));
+      const kids = children[id] ?? [];
+      const kidsW = kids.reduce((s, k) => s + subW[k], 0) + Math.max(0, kids.length - 1) * GROUP_GAP;
+      let cx = x0 + (subW[id] - kidsW) / 2;
+      for (const k of kids) {
+        place(k, cx, levelBase);
+        cx += subW[k] + GROUP_GAP;
+      }
+      const gx = x0 + (subW[id] - groupW(id)) / 2;
+      const cols = apCols(id);
+      local[id] = { x: gx + groupW(id) / 2 - AP_DX / 2, y: d }; // y = Ebene, später in px
+      (b.apsBySwitch[id] ?? []).slice().sort(byLabel).forEach((ap, i) => {
+        local[ap.id] = { x: gx + (i % cols) * AP_DX, y: d + 0.5 + Math.floor(i / cols) * 0.001 };
       });
-      rows.push({ ids, width: (b.backbone.length - 1) * BB_DX + AP_DX });
-      y += BACKBONE_H;
+    };
+    const forest = (rootIds: string[], levelBase: number): number => {
+      let x = 0;
+      for (const r of rootIds) {
+        measure(r);
+        place(r, x, levelBase);
+        x += subW[r] + GROUP_GAP;
+      }
+      return Math.max(0, x - GROUP_GAP);
+    };
+    const widths: number[] = [];
+    let level = 0;
+    const maxDepth = (ids: string[]) => {
+      let m = 0;
+      const walk = (id: string) => {
+        m = Math.max(m, depth[id]);
+        for (const k of children[id] ?? []) walk(k);
+      };
+      ids.forEach(walk);
+      return m;
+    };
+    const bands: { ids: string[]; level: number }[] = [];
+    for (const rootIds of [mainRoots, unknownRoots, looseInfra]) {
+      if (!rootIds.length) continue;
+      bands.push({ ids: rootIds, level });
+      widths.push(forest(rootIds, level));
+      level += maxDepth(rootIds) + 1;
     }
-
-    const cores = b.switches.filter((s) => coreIds.has(s.id)).sort(byLabel);
-    const access = b.switches.filter((s) => !coreIds.has(s.id)).sort(byLabel);
-
-    if (cores.length) {
-      const r = placeGroups(cores, y);
-      rows.push({ ids: r.ids, width: r.width });
-      y += r.height + ROW_GAP;
+    // Ebenen → Pixel: jede Ebene so hoch wie ihr höchster Switch+AP-Block (+ Reihenabstand).
+    const levelY: Record<number, number> = {};
+    let y = 0;
+    for (let l = 0; l < level; l++) {
+      levelY[l] = y;
+      y += (rowH[l] ?? SW_H) + ROW_GAP;
     }
-    const maxGroups = Math.min(6, Math.max(2, Math.ceil(Math.sqrt(access.length || 1))));
-    for (let i = 0; i < access.length; i += maxGroups) {
-      const r = placeGroups(access.slice(i, i + maxGroups), y);
-      rows.push({ ids: r.ids, width: r.width });
-      y += r.height + ROW_GAP;
+    for (const [id, p] of Object.entries(local)) {
+      const l = Math.floor(p.y);
+      const frac = p.y - l; // 0 = Switch-Zeile, 0.5+ = AP-Grid (Zeilenindex in 0.001-Schritten)
+      const apRow = frac >= 0.5 ? Math.round((frac - 0.5) / 0.001) : -1;
+      local[id] = { x: p.x, y: levelY[l] + (apRow >= 0 ? SW_H + apRow * AP_DY : 0) };
     }
-
+    // Reihen der Bänder horizontal auf gemeinsamer Mittelachse zentrieren → Baum-Optik
+    const siteW = Math.max(1, ...widths);
+    bands.forEach((band, i) => {
+      const off = (siteW - widths[i]) / 2;
+      const shift = (id: string) => {
+        local[id].x += off;
+        for (const ap of b.apsBySwitch[id] ?? []) local[ap.id].x += off;
+        for (const k of children[id] ?? []) shift(k);
+      };
+      band.ids.forEach(shift);
+    });
+    // Lose APs (ohne Switch) als Grid unten
     const loose = b.loose.slice().sort(byLabel);
     if (loose.length) {
       const cols = Math.min(8, loose.length);
-      const ids: string[] = [];
+      const w = Math.min(cols, loose.length) * AP_DX;
+      const off = (siteW - w) / 2;
       loose.forEach((n, i) => {
-        local[n.id] = { x: (i % cols) * AP_DX, y: y + Math.floor(i / cols) * AP_DY };
-        ids.push(n.id);
+        local[n.id] = { x: off + (i % cols) * AP_DX, y: y + Math.floor(i / cols) * AP_DY };
       });
-      rows.push({ ids, width: Math.min(cols, loose.length) * AP_DX });
       y += Math.ceil(loose.length / cols) * AP_DY;
-    }
-
-    // jede Reihe horizontal auf gemeinsamer Mittelachse zentrieren → Baum-Optik
-    const siteW = Math.max(1, ...rows.map((r) => r.width));
-    for (const r of rows) {
-      const off = (siteW - r.width) / 2;
-      for (const id of r.ids) local[id].x += off;
     }
     return { local, w: siteW, h: y };
   }
@@ -191,14 +273,13 @@ function computeStructuredPositions(topo: Topology): Record<string, XY> {
   for (const id of ids) {
     const b = buckets[id];
     if (!b) continue;
-    const placed = new Set(b.switches.map((s) => s.id));
+    const placed = new Set(b.infra.map((s) => s.id));
     for (const swId of Object.keys(b.apsBySwitch))
-      if (!placed.has(swId)) b.loose.push(...b.apsBySwitch[swId]);
-    const count =
-      b.backbone.length +
-      b.switches.length +
-      Object.values(b.apsBySwitch).flat().length +
-      b.loose.length;
+      if (!placed.has(swId)) {
+        b.loose.push(...b.apsBySwitch[swId]);
+        delete b.apsBySwitch[swId];
+      }
+    const count = b.infra.length + Object.values(b.apsBySwitch).flat().length + b.loose.length;
     if (!count) continue;
     const { local, w, h } = layoutSite(b);
     boxes.push({ local, w, h, count });
@@ -219,7 +300,7 @@ function computeStructuredPositions(topo: Topology): Record<string, XY> {
   return pos;
 }
 
-const POS_KEY = "netbuddy-topo-positions-v3";
+const POS_KEY = "netbuddy-topo-positions-v4"; // v4 = Baum-Layout
 
 export function clearSavedPositions() {
   localStorage.removeItem(POS_KEY);
@@ -340,6 +421,11 @@ export function TopologyGraph({
           },
         },
         { selector: 'edge[etype = "lldp"]', style: { "line-color": "#94a3b8", "line-style": "dashed" } },
+        // Stack-Member: kurze, kräftige Klammer auf gleicher Ebene (ein logischer Switch)
+        {
+          selector: 'edge[etype = "stack"]',
+          style: { width: 4, "line-color": "#2563eb", "line-style": "solid", "curve-style": "straight" },
+        },
         // AP→Switch-Uplink: dünne, durchgezogene Linie, Port-Label klein.
         {
           selector: 'edge[etype = "uplink"]',

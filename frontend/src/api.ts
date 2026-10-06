@@ -5,11 +5,13 @@ export interface TopologyNode {
   label: string;
   type: "site" | "switch" | "firewall" | "router" | "ap" | "unknown" | "other";
   parent: string | null;
+  role?: "core" | null; // Backbone-Switch → Wurzel im Baum-Layout
+  stack?: string | null; // logischer Stack-Name (Member liegen nebeneinander)
 }
 export interface TopologyEdge {
   source: string;
   target: string;
-  type: "lldp" | "uplink" | "inferred" | "vpn" | "wireless";
+  type: "lldp" | "uplink" | "inferred" | "vpn" | "wireless" | "stack";
   label?: string | null;
   up?: boolean | null;
 }

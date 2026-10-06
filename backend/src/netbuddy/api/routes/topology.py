@@ -1,3 +1,5 @@
+import itertools
+import re
 import uuid
 from collections import defaultdict
 
@@ -24,6 +26,9 @@ class TopologyNode(BaseModel):
     id: str  # z.B. "device:<uuid>" / "site:<uuid>"
     label: str
     type: str  # "site" | "switch" | "firewall" | "router" | "ap" | "other"
+    # "core" = Backbone-Switch des Standorts (Name/Plattform-Heuristik) → Wurzel im Baum-Layout
+    role: str | None = None
+    stack: str | None = None  # logischer Stack-Name (Member werden als Einheit gezeichnet)
     parent: str | None = None  # Compound: Geräte liegen IM Standort-Container
 
 
@@ -44,6 +49,21 @@ class Topology(BaseModel):
 
     nodes: list[TopologyNode]
     edges: list[TopologyEdge]
+
+
+_CORE_MODEL = re.compile(r"MS425|MS4\d\d|N9K|Nexus|S5248|N8560|C9[35]\d\d", re.IGNORECASE)
+_CORE_NAME = re.compile(r"core|ncs|-cs\d|^cs\d", re.IGNORECASE)
+
+
+def is_core_switch(device: Device) -> bool:
+    """Backbone-/Core-Switch? Name (core/ncs), DC-Plattform oder Aggregations-Modell."""
+    if device.device_type != DeviceType.SWITCH:
+        return False
+    if _CORE_NAME.search(device.hostname):
+        return True
+    if device.adapter_id in ("dell_os10", "fs_ruijie", "cisco_nxos"):
+        return True
+    return bool(device.model and _CORE_MODEL.search(device.model))
 
 
 @router.get("", response_model=Topology)
@@ -68,6 +88,8 @@ async def get_topology(session: SessionDep) -> Topology:
                 label=device.hostname,
                 type=device.device_type.value,
                 parent=f"site:{device.site_id}" if device.site_id else None,
+                role="core" if is_core_switch(device) else None,
+                stack=device.stack_name,
             )
         )
         by_hostname[device.hostname] = device
@@ -97,7 +119,7 @@ async def get_topology(session: SessionDep) -> Topology:
     site_core: dict[uuid.UUID, Device] = {}
     for sid, sws in site_switches.items():
         named = [s for s in sws if "core" in s.hostname.lower()]
-        dc = [s for s in sws if s.adapter_id in ("dell_os10", "fs_ruijie")]
+        dc = [s for s in sws if is_core_switch(s)]
         if named:
             site_core[sid] = named[0]
         elif dc:
@@ -123,7 +145,7 @@ async def get_topology(session: SessionDep) -> Topology:
     hub_reporters: dict[tuple[uuid.UUID, str], set[uuid.UUID]] = defaultdict(set)
     for n in lldp:
         local = devices_by_id.get(n.local_device_id)
-        if local is None or is_ap(local.id):
+        if local is None:
             continue
         remote = None
         if n.remote_system_name:
@@ -133,8 +155,16 @@ async def get_topology(session: SessionDep) -> Topology:
         if remote is None and n.remote_mgmt_address:
             remote = ip2dev.get(str(n.remote_mgmt_address))
         if remote is not None:
-            if not is_ap(remote.id):
+            # AP↔Switch per LLDP (Switch sieht AP oder AP meldet seinen Switch, z.B. Meraki
+            # lldpCdp am wired0) = echter AP-Uplink; Switch↔Switch = Backbone-Kante.
+            if is_ap(local.id) and not is_ap(remote.id):
+                add_edge(local.id, remote.id, "uplink", n.remote_port_id or None)
+            elif is_ap(remote.id) and not is_ap(local.id):
+                add_edge(remote.id, local.id, "uplink", None)
+            elif not is_ap(local.id):
                 add_edge(local.id, remote.id, "lldp")
+            continue
+        if is_ap(local.id):
             continue
         # Firewalls NICHT als Hub-Reporter: ihre unaufgelösten Nachbarn sind WAN/extern
         # (Aruba/Trzin/…), nicht der lokale Core → sonst falsche FW↔Core-Kante (Gro).
@@ -146,6 +176,17 @@ async def get_topology(session: SessionDep) -> Topology:
         if core is not None and len(reporters) >= 2:  # geteilter Hub = der Core (Clients raus)
             for r in reporters:
                 add_edge(r, core.id, "lldp")
+
+    # Stack-Member (gleicher stack_name am selben Standort) als Kette verbinden: der Stack ist
+    # EIN logischer Switch, nur ein Member trägt meist den LLDP-Uplink.
+    stacks: dict[tuple[uuid.UUID | None, str], list[Device]] = defaultdict(list)
+    for d in devices:
+        if d.stack_name and d.device_type == DeviceType.SWITCH:
+            stacks[(d.site_id, d.stack_name)].append(d)
+    for members in stacks.values():
+        members.sort(key=lambda d: d.hostname)
+        for a, b in itertools.pairwise(members):
+            add_edge(a.id, b.id, "stack", members[0].stack_name)
 
     # AP→Switch-Uplinks (+ persistierte UniFi-Switch→Core-Uplinks) — echte, gemessene Verortung.
     # Mesh-APs (drahtloser Uplink) bekommen stattdessen eine gestrichelte Kante zum Eltern-AP.
