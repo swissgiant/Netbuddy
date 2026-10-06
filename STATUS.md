@@ -56,7 +56,12 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   unter „Unbekannter Switch", lose Infrastruktur/APs unten), Stack-Layer, Positions-Key v4.
   S00-Ergebnis: Ebene 0 = 6 Cores (2 Nexus + 4 MS425), Ebene 1 = 29, Ebene 2 = 12, Ebene 3 =
   6 (Palestra, NSW139, SNW150), Ebene 4 = Uff. Software; Waisen nur noch 22 (8 APs ohne LLDP
-  + 14 UniFi-TVCC-Switches ohne Portdaten). Tests: Backend 284, Frontend 12.
+  + 14 UniFi-TVCC-Switches ohne Portdaten). Nachschliff (6a8c57b, 889cc8e): `role` core vs.
+  distribution (Nexus oben, MS425-Cores Ebene 1), Layout-Einheit = Switch ODER ganzer Stack
+  (Member immer nebeneinander, Kinder unter dem Stack zentriert), direkt verbundene Wurzeln
+  (Nexus-vPC-Paar) als eine Einheit. Vorschau aus echten S00-Daten per Pillow gerendert und
+  geprüft. Tests: Backend 284, Frontend 12. Alles deployt (Frontend-Positions-Key v4 → neues
+  Layout greift ohne „Layout aufräumen").
 - **Riese-Firebox: öffentliche IPs + Inbound-Dienste (aus XML-Export 20.9., Skript
   `wg_xml_inbound.py`):** WAN_ASCO 188.125.108.96/28 (GW .97, primär .98, sekundär .99–.108;
   **.109/.110 frei und nirgends konfiguriert**; .102/.104/.108 konfiguriert aber ohne NAT),
