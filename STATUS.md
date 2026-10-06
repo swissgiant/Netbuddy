@@ -122,6 +122,17 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   (IP-Konflikt auf .1): Secondary löschen (Tag kann bleiben). Gleiches Muster bei Bedarf für
   1041 (DHCP/CA/DC), 1051, 1063 usw.; Security Zone der 10NN-Interfaces = Optional →
   Policies Trusted↔Optional prüfen.
+- **Ursache gefunden (Alex vor Ort, 6.10. abends): die LAN-Kabel am Cato-Primary (SFP+ Port 9/10 →
+  s00ncs101/102 Eth1/47) steckten 2 mm raus.** Nexus-Seite war sauber (Eth1/47 up, 10G, 0 CRC,
+  „2 interface resets" = die zwei Ausfälle 08:36/12:23 CEST, Link-Failure vom Socket). Meraki-
+  Timeline bestätigt: alle 133 Riese-Meraki offline 08:36–08:41, online 12:09–12:21, offline ab
+  12:23 → Meraki-Cloud-Pfad in Riese läuft über den Cato-Socket (NSFW1/2 eigener WAN-Pfad).
+  Cato-Portal: Primary s00fw1 (10.137.0.13) Connected, Secondary s00fw2 (10.137.0.12) komplett
+  Disconnected, HA Not Ready, VRID 100 = VIP 10.137.0.14. Nach dem Einstecken antwortet der
+  Socket wieder als Gateway (Nexus-ARP 10.137.63.1 = b6d0.0402.0000). **Workaround umgebaut:
+  Secondaries auf 3 VLANs jetzt 10.137.NN.250 (statt .1) → kein Konflikt mit dem Socket; die
+  NAT-Policy (Set source IP .250) fehlt noch, ohne sie antworten die Hosts an den Socket.**
+  Sulgen→Riese über Cato um 20:17 CEST weiterhin nicht erreichbar (VM-Pings auf VIP/Nexus/FW).
 - Nebenbefunde: Cato-Gateways in Riese sind die .1 (DHCP Option 3 aus S84-Mitschnitten), in
   Cusano die .254. 188.125.108.110 ist NICHT frei (UDM Pro STEELCO-HQ-TVCC meldet sie per LLDP
   als Mgmt-Adresse) → für Cato auf Leitung 2 nur .109. Riese SSL-VPN ist deaktiviert (enable=0,
