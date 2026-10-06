@@ -42,6 +42,16 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   Richtungen in der DB (NSW100/101 Port 13 ↔ Eth1/25, NSW102/103 Port 1 ↔ Eth1/44). Offen:
   Scheduled-Discovery deckt API-Adapter (meraki) nicht ab → Meraki-Inventar veraltet ohne
   manuellen Lauf (Skript `nb_meraki_full_discovery.py`, 130 s für 199 Geräte).
+- **Riese-Firebox: öffentliche IPs + Inbound-Dienste (aus XML-Export 20.9., Skript
+  `wg_xml_inbound.py`):** WAN_ASCO 188.125.108.96/28 (GW .97, primär .98, sekundär .99–.108;
+  **.109/.110 frei und nirgends konfiguriert**; .102/.104/.108 konfiguriert aber ohne NAT),
+  WAN_EOLO 78.134.38.192/29 (GW .193, .194–.198 alle konfiguriert UND per SNAT belegt → keine
+  freie EOLO-IP). 28 SNAT-Objekte, 20 aktive Inbound-Policies (3CX .103/.195/.194, Cyberoo
+  .105, Newgest/HANA/Certificati .101, SBO+ProbauS .100, TEST SAP .106, App-Proxy/FTP/Pulse
+  .196, Allarmi .197, Panorama .198, NVR/Security .195, IPsec auf .98/.99 + .194/.195), 25
+  Outbound-Direktfreigaben (Server/Segmente → Any-External). Alias-Schema: Policy → Alias
+  (type 2 alias-name / type 1 address=Address-Group + interface) → Address-Group; SNAT als
+  `<name>.snat`-Alias mit `<name>.1.snat` (extern) / `.2.snat` (intern).
 - **Antwort CL02/CL03:** Nexus-Ports Eth1/3-4 (esx2) und Eth1/9-12 (esx05/06) sind auf BEIDEN Nexus
   identisch (`switchport mode trunk`, kein native/allowed → native 1 + alle VLANs, `edge trunk`,
   MTU 9216). VLAN 90 „90-External" existiert und läuft über Peer-Link + vPCs. Unterschied ist
