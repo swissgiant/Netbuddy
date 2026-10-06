@@ -42,6 +42,21 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   Richtungen in der DB (NSW100/101 Port 13 ↔ Eth1/25, NSW102/103 Port 1 ↔ Eth1/44). Offen:
   Scheduled-Discovery deckt API-Adapter (meraki) nicht ab → Meraki-Inventar veraltet ohne
   manuellen Lauf (Skript `nb_meraki_full_discovery.py`, 130 s für 199 Geräte).
+- **Topologie-Darstellung: echtes Baum-Layout (Commits c7b63c4, 36fb4c2, deployt):** Alex'
+  Befund S00 = Grid + „Unbekannter Switch" mit 113 Kanten (alle APs + Stack-Member ohne
+  eigenen Uplink). Fixes: (1) AP↔Switch-LLDP in BEIDE Richtungen → `uplink`-Kante (Meraki-APs
+  melden ihren Switch per lldpCdp wired0; Topologie hatte AP-Zeilen verworfen), (2)
+  `TopologyNode.role="core"` (Name core/ncs, dell_os10/fs_ruijie/cisco_nxos, Modell MS425/
+  N9K/…), (3) `Device.stack_name` (Migration c9d0e1f2a3b4) + `services.meraki_inventory.
+  sync_meraki_stacks` (20 Stacks/49 Member org-weit) → `stack`-Kanten, Member auf gleicher
+  Ebene, (4) Hub-Heuristik (geteilter unaufgelöster Nachbar → Core) nur noch für Sites OHNE
+  aufgelöste Core-Kante (in S00 hatte sie 12 falsche Core-Kanten über Telefone/ESX-Adapter
+  erzeugt). Frontend `computeStructuredPositions`: Reingold-Tilford-artiger Baum pro Site
+  (Wurzeln FW/Core, Kinder zentriert unter Uplink-Switch, APs als Grid darunter, zweiter Baum
+  unter „Unbekannter Switch", lose Infrastruktur/APs unten), Stack-Layer, Positions-Key v4.
+  S00-Ergebnis: Ebene 0 = 6 Cores (2 Nexus + 4 MS425), Ebene 1 = 29, Ebene 2 = 12, Ebene 3 =
+  6 (Palestra, NSW139, SNW150), Ebene 4 = Uff. Software; Waisen nur noch 22 (8 APs ohne LLDP
+  + 14 UniFi-TVCC-Switches ohne Portdaten). Tests: Backend 284, Frontend 12.
 - **Riese-Firebox: öffentliche IPs + Inbound-Dienste (aus XML-Export 20.9., Skript
   `wg_xml_inbound.py`):** WAN_ASCO 188.125.108.96/28 (GW .97, primär .98, sekundär .99–.108;
   **.109/.110 frei und nirgends konfiguriert**; .102/.104/.108 konfiguriert aber ohne NAT),
