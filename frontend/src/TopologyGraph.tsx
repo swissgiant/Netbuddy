@@ -48,6 +48,7 @@ export function computeStructuredPositions(topo: Topology): Record<string, XY> {
     AP_DY = 64,
     SW_H = 72,
     GROUP_GAP = 44,
+    STACK_GAP = 12, // Abstand zwischen Stack-Membern (eine Einheit)
     ROW_GAP = 72,
     SITE_GAP = 120; // Abstand zwischen Standort-Boxen
 
@@ -80,12 +81,9 @@ export function computeStructuredPositions(topo: Topology): Record<string, XY> {
     else if (e.type === "lldp" || e.type === "uplink" || e.type === "inferred")
       link(adj, e.source, e.target);
   }
-  const degree = (id: string) => adj[id]?.size ?? 0;
   const coreIds = new Set<string>();
   const distIds = new Set<string>();
-  const stackOf: Record<string, string> = {};
   for (const n of topo.nodes) {
-    if (n.stack) stackOf[n.id] = n.stack;
     if (n.type !== "switch") continue;
     if (n.role === "core" || (n.label || "").toLowerCase().includes("core")) coreIds.add(n.id);
     else if (n.role === "distribution") distIds.add(n.id);
@@ -108,16 +106,18 @@ export function computeStructuredPositions(topo: Topology): Record<string, XY> {
   const byLabel = (a: { label: string }, c: { label: string }) => a.label.localeCompare(c.label);
 
   // Phase 1: Layout EINES Standorts als echter Baum von oben nach unten (Reingold-Tilford-
-  // artig): Wurzeln = Firewall/Router, sonst Core-Switches, sonst der Switch mit den meisten
-  // Switch-Nachbarn. Kinder = per LLDP/Uplink erreichte Switches, zentriert unter ihrem
-  // Uplink-Switch; Stack-Member liegen auf derselben Ebene direkt nebeneinander; jeder Switch
-  // trägt seine APs als kompaktes Grid darunter. Darunter ein zweiter Baum unter „Unbekannter
-  // Switch" (Waisen), dann nicht angebundene Infrastruktur und lose APs.
+  // artig). Einheit („Unit") = ein Switch oder ein ganzer Stack (Member nebeneinander, ein
+  // logischer Switch). Wurzeln = Firewall/Router, sonst Core, sonst Distribution, sonst der
+  // Switch mit den meisten Switch-Nachbarn. Kinder = per LLDP/Uplink erreichte Units,
+  // zentriert unter ihrer Uplink-Unit; jeder Switch trägt seine APs als Grid darunter. Darunter
+  // ein zweiter Baum unter „Unbekannter Switch" (Waisen), dann nicht angebundene Infrastruktur
+  // und lose APs.
   function layoutSite(b: Bucket): { local: Record<string, XY>; w: number; h: number } {
     const local: Record<string, XY> = {};
     const label: Record<string, string> = {};
     for (const n of b.infra) label[n.id] = n.label;
     const infraIds = new Set(b.infra.map((n) => n.id));
+    const byLbl = (p: string, q: string) => label[p].localeCompare(label[q]);
 
     const apCols = (id: string) => {
       const aps = b.apsBySwitch[id] ?? [];
@@ -129,12 +129,44 @@ export function computeStructuredPositions(topo: Topology): Record<string, XY> {
       return SW_H + Math.ceil((aps.length || 1) / apCols(id)) * AP_DY;
     };
 
-    // Baum aus Wurzeln per BFS (nur Knoten dieses Standorts); Stack-Peers = Geschwister.
-    const depth: Record<string, number> = {};
-    const parent: Record<string, string | null> = {};
-    const children: Record<string, string[]> = {};
-    const visit = (roots: string[]) => {
-      const queue: string[] = [];
+    // Units: Stack-Member (verbunden über stack-Kanten) zu einer Einheit zusammenfassen.
+    const unitOf: Record<string, number> = {};
+    const units: string[][] = [];
+    for (const n of b.infra.slice().sort(byLabel)) {
+      if (unitOf[n.id] !== undefined) continue;
+      const members: string[] = [];
+      const stack = [n.id];
+      unitOf[n.id] = units.length;
+      while (stack.length) {
+        const x = stack.pop() as string;
+        members.push(x);
+        for (const y of stackAdj[x] ?? [])
+          if (infraIds.has(y) && unitOf[y] === undefined) {
+            unitOf[y] = units.length;
+            stack.push(y);
+          }
+      }
+      units.push(members.sort(byLbl));
+    }
+    const unitAdj: Set<number>[] = units.map(() => new Set<number>());
+    for (const u of units.keys())
+      for (const m of units[u])
+        for (const y of adj[m] ?? []) {
+          const v = unitOf[y];
+          if (v !== undefined && v !== u) {
+            unitAdj[u].add(v);
+            unitAdj[v].add(u);
+          }
+        }
+    const unitLabel = (u: number) => label[units[u][0]];
+    const unitDegree = (u: number) => unitAdj[u].size;
+
+    // Baum aus Wurzel-Units per BFS.
+    const depth: Record<number, number> = {};
+    const parent: Record<number, number | null> = {};
+    const children: Record<number, number[]> = {};
+    const visit = (roots: number[]) => {
+      const queue: number[] = [];
       for (const r of roots) {
         if (depth[r] !== undefined) continue;
         depth[r] = 0;
@@ -142,103 +174,127 @@ export function computeStructuredPositions(topo: Topology): Record<string, XY> {
         queue.push(r);
       }
       while (queue.length) {
-        const x = queue.shift() as string;
-        for (const y of [...(stackAdj[x] ?? [])].sort((p, q) => label[p].localeCompare(label[q]))) {
-          if (!infraIds.has(y) || depth[y] !== undefined) continue;
-          depth[y] = depth[x];
-          parent[y] = parent[x];
-          queue.push(y);
-        }
-        for (const y of [...(adj[x] ?? [])].sort((p, q) => label[p].localeCompare(label[q]))) {
-          if (!infraIds.has(y) || depth[y] !== undefined) continue;
+        const x = queue.shift() as number;
+        for (const y of [...unitAdj[x]].sort((p, q) => unitLabel(p).localeCompare(unitLabel(q)))) {
+          if (depth[y] !== undefined) continue;
           depth[y] = depth[x] + 1;
           parent[y] = x;
           queue.push(y);
         }
       }
     };
+    const unitsWhere = (pred: (id: string) => boolean) =>
+      [...new Set(b.infra.filter((n) => pred(n.id)).map((n) => unitOf[n.id]))];
     // Wurzeln nach Rang: Firewall/Router → Core → Distribution (MS425/N9K ohne Core-Namen)
-    // → sonst der Switch mit den meisten Switch-Nachbarn. Rangniedrigere Backbone-Switches
+    // → sonst die Unit mit den meisten Nachbar-Units. Rangniedrigere Backbone-Switches
     // werden per BFS als Kinder erreicht (Nexus oben, Meraki-Core darunter).
-    const fwRoots = b.infra.filter((n) => n.type === "firewall" || n.type === "router").map((n) => n.id);
-    const coreRoots = b.infra.filter((n) => coreIds.has(n.id)).map((n) => n.id);
-    const distRoots = b.infra.filter((n) => distIds.has(n.id)).map((n) => n.id);
+    const fwRoots = unitsWhere((id) => nodeType[id] === "firewall" || nodeType[id] === "router");
+    const coreRoots = unitsWhere((id) => coreIds.has(id));
+    const distRoots = unitsWhere((id) => distIds.has(id));
     let roots = fwRoots.length ? fwRoots : coreRoots.length ? coreRoots : distRoots;
     if (!roots.length) {
-      const sw = b.infra.filter((n) => n.type === "switch" && degree(n.id) > 0);
-      const max = Math.max(0, ...sw.map((n) => degree(n.id)));
-      roots = sw.filter((n) => degree(n.id) === max).map((n) => n.id);
+      const cand = units.map((_, u) => u).filter((u) => nodeType[units[u][0]] === "switch" && unitDegree(u) > 0);
+      const max = Math.max(0, ...cand.map(unitDegree));
+      roots = cand.filter((u) => unitDegree(u) === max);
     }
-    const rootKey = (id: string) => `${stackOf[id] ?? label[id]}\u0000${label[id]}`;
-    visit(roots.sort((p, q) => rootKey(p).localeCompare(rootKey(q))));
+    // Direkt verbundene Wurzeln (vPC-/MLAG-Paar wie die beiden Nexus) als EINE Einheit
+    // nebeneinander zeichnen, statt den Baum zwischen zwei entfernten Wurzeln aufzuteilen.
+    for (const a of roots.slice()) {
+      for (const bb of roots.slice()) {
+        if (a === bb || !units[a].length || !units[bb].length || !unitAdj[a].has(bb)) continue;
+        units[a] = [...units[a], ...units[bb]].sort(byLbl);
+        for (const m of units[bb]) unitOf[m] = a;
+        units[bb] = [];
+        for (const v of unitAdj[bb]) {
+          unitAdj[v].delete(bb);
+          if (v !== a) {
+            unitAdj[v].add(a);
+            unitAdj[a].add(v);
+          }
+        }
+        unitAdj[a].delete(a);
+        unitAdj[bb] = new Set();
+      }
+    }
+    roots = [...new Set(roots.filter((r) => units[r].length))];
+    visit(roots.sort((p, q) => unitLabel(p).localeCompare(unitLabel(q))));
     const mainRoots = roots.filter((r) => parent[r] === null);
     // Zweiter Baum: Waisen unter „Unbekannter Switch"
-    const unknownRoots = b.infra.filter((n) => n.type === "unknown" && depth[n.id] === undefined).map((n) => n.id);
+    const unknownRoots = unitsWhere((id) => nodeType[id] === "unknown" && depth[unitOf[id]] === undefined);
     visit(unknownRoots);
-    const looseInfra = b.infra.filter((n) => depth[n.id] === undefined).sort(byLabel).map((n) => n.id);
-    for (const id of looseInfra) {
-      depth[id] = 0;
-      parent[id] = null;
+    const looseUnits = units.map((_, u) => u).filter((u) => units[u].length && depth[u] === undefined);
+    for (const u of looseUnits) {
+      depth[u] = 0;
+      parent[u] = null;
     }
-    for (const id of Object.keys(depth)) {
-      const p = parent[id];
-      if (p) (children[p] ??= []).push(id);
+    for (const u of units.keys()) {
+      const p = parent[u];
+      if (p !== null && p !== undefined) (children[p] ??= []).push(u);
     }
-    const sibKey = (id: string) => `${stackOf[id] ?? label[id]}\u0000${label[id]}`;
     for (const p of Object.keys(children))
-      children[p].sort((x, y) => sibKey(x).localeCompare(sibKey(y)));
+      children[Number(p)].sort((x, y) => unitLabel(x).localeCompare(unitLabel(y)));
 
-    // Teilbaum-Breiten (Knoten + AP-Grid vs. Summe der Kinder), dann rekursiv platzieren.
-    const subW: Record<string, number> = {};
-    const measure = (id: string): number => {
-      const kids = children[id] ?? [];
+    // Teilbaum-Breiten (Unit-Reihe + AP-Grids vs. Summe der Kinder), dann rekursiv platzieren.
+    const unitW = (u: number) =>
+      units[u].reduce((s, m) => s + groupW(m), 0) + (units[u].length - 1) * STACK_GAP;
+    const subW: Record<number, number> = {};
+    const measure = (u: number): number => {
+      const kids = children[u] ?? [];
       const kidsW = kids.reduce((s, k) => s + measure(k), 0) + Math.max(0, kids.length - 1) * GROUP_GAP;
-      return (subW[id] = Math.max(groupW(id), kidsW));
+      return (subW[u] = Math.max(unitW(u), kidsW));
     };
     const rowH: Record<number, number> = {};
-    const place = (id: string, x0: number, levelBase: number) => {
-      const d = levelBase + (depth[id] ?? 0);
-      rowH[d] = Math.max(rowH[d] ?? 0, groupH(id));
-      const kids = children[id] ?? [];
+    const levelOf: Record<string, number> = {};
+    const apRowOf: Record<string, number> = {};
+    const place = (u: number, x0: number, levelBase: number) => {
+      const d = levelBase + (depth[u] ?? 0);
+      const kids = children[u] ?? [];
       const kidsW = kids.reduce((s, k) => s + subW[k], 0) + Math.max(0, kids.length - 1) * GROUP_GAP;
-      let cx = x0 + (subW[id] - kidsW) / 2;
+      let cx = x0 + (subW[u] - kidsW) / 2;
       for (const k of kids) {
         place(k, cx, levelBase);
         cx += subW[k] + GROUP_GAP;
       }
-      const gx = x0 + (subW[id] - groupW(id)) / 2;
-      const cols = apCols(id);
-      local[id] = { x: gx + groupW(id) / 2 - AP_DX / 2, y: d }; // y = Ebene, später in px
-      (b.apsBySwitch[id] ?? []).slice().sort(byLabel).forEach((ap, i) => {
-        local[ap.id] = { x: gx + (i % cols) * AP_DX, y: d + 0.5 + Math.floor(i / cols) * 0.001 };
-      });
+      let gx = x0 + (subW[u] - unitW(u)) / 2;
+      for (const m of units[u]) {
+        rowH[d] = Math.max(rowH[d] ?? 0, groupH(m));
+        const cols = apCols(m);
+        local[m] = { x: gx + groupW(m) / 2 - AP_DX / 2, y: 0 };
+        levelOf[m] = d;
+        (b.apsBySwitch[m] ?? []).slice().sort(byLabel).forEach((ap, i) => {
+          local[ap.id] = { x: gx + (i % cols) * AP_DX, y: 0 };
+          levelOf[ap.id] = d;
+          apRowOf[ap.id] = Math.floor(i / cols);
+        });
+        gx += groupW(m) + STACK_GAP;
+      }
     };
-    const forest = (rootIds: string[], levelBase: number): number => {
+    const forest = (rootUnits: number[], levelBase: number): number => {
       let x = 0;
-      for (const r of rootIds) {
+      for (const r of rootUnits) {
         measure(r);
         place(r, x, levelBase);
         x += subW[r] + GROUP_GAP;
       }
       return Math.max(0, x - GROUP_GAP);
     };
-    const widths: number[] = [];
-    let level = 0;
-    const maxDepth = (ids: string[]) => {
+    const maxDepth = (rootUnits: number[]) => {
       let m = 0;
-      const walk = (id: string) => {
-        m = Math.max(m, depth[id]);
-        for (const k of children[id] ?? []) walk(k);
+      const walk = (u: number) => {
+        m = Math.max(m, depth[u]);
+        for (const k of children[u] ?? []) walk(k);
       };
-      ids.forEach(walk);
+      rootUnits.forEach(walk);
       return m;
     };
-    const bands: { ids: string[]; level: number }[] = [];
-    for (const rootIds of [mainRoots, unknownRoots, looseInfra]) {
-      if (!rootIds.length) continue;
-      bands.push({ ids: rootIds, level });
-      widths.push(forest(rootIds, level));
-      level += maxDepth(rootIds) + 1;
+    const widths: number[] = [];
+    const bands: { roots: number[] }[] = [];
+    let level = 0;
+    for (const rootUnits of [mainRoots, unknownRoots, looseUnits]) {
+      if (!rootUnits.length) continue;
+      bands.push({ roots: rootUnits });
+      widths.push(forest(rootUnits, level));
+      level += maxDepth(rootUnits) + 1;
     }
     // Ebenen → Pixel: jede Ebene so hoch wie ihr höchster Switch+AP-Block (+ Reihenabstand).
     const levelY: Record<number, number> = {};
@@ -247,22 +303,22 @@ export function computeStructuredPositions(topo: Topology): Record<string, XY> {
       levelY[l] = y;
       y += (rowH[l] ?? SW_H) + ROW_GAP;
     }
-    for (const [id, p] of Object.entries(local)) {
-      const l = Math.floor(p.y);
-      const frac = p.y - l; // 0 = Switch-Zeile, 0.5+ = AP-Grid (Zeilenindex in 0.001-Schritten)
-      const apRow = frac >= 0.5 ? Math.round((frac - 0.5) / 0.001) : -1;
-      local[id] = { x: p.x, y: levelY[l] + (apRow >= 0 ? SW_H + apRow * AP_DY : 0) };
+    for (const id of Object.keys(local)) {
+      const apRow = apRowOf[id];
+      local[id].y = levelY[levelOf[id]] + (apRow !== undefined ? SW_H + apRow * AP_DY : 0);
     }
-    // Reihen der Bänder horizontal auf gemeinsamer Mittelachse zentrieren → Baum-Optik
+    // Bänder horizontal auf gemeinsamer Mittelachse zentrieren → Baum-Optik
     const siteW = Math.max(1, ...widths);
     bands.forEach((band, i) => {
       const off = (siteW - widths[i]) / 2;
-      const shift = (id: string) => {
-        local[id].x += off;
-        for (const ap of b.apsBySwitch[id] ?? []) local[ap.id].x += off;
-        for (const k of children[id] ?? []) shift(k);
+      const shift = (u: number) => {
+        for (const m of units[u]) {
+          local[m].x += off;
+          for (const ap of b.apsBySwitch[m] ?? []) local[ap.id].x += off;
+        }
+        for (const k of children[u] ?? []) shift(k);
       };
-      band.ids.forEach(shift);
+      band.roots.forEach(shift);
     });
     // Lose APs (ohne Switch) als Grid unten
     const loose = b.loose.slice().sort(byLabel);
