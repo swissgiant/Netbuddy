@@ -104,6 +104,32 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   5.10. 17:53 + 18:08 auf beiden Nexus kurz down (Host-seitig). 1G-Daisy-Chains NSW119/4↔SNW150,
   NSW133/48↔NSW141. **Keine Änderungen vorgenommen.**
 
+## S88 — Riese: Cato-Ausfall, Firebox als Notfall-Gateway für VLAN 1062 (6.10.2026)
+
+- **Cato-Socket Riese offline (Provider-Störung)**; alle 10.137er-VLANs ohne Gateway (Socket = .1
+  in jedem VLAN, auch DHCP-Server, /32-Leases). Folge: Firebox-Route 10.137.0.0/16 via
+  10.137.0.14 → „Destination host unreachable"; DHCP-Relays der Legacy-VLANs auf 10.137.41.33/
+  .34 damit ebenfalls tot. Riese-ASCO-Leitung lebt (BOVPN Cusano↔Riese up, 16 ms).
+- **Zugangsweg ohne Cato:** Sulgen → BLS-Cusano 10.123.20.x → Icos-Veeam-Server (10.1.x) → BOVPN
+  → RDP 10.0.2.10 (S00-SRV-T0DC12) → Web UI https://10.0.2.254:8080 (VLAN 2 = Trusted). NetBuddy
+  selbst kommt nur bis zur Cusano-Firebox (FortiGate-91G-Jump), nicht nach Riese.
+- **Befund:** Die 10NN-VLAN-Interfaces der Firebox tragen noch das ALTE Schema 10.136.NN.1/24
+  (vor dem Cato-Umbau), die Hosts leben in 10.137.NN.x mit Gateway .1 = Socket. VLAN 1062 war im
+  Web UI auf KEINEM Port getaggt (LAG0/TRUNK-DMZ unchecked).
+- **Workaround von Alex (Web UI, 6.10.):** VLAN 1062 „Management Tools" → LAG0 **Tagged** +
+  **Secondary IP 10.137.62.1/24** → Firebox antwortet als Gateway, esx05 10.137.62.26 vom DC
+  erreichbar, keine Host-Änderung nötig. **RÜCKBAU PFLICHT, sobald der Cato-Socket zurück ist**
+  (IP-Konflikt auf .1): Secondary löschen (Tag kann bleiben). Gleiches Muster bei Bedarf für
+  1041 (DHCP/CA/DC), 1051, 1063 usw.; Security Zone der 10NN-Interfaces = Optional →
+  Policies Trusted↔Optional prüfen.
+- Nebenbefunde: Cato-Gateways in Riese sind die .1 (DHCP Option 3 aus S84-Mitschnitten), in
+  Cusano die .254. 188.125.108.110 ist NICHT frei (UDM Pro STEELCO-HQ-TVCC meldet sie per LLDP
+  als Mgmt-Adresse) → für Cato auf Leitung 2 nur .109. Riese SSL-VPN ist deaktiviert (enable=0,
+  Port 4443 antwortet nicht), 25 SSL-VPN-Policies = Altlast. 172.100.100.0/24 (Kameras) ist
+  öffentlicher Spectrum-Adressraum. Dateien in Alex' Downloads: Riese_Firebox_Bereinigung_
+  2026-10-06.md (Inventar mit TOT/LEBT), Riese_Firebox_Server_Namen_2026-10-06.txt,
+  Riese_VLAN2_IP_Belegung_2026-10-06.txt (10.0.2.130 frei).
+
 ## S86 — Cusano: Internet-Trennung, Meraki-Cloud-Pfad, neue ESXi an S01NSW110 (30.9.–1.10.2026)
 
 - **Cusano komplett vom Internet getrennt (30.9.)**; alle 17 MS + 20 MR offline in der Cloud. Pfad der
