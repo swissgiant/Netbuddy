@@ -491,9 +491,12 @@ async def sync_sites(
     }
     sites = list((await session.execute(select(Site).where(Site.deleted_at.is_(None)))).scalars())
     subnets = list((await session.execute(select(SiteSubnet))).scalars())
+    # Subnetz-Überlappung nur gegen Segmente, die VOR diesem Lauf existierten — sonst zieht eine
+    # breite Cato-Range (z.B. 10.10.0.0/16) die nächste Cato-Site mit 10.10.10.0/23 auf sich.
+    preexisting = list(subnets)
     summary = SyncSummary(dry_run=dry_run)
     for cato in cato_sites:
-        site, how = _resolve_site(cato, site_map, sites, subnets)
+        site, how = _resolve_site(cato, site_map, sites, preexisting)
         if how == "skip":
             summary.sites_skipped.append(cato.name)
             continue

@@ -361,6 +361,31 @@ async def test_sync_sites_skips_sites_mapped_to_empty(db_session: AsyncSession) 
     assert (await db_session.execute(select(Site))).scalars().all() == []
 
 
+async def test_sync_sites_does_not_chain_new_sites_by_overlap(db_session: AsyncSession) -> None:
+    """Zwei neue Cato-Sites mit überlappenden Ranges werden zwei Standorte, nicht einer."""
+    cred = Credential(
+        name="CatoCloud", base_url="https://api.catonetworks.com", extra={"account_id": "42"}
+    )
+    db_session.add(cred)
+    await db_session.flush()
+    import copy
+
+    snap = copy.deepcopy(_SNAPSHOT)
+    snap["accountSnapshot"]["sites"][0]["info"]["name"] = "Alibaba"
+    snap["accountSnapshot"]["sites"][1]["info"]["name"] = "B-US"
+    sites = parse_sites(snap)
+
+    def _ranges(subnet: str, kind: str) -> dict[str, Any]:
+        return {"site": {"networkRangeList": {"items": [{"subnet": subnet, "rangeType": kind}]}}}
+
+    sites[0].ranges = parse_ranges(_ranges("10.10.0.0/16", "Native"))
+    sites[1].ranges = parse_ranges(_ranges("10.10.10.0/23", "Routed"))
+    report = await sync_sites(db_session, cred, sites, dry_run=False)
+    assert report.sites_created == ["Alibaba", "B-US"] and report.sites_matched == []
+    names = {s.name for s in (await db_session.execute(select(Site))).scalars()}
+    assert names == {"Alibaba", "B-US"}
+
+
 async def test_infra_candidates_filters_and_marks_known(db_session: AsyncSession) -> None:
     db_session.add(
         Device(
