@@ -26,6 +26,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+import httpx
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -233,6 +234,7 @@ class CatoApi:
             token=credential.api_token,
             header_name=str(extra.get("auth_header", "x-api-key")),
             verify=True,
+            timeout=120.0,  # knownHostList/Policies grosser Sites brauchen >30 s
         )
 
     async def __aenter__(self) -> "CatoApi":
@@ -242,9 +244,14 @@ class CatoApi:
         await self._client.__aexit__(None, None, None)
 
     async def query(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
-        payload = await self._client.post_json(
-            GRAPHQL_PATH, {"query": query, "variables": variables}
-        )
+        try:
+            payload = await self._client.post_json(
+                GRAPHQL_PATH, {"query": query, "variables": variables}
+            )
+        except httpx.TimeoutException as exc:
+            raise AdapterError(f"Cato-API: Zeitüberschreitung ({exc.__class__.__name__})") from exc
+        except httpx.HTTPError as exc:
+            raise AdapterError(f"Cato-API: HTTP-Fehler {exc}") from exc
         if not isinstance(payload, dict):
             raise AdapterError("Cato: unerwartete Antwort (kein JSON-Objekt)")
         if payload.get("errors"):

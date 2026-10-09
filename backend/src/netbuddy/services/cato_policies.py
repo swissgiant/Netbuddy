@@ -219,7 +219,10 @@ def parse_policy(kind: PolicyKind, data: dict[str, Any]) -> CatoPolicy:
                 if p
             )
             rules.append(_flat_rule(kind, r, action="LAN-REGEL", extra=extra or None))
-            for sub in (r.get("firewall") or {}).get("rule") or []:
+            fw = r.get("firewall") or []
+            subs = fw.get("rule") or [] if isinstance(fw, dict) else fw
+            for wrapper in subs:
+                sub = wrapper.get("rule", wrapper) if isinstance(wrapper, dict) else {}
                 rules.append(
                     _flat_rule(
                         kind,

@@ -74,9 +74,9 @@ _LAN: dict[str, Any] = {
                             "service": {},
                             "nat": {"enabled": True, "natType": "MASQUERADE"},
                             "transport": "WAN",
-                            "firewall": {
-                                "rule": [
-                                    {
+                            "firewall": [
+                                {
+                                    "rule": {
                                         "id": "f1",
                                         "name": "Mgmt → Switches",
                                         "index": 1,
@@ -90,8 +90,8 @@ _LAN: dict[str, Any] = {
                                         "action": "ALLOW",
                                         "tracking": {"event": {"enabled": False}},
                                     }
-                                ]
-                            },
+                                }
+                            ],
                         }
                     }
                 ],

@@ -38,10 +38,13 @@ class HttpxApiClient:
         header_name: str = "X-API-KEY",
         token_prefix: str = "",
         verify: bool = False,
+        timeout: float = 30.0,
     ) -> None:
         # token_prefix z.B. "Bearer " für FortiOS (`Authorization: Bearer <key>`).
         headers = {header_name: f"{token_prefix}{token}"} if token else None
-        self._client = httpx.AsyncClient(base_url=base_url, headers=headers, verify=verify)
+        self._client = httpx.AsyncClient(
+            base_url=base_url, headers=headers, verify=verify, timeout=httpx.Timeout(timeout)
+        )
 
     async def __aenter__(self) -> "HttpxApiClient":
         return self
