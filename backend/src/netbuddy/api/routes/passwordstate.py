@@ -1,4 +1,9 @@
-"""Passwordstate-Import: Einträge einer Passwortliste als NetBuddy-Credentials übernehmen."""
+"""Passwordstate-Import: Einträge einer Passwortliste als NetBuddy-Credentials übernehmen.
+
+Mehrere Passwordstate-Credentials (Name enthält „Passwordstate“, je Passwortliste ein API-Key)
+werden alle berücksichtigt: mit ``?list_id=`` wird die Credential genommen, deren Key für diese
+Liste gilt; ohne ``list_id`` werden alle in ``extra`` hinterlegten Listen geholt.
+"""
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import or_, select
@@ -8,6 +13,7 @@ from netbuddy.api.deps import SessionDep
 from netbuddy.db.models import Credential
 from netbuddy.services.passwordstate import (
     PasswordstateApi,
+    PwEntry,
     PwImportSummary,
     PwPreviewRow,
     import_entries,
@@ -17,50 +23,61 @@ from netbuddy.services.passwordstate import (
 router = APIRouter(prefix="/passwordstate", tags=["passwordstate"])
 
 
-async def _pw_credential(session: SessionDep) -> Credential:
-    stmt = select(Credential).where(
-        Credential.deleted_at.is_(None),
-        or_(Credential.name.ilike("%passwordstate%"), Credential.base_url.ilike("%pwst%")),
+async def _pw_credentials(session: SessionDep) -> list[Credential]:
+    stmt = (
+        select(Credential)
+        .where(
+            Credential.deleted_at.is_(None),
+            or_(Credential.name.ilike("%passwordstate%"), Credential.base_url.ilike("%pwst%")),
+        )
+        .order_by(Credential.name)
     )
-    cred = (await session.execute(stmt)).scalars().first()
-    if cred is None:
+    creds = list((await session.execute(stmt)).scalars())
+    if not creds:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Keine Passwordstate-Credential (Name „Passwordstate“, base_url + api_token)",
+            detail="Keine Passwordstate-Credential (Name „Passwordstate…“, base_url + api_token)",
         )
-    return cred
+    return creds
 
 
-def _api(cred: Credential) -> PasswordstateApi:
-    try:
-        return PasswordstateApi(cred)
-    except AdapterError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-
-
-def _list_ids(api: PasswordstateApi, list_id: int | None) -> list[int]:
-    ids = [list_id] if list_id is not None else api.list_ids
-    if not ids:
+async def _collect(creds: list[Credential], list_id: int | None) -> list[PwEntry]:
+    """Einträge holen: mit list_id die passende Credential, sonst alle hinterlegten Listen."""
+    entries: list[PwEntry] = []
+    errors: list[str] = []
+    for cred in creds:
+        try:
+            api = PasswordstateApi(cred)
+        except AdapterError as exc:
+            errors.append(f"{cred.name}: {exc}")
+            continue
+        ids = [list_id] if list_id is not None else api.list_ids
+        async with api:
+            for lid in ids:
+                try:
+                    entries += await api.fetch_list(lid)
+                    if list_id is not None:
+                        return entries
+                except AdapterError as exc:
+                    errors.append(f"{cred.name}: {exc}")
+    if entries:
+        return entries
+    if list_id is None and not any(PasswordstateApi(c).list_ids for c in creds if c.api_token):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Keine PasswordListID: ?list_id=… angeben oder extra.list_ids in der Credential",
+            detail="Keine PasswordListID: ?list_id=… angeben oder im Credential-Formularfeld "
+            "(site / org_id / account_id) bzw. extra.list_ids hinterlegen",
         )
-    return ids
+    raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail="; ".join(errors) or "Passwordstate lieferte keine Einträge",
+    )
 
 
 @router.get("/preview", response_model=list[PwPreviewRow])
 async def preview_import(session: SessionDep, list_id: int | None = None) -> list[PwPreviewRow]:
     """Vorschau ohne Passwörter: was würde angelegt/aktualisiert, welche Geräte verknüpft."""
-    cred = await _pw_credential(session)
-    entries = []
-    async with _api(cred) as api:
-        for lid in _list_ids(api, list_id):
-            try:
-                entries += await api.fetch_list(lid)
-            except AdapterError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
-                ) from exc
+    entries = await _collect(await _pw_credentials(session), list_id)
     return await preview(session, entries)
 
 
@@ -68,15 +85,6 @@ async def preview_import(session: SessionDep, list_id: int | None = None) -> lis
 async def run_import(
     session: SessionDep, list_id: int | None = None, dry_run: bool = True
 ) -> PwImportSummary:
-    """Einträge übernehmen (Standard: nur Vorschau-Zusammenfassung, ``dry_run=false`` schreibt)."""
-    cred = await _pw_credential(session)
-    entries = []
-    async with _api(cred) as api:
-        for lid in _list_ids(api, list_id):
-            try:
-                entries += await api.fetch_list(lid)
-            except AdapterError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
-                ) from exc
+    """Einträge übernehmen (Standard: nur Zusammenfassung, ``dry_run=false`` schreibt)."""
+    entries = await _collect(await _pw_credentials(session), list_id)
     return await import_entries(session, entries, dry_run=dry_run)

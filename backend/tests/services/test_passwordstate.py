@@ -2,7 +2,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from netbuddy.db.models import Credential, Device, DeviceCredential, DeviceType
-from netbuddy.services.passwordstate import import_entries, parse_entries, preview
+from netbuddy.services.passwordstate import (
+    _list_ids_from_extra,
+    import_entries,
+    parse_entries,
+    preview,
+)
 
 _RAW = [
     {
@@ -79,3 +84,9 @@ async def test_preview_and_import_links_devices(db_session: AsyncSession) -> Non
     assert again.updated == ["B-HQ Core Switches"] and again.created == []
     assert (await db_session.execute(select(Credential))).scalar_one().password == "n3w"
     assert len((await db_session.execute(select(DeviceCredential))).scalars().all()) == 1
+
+
+def test_list_ids_from_extra_accepts_form_field_and_list() -> None:
+    assert _list_ids_from_extra({"site": "412", "org_id": "412", "account_id": "412"}) == [412]
+    assert _list_ids_from_extra({"list_ids": [1, "2", "x"], "site": "2"}) == [1, 2]
+    assert _list_ids_from_extra({"site": ""}) == []

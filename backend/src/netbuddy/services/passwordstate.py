@@ -70,7 +70,8 @@ class PasswordstateApi:
         if not credential.base_url or not credential.api_token:
             raise AdapterError("Passwordstate-Credential braucht base_url und api_token (API-Key)")
         extra = credential.extra or {}
-        self.list_ids = [int(x) for x in (extra.get("list_ids") or []) if str(x).strip()]
+        self.name = credential.name
+        self.list_ids = _list_ids_from_extra(extra)
         self._client = HttpxApiClient(
             credential.base_url.rstrip("/"),
             token=credential.api_token,
@@ -98,6 +99,20 @@ class PasswordstateApi:
         except httpx.HTTPError as exc:
             raise AdapterError(f"Passwordstate: {exc}") from exc
         return parse_entries(data)
+
+
+def _list_ids_from_extra(extra: dict[str, Any]) -> list[int]:
+    """``extra.list_ids`` (Liste) oder das Formularfeld (site/org_id/account_id = Zahl)."""
+    raw: list[Any] = list(extra.get("list_ids") or [])
+    for key in ("site", "org_id", "account_id"):
+        if str(extra.get(key, "")).strip().isdigit():
+            raw.append(extra[key])
+            break
+    out: list[int] = []
+    for x in raw:
+        if str(x).strip().isdigit() and int(x) not in out:
+            out.append(int(x))
+    return out
 
 
 def _error_text(response: httpx.Response) -> str:
