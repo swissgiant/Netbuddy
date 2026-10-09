@@ -639,3 +639,30 @@ export interface ClientLocation {
   oui: string | null;
 }
 export const fetchClients = () => http<ClientLocation[]>("/endpoints/clients");
+
+export interface PwPreviewRow {
+  password_id: number;
+  title: string;
+  username: string | null;
+  hostname: string | null;
+  url: string | null;
+  description: string | null;
+  has_password: boolean;
+  action: string;
+  credential_name: string;
+  devices: string[];
+}
+export interface PwImportSummary {
+  dry_run: boolean;
+  created: string[];
+  updated: string[];
+  skipped: string[];
+  linked: string[];
+}
+export const previewPasswordstate = (listId: string) =>
+  http<PwPreviewRow[]>(`/passwordstate/preview${listId ? `?list_id=${encodeURIComponent(listId)}` : ""}`);
+export const importPasswordstate = (listId: string, dryRun: boolean) =>
+  http<PwImportSummary>(
+    `/passwordstate/import?dry_run=${dryRun}${listId ? `&list_id=${encodeURIComponent(listId)}` : ""}`,
+    { method: "POST" },
+  );

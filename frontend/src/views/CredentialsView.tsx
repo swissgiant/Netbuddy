@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Credential, CredentialCreate } from "../api";
 import { createCredential, deleteCredential, fetchCredentials } from "../api";
 import { Th, useSort } from "../sort";
+import { PasswordstateImport } from "./PasswordstateImport";
 
 type Kind = "ssh" | "api";
 
@@ -137,6 +138,7 @@ export function CredentialsView() {
         </table>
         <p className="muted" style={{ fontSize: 12 }}>Geheimnisse werden serverseitig verschlüsselt (Fernet) gespeichert und nie zurückgegeben.</p>
       </div>
+      <PasswordstateImport onImported={reload} />
     </div>
   );
 }
