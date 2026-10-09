@@ -1,12 +1,13 @@
 import { useState } from "react";
-import type { PwImportSummary, PwPreviewRow } from "../api";
-import { importPasswordstate, previewPasswordstate } from "../api";
+import type { PwImportSummary, PwList, PwPreviewRow } from "../api";
+import { fetchPasswordstateLists, importPasswordstate, previewPasswordstate } from "../api";
 
 /** Einträge einer Passwordstate-Liste als NetBuddy-Credentials übernehmen (Vorschau → Import). */
 export function PasswordstateImport({ onImported }: { onImported: () => void }) {
   const [listId, setListId] = useState("");
   const [rows, setRows] = useState<PwPreviewRow[] | null>(null);
   const [summary, setSummary] = useState<PwImportSummary | null>(null);
+  const [lists, setLists] = useState<PwList[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,6 +23,7 @@ export function PasswordstateImport({ onImported }: { onImported: () => void }) 
     }
   };
 
+  const doLists = () => run("lists", async () => setLists(await fetchPasswordstateLists()));
   const doPreview = () =>
     run("preview", async () => {
       setSummary(null);
@@ -43,12 +45,14 @@ export function PasswordstateImport({ onImported }: { onImported: () => void }) 
     <div className="card" style={{ marginTop: 16 }}>
       <h3>Aus Passwordstate importieren</h3>
       <p className="muted" style={{ fontSize: 12 }}>
-        Braucht eine API-Credential „Passwordstate" (base_url des Servers, api_token = API-Key der
-        Passwortliste, optional extra.list_ids). Titel wird Credential-Name, Einträge mit Host/IP werden
-        passenden Geräten als SSH-Zugang zugeordnet. Passwörter erscheinen nie im Browser.
+        Braucht eine API-Credential „Passwordstate" (base_url des Servers, api_token = API-Key, im
+        Site-Feld die PasswordListIDs, mehrere mit Komma). Mit einem System-Wide-Key zeigt „Listen" alle
+        Listen samt ID. Titel wird Credential-Name, Einträge mit Host/IP werden passenden Geräten als
+        SSH-Zugang zugeordnet. Passwörter erscheinen nie im Browser.
       </p>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <input placeholder="PasswordListID (leer = extra.list_ids)" value={listId} onChange={(e) => setListId(e.target.value)} />
+        <button onClick={doLists} disabled={busy !== null}>{busy === "lists" ? "Lade…" : "📋 Listen"}</button>
+        <input placeholder="PasswordListID (leer = aus Credential)" value={listId} onChange={(e) => setListId(e.target.value)} />
         <button onClick={doPreview} disabled={busy !== null}>{busy === "preview" ? "Lade…" : "👁 Vorschau"}</button>
         <button
           onClick={() => { if (confirm("Einträge jetzt als Credentials anlegen/aktualisieren?")) void doImport(); }}
@@ -63,6 +67,19 @@ export function PasswordstateImport({ onImported }: { onImported: () => void }) 
         )}
       </div>
       {error && <p className="error">{error}</p>}
+      {lists && (
+        <table style={{ marginTop: 8 }}>
+          <thead><tr><th>ID</th><th>Liste</th><th>Pfad</th><th>Beschreibung</th></tr></thead>
+          <tbody>
+            {lists.map((l) => (
+              <tr key={l.list_id} style={{ cursor: "pointer" }} onClick={() => setListId(String(l.list_id))}>
+                <td>{l.list_id}</td><td>{l.name}</td>
+                <td className="muted">{l.tree_path ?? ""}</td><td className="muted">{l.description ?? ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       {summary && (
         <ul>
           <li>Angelegt ({summary.created.length}): {summary.created.join(", ") || "—"}</li>

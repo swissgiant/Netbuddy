@@ -6,6 +6,7 @@ from netbuddy.services.passwordstate import (
     _list_ids_from_extra,
     import_entries,
     parse_entries,
+    parse_lists,
     preview,
 )
 
@@ -90,3 +91,17 @@ def test_list_ids_from_extra_accepts_form_field_and_list() -> None:
     assert _list_ids_from_extra({"site": "412", "org_id": "412", "account_id": "412"}) == [412]
     assert _list_ids_from_extra({"list_ids": [1, "2", "x"], "site": "2"}) == [1, 2]
     assert _list_ids_from_extra({"site": ""}) == []
+
+
+def test_list_ids_from_form_field_accept_several() -> None:
+    assert _list_ids_from_extra({"site": "12, 15 18;19"}) == [12, 15, 18, 19]
+
+
+def test_parse_lists() -> None:
+    raw = [
+        {"PasswordListID": 7, "PasswordList": "B-HQ Switch", "TreePath": "\\IT Network"},
+        {"PasswordListID": 0},
+        {"foo": 1},
+    ]
+    lists = parse_lists(raw)
+    assert [(x.list_id, x.name, x.tree_path) for x in lists] == [(7, "B-HQ Switch", "\\IT Network")]

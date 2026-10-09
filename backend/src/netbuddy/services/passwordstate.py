@@ -65,6 +65,13 @@ class PwImportSummary(BaseModel):
     linked: list[str] = []  # "credential → device"
 
 
+class PwList(BaseModel):
+    list_id: int
+    name: str
+    tree_path: str | None
+    description: str | None
+
+
 class PasswordstateApi:
     def __init__(self, credential: Credential) -> None:
         if not credential.base_url or not credential.api_token:
@@ -87,26 +94,51 @@ class PasswordstateApi:
         await self._client.__aexit__(None, None, None)
 
     async def fetch_list(self, list_id: int) -> list[PwEntry]:
+        data = await self._get(f"/api/passwords/{list_id}", f"Liste {list_id}")
+        return parse_entries(data)
+
+    async def fetch_lists(self) -> list[PwList]:
+        """Alle Passwortlisten (nur mit System-Wide-Key, Listen-Keys liefern 401)."""
+        return parse_lists(await self._get("/api/passwordlists/", "Listenübersicht"))
+
+    async def _get(self, path: str, what: str) -> Any:
         try:
-            data = await self._client.get_json(
-                f"/api/passwords/{list_id}", params={"QueryAll": "true"}
-            )
+            return await self._client.get_json(path, params={"QueryAll": "true"})
         except httpx.HTTPStatusError as exc:
             detail = _error_text(exc.response)
             raise AdapterError(
-                f"Passwordstate: HTTP {exc.response.status_code} für Liste {list_id}: {detail}"
+                f"Passwordstate: HTTP {exc.response.status_code} für {what}: {detail}"
             ) from exc
         except httpx.HTTPError as exc:
             raise AdapterError(f"Passwordstate: {exc}") from exc
-        return parse_entries(data)
+
+
+def parse_lists(data: Any) -> list[PwList]:
+    out: list[PwList] = []
+    for row in data if isinstance(data, list) else []:
+        if isinstance(row, dict) and row.get("PasswordListID"):
+            out.append(
+                PwList(
+                    list_id=int(row["PasswordListID"]),
+                    name=str(row.get("PasswordList") or row["PasswordListID"]),
+                    tree_path=row.get("TreePath") or None,
+                    description=row.get("Description") or None,
+                )
+            )
+    return out
+
+
+_ID_RE = re.compile(r"\d+")
 
 
 def _list_ids_from_extra(extra: dict[str, Any]) -> list[int]:
-    """``extra.list_ids`` (Liste) oder das Formularfeld (site/org_id/account_id = Zahl)."""
+    """``extra.list_ids`` (Liste) oder das Formularfeld (site/org_id/account_id), dort auch
+    mehrere IDs mit Komma/Leerzeichen („12, 15 18")."""
     raw: list[Any] = list(extra.get("list_ids") or [])
     for key in ("site", "org_id", "account_id"):
-        if str(extra.get(key, "")).strip().isdigit():
-            raw.append(extra[key])
+        found = _ID_RE.findall(str(extra.get(key, "")))
+        if found:
+            raw += found
             break
     out: list[int] = []
     for x in raw:

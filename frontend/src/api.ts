@@ -659,6 +659,13 @@ export interface PwImportSummary {
   skipped: string[];
   linked: string[];
 }
+export interface PwList {
+  list_id: number;
+  name: string;
+  tree_path: string | null;
+  description: string | null;
+}
+export const fetchPasswordstateLists = () => http<PwList[]>("/passwordstate/lists");
 export const previewPasswordstate = (listId: string) =>
   http<PwPreviewRow[]>(`/passwordstate/preview${listId ? `?list_id=${encodeURIComponent(listId)}` : ""}`);
 export const importPasswordstate = (listId: string, dryRun: boolean) =>

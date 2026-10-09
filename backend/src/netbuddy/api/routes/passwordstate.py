@@ -15,6 +15,7 @@ from netbuddy.services.passwordstate import (
     PasswordstateApi,
     PwEntry,
     PwImportSummary,
+    PwList,
     PwPreviewRow,
     import_entries,
     preview,
@@ -66,12 +67,26 @@ async def _collect(creds: list[Credential], list_id: int | None) -> list[PwEntry
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Keine PasswordListID: ?list_id=… angeben oder im Credential-Formularfeld "
-            "(site / org_id / account_id) bzw. extra.list_ids hinterlegen",
+            "(site / org_id / account_id, mehrere mit Komma) hinterlegen; mit System-Wide-Key "
+            "zeigt „Listen“ die IDs",
         )
     raise HTTPException(
         status_code=status.HTTP_502_BAD_GATEWAY,
         detail="; ".join(errors) or "Passwordstate lieferte keine Einträge",
     )
+
+
+@router.get("/lists", response_model=list[PwList])
+async def list_lists(session: SessionDep) -> list[PwList]:
+    """Alle Passwortlisten mit ID (braucht einen System-Wide-API-Key, Listen-Keys nicht)."""
+    errors: list[str] = []
+    for cred in await _pw_credentials(session):
+        try:
+            async with PasswordstateApi(cred) as api:
+                return await api.fetch_lists()
+        except AdapterError as exc:
+            errors.append(f"{cred.name}: {exc}")
+    raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="; ".join(errors))
 
 
 @router.get("/preview", response_model=list[PwPreviewRow])
