@@ -69,6 +69,35 @@ def _leading_int(value: Any) -> int | None:
     return int(match.group(1)) if match else None
 
 
+_HEX12 = re.compile(r"^[0-9a-f]{12}$")
+
+
+_PLACEHOLDERS = {"", "-", "--", "n/a", "none", "null"}
+
+
+def _placeholder_or_none(value: Any) -> str | None:
+    """Wie ``strip_or_none``, wirft aber Platzhalter (``--``, ``-``, ``n/a``) weg (ArubaOS-CX)."""
+    text = _strip_or_none(value)
+    return None if text is None or text.lower() in _PLACEHOLDERS else text
+
+
+def _mac_or_none(value: Any) -> str | None:
+    """MAC in kanonischer Form ``aa:bb:cc:dd:ee:ff`` — egal ob ``0050-5684-01d7`` (Huawei),
+    ``005056-8401d7`` (ProCurve), ``78 57 73 29 7d a0`` (ProCurve-LLDP) oder ``0050.5684.01d7``
+    (Cisco); kein 12-stelliger Hex-Wert → None."""
+    if value is None:
+        return None
+    hexdigits = re.sub(r"[^0-9a-fA-F]", "", str(value)).lower()
+    if not _HEX12.match(hexdigits):
+        return None
+    return ":".join(hexdigits[i : i + 2] for i in range(0, 12, 2))
+
+
+def _mac_or_raw(value: Any) -> str | None:
+    """Wie :func:`_mac_or_none`, lässt aber Nicht-MACs (z.B. Chassis-ID ``netapp-02``) durch."""
+    return _mac_or_none(value) or _strip_or_none(value)
+
+
 def _ip_or_none(value: Any) -> str | None:
     """IP-Adresse oder None; verwirft Platzhalter wie ``0.0.0.0`` (PCs melden das via LLDP)."""
     text = _strip_or_none(value)
@@ -79,6 +108,9 @@ def _ip_or_none(value: Any) -> str | None:
 
 # Converter ohne Argumente.
 _SIMPLE: dict[str, Converter] = {
+    "mac_or_none": _mac_or_none,
+    "mac_or_raw": _mac_or_raw,
+    "placeholder_or_none": _placeholder_or_none,
     "strip_or_none": _strip_or_none,
     "first": _first,
     "first_word": _first_word,

@@ -1,6 +1,10 @@
+Value HOSTNAME (\S+)
 Value MODEL (.+?)
 Value SERIAL (\S+)
+Value VERSION (\S+)
 
 Start
-  ^Product Name\s+:\s+${MODEL}\s*$$
-  ^Serial Number\s+:\s+${SERIAL}\s*$$ -> Record
+  ^\s*Hostname\s*:\s*${HOSTNAME}
+  ^\s*Product Name\s*:\s*${MODEL}\s*$$
+  ^\s*Chassis Serial Nbr\s*:\s*${SERIAL}
+  ^\s*ArubaOS-CX Version\s*:\s*${VERSION}

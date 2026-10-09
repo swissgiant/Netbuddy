@@ -60,9 +60,10 @@ class DeviceVlanInfo(BaseModel):
 
 
 def _expand_vlan_list(spec: str) -> list[int]:
-    """ "90,101-116,120" → [90, 101, …, 116, 120]. Ignoriert Nicht-Zahlen ("add", "all")."""
+    """ "90,101-116,120" / Huawei "2 to 4094" / "1 666 1054" → [90, 101, …]; ignoriert Wörter."""
+    text = re.sub(r"(?i)\s+to\s+", "-", spec.strip())
     out: list[int] = []
-    for part in spec.replace(" ", "").split(","):
+    for part in re.split(r"[,\s]+", text):
         m = re.fullmatch(r"(\d+)-(\d+)", part)
         if m:
             lo, hi = int(m.group(1)), int(m.group(2))
@@ -73,55 +74,117 @@ def _expand_vlan_list(spec: str) -> list[int]:
     return [v for v in out if 1 <= v <= 4094]
 
 
-def parse_cli_config(hostname: str, text: str) -> DeviceVlanInfo:
-    """Vendor-tolerantes Parsing einer Switch-Running-Config (os6/os10/fs/tplink).
+def _is_catch_all(ids: list[int]) -> bool:
+    """Trunk mit (fast) allen VLANs (``1-4094``, ``all``) → nicht als „trägt VLAN x" zählen."""
+    return len(ids) >= 1000
 
-    Regex-basiert über Zeilen + Interface-Kontext; kennt die Syntax-Varianten der Fleet-Vendor.
+
+_PORT_LIST_RE = re.compile(r"(\S+?)-(\S+)$")
+
+
+def _count_ports(spec: str) -> int:
+    """ProCurve-Portliste ``1/1-1/5,2/3,Trk10`` → Anzahl Ports (Bereiche über die letzte Zahl)."""
+    count = 0
+    for part in spec.replace(" ", "").split(","):
+        m = _PORT_LIST_RE.match(part)
+        if m:
+            a, b = m.group(1).rsplit("/", 1)[-1], m.group(2).rsplit("/", 1)[-1]
+            if a.isdigit() and b.isdigit() and int(b) >= int(a):
+                count += int(b) - int(a) + 1
+                continue
+        if part:
+            count += 1
+    return count
+
+
+def parse_cli_config(hostname: str, text: str) -> DeviceVlanInfo:
+    """Vendor-tolerantes Parsing einer Switch-Running-Config.
+
+    Kennt die Syntax-Varianten der Fleet: Dell OS6/OS10, FS, TP-Link, Cisco IOS/NX-OS/SB
+    (``switchport …``), ArubaOS-CX (``vlan access`` / ``vlan trunk allowed``), ArubaOS-Switch/
+    ProCurve (``vlan N`` + ``untagged``/``tagged``/``ip address`` im VLAN-Block) und Huawei VRP
+    (``vlan batch … to …``, ``port default vlan``, ``port trunk allow-pass vlan``, ``Vlanif``).
     """
     info = DeviceVlanInfo(hostname=hostname, kind="switch")
     ctx: str | None = None  # aktueller interface-Kontext
+    vlan_block: int | None = None  # ProCurve/Huawei/CX: innerhalb von `vlan N`
     svi: SviInfo | None = None
     pending_vlan_ids: list[int] = []  # zuletzt definierte VLANs (für folgendes `name`)
+
+    def close_svi() -> None:
+        nonlocal svi
+        if svi is not None:
+            info.svis.append(svi)
+            svi = None
 
     for raw in text.splitlines():
         line = raw.rstrip()
         s = line.strip()
 
-        m = re.match(r"(?i)^interface\s+vlan\s*(\d+)$", s)
+        m = re.match(r"(?i)^interface\s+vlan\s*(\d+)$", s) or re.match(
+            r"(?i)^interface\s+vlanif\s*(\d+)$", s
+        )
         if m:
-            if svi is not None:
-                info.svis.append(svi)
+            close_svi()
             ctx = f"vlan{m.group(1)}"
+            vlan_block = None
             svi = SviInfo(vlan_id=int(m.group(1)))
             continue
         if re.match(r"(?i)^interface\s+\S", s):
-            if svi is not None:
-                info.svis.append(svi)
-                svi = None
+            close_svi()
             ctx = s.split(None, 1)[1]
+            vlan_block = None
             continue
-        if s in ("!", "exit", "end") or re.match(r"(?i)^config\b", s):
+        if s in ("!", "#", "exit", "end", "return") or re.match(r"(?i)^config\b", s):
             # Kontext endet; SVI abschließen
-            if svi is not None and (s in ("!", "exit", "end")):
-                info.svis.append(svi)
-                svi = None
+            if s in ("!", "#", "exit", "end", "return"):
+                close_svi()
                 ctx = None
+                vlan_block = None
             continue
 
-        # VLAN-Definitionen (global oder `vlan database`): `vlan 90,101-116` / `vlan range 120`
-        m = re.match(r"(?i)^vlan\s+(?:range\s+)?([\d,\- ]+)$", s)
-        if m and ctx is None:
+        # VLAN-Definitionen: `vlan 90,101-116` / `vlan range 120` / Huawei `vlan batch 10 to 20`
+        m = re.match(
+            r"(?i)^vlan\s+(?:range\s+|batch\s+)?([\d,\-\s]+|[\d\s]+(?:to\s+\d+)[\d\s to]*)$", s
+        )
+        if m and ctx is None and not s.lower().startswith("vlan database"):
             ids = _expand_vlan_list(m.group(1))
             for v in ids:
                 info.vlans.setdefault(v, None)
             pending_vlan_ids = ids
+            vlan_block = ids[0] if len(ids) == 1 else None
             continue
-        # Name direkt nach vlan-Definition (os6/fs: `name "MGMT"`)
-        m = re.match(r"(?i)^name\s+\"?([^\"]+)\"?$", s)
-        if m and pending_vlan_ids:
-            if len(pending_vlan_ids) == 1:
+        # Name/Beschreibung direkt nach vlan-Definition (os6/fs/IOS/CX/Huawei/ProCurve)
+        m = re.match(r"(?i)^(?:name|description)\s+\"?([^\"]+)\"?$", s)
+        if m and pending_vlan_ids and ctx is None:
+            if len(pending_vlan_ids) == 1 and not info.vlans.get(pending_vlan_ids[0]):
                 info.vlans[pending_vlan_ids[0]] = m.group(1).strip()
             continue
+
+        if vlan_block is not None and ctx is None:
+            # ProCurve: Ports + SVI stehen im VLAN-Block selbst
+            m = re.match(r"(?i)^untagged\s+(\S+)$", s)
+            if m:
+                info.access_ports[vlan_block] = info.access_ports.get(vlan_block, 0) + _count_ports(
+                    m.group(1)
+                )
+                continue
+            m = re.match(r"(?i)^tagged\s+(\S+)$", s)
+            if m:
+                if vlan_block not in info.trunk_vlans:
+                    info.trunk_vlans.append(vlan_block)
+                continue
+            m = re.match(r"(?i)^ip address\s+(\d+\.\d+\.\d+\.\d+)", s)
+            if m:
+                info.svis.append(SviInfo(vlan_id=vlan_block, ip=m.group(1)))
+                continue
+            m = re.match(r"(?i)^ip helper-address\s+(\d+\.\d+\.\d+\.\d+)", s)
+            if m:
+                for existing in info.svis:
+                    if existing.vlan_id == vlan_block:
+                        existing.helpers.append(m.group(1))
+                        break
+                continue
 
         if svi is not None:
             m = re.match(r"(?i)^ip address\s+(\d+\.\d+\.\d+\.\d+)", s)
@@ -129,30 +192,41 @@ def parse_cli_config(hostname: str, text: str) -> DeviceVlanInfo:
                 svi.ip = m.group(1)
                 info.vlans.setdefault(svi.vlan_id, None)
                 continue
-            m = re.match(r"(?i)^ip helper-address\s+(\d+\.\d+\.\d+\.\d+)", s)
+            m = re.match(
+                r"(?i)^(?:ip helper-address|dhcp relay server-ip|ip dhcp relay address)\s+"
+                r"(\d+\.\d+\.\d+\.\d+)",
+                s,
+            )
             if m:
                 svi.helpers.append(m.group(1))
                 continue
 
         if ctx is not None and not ctx.startswith("vlan"):
-            m = re.match(r"(?i)^switchport access vlan\s+(\d+)$", s)
+            m = re.match(
+                r"(?i)^(?:switchport access vlan|vlan access|port default vlan)\s+(\d+)$", s
+            )
             if m:
                 v = int(m.group(1))
                 info.access_ports[v] = info.access_ports.get(v, 0) + 1
                 info.vlans.setdefault(v, None)
                 continue
             m = re.match(
-                r"(?i)^switchport (?:trunk|general) allowed vlan\s+(?:add\s+)?([\d,\- ]+)", s
+                r"(?i)^(?:switchport (?:trunk|general) allowed vlan|vlan trunk allowed|"
+                r"port trunk allow-pass vlan|port hybrid tagged vlan)\s+(?:add\s+)?"
+                r"([\d,\-\s(to)]+)$",
+                s,
             )
             if m:
-                for v in _expand_vlan_list(m.group(1)):
+                ids = _expand_vlan_list(m.group(1))
+                if _is_catch_all(ids):
+                    continue
+                for v in ids:
                     if v not in info.trunk_vlans:
                         info.trunk_vlans.append(v)
                     info.vlans.setdefault(v, None)
                 continue
 
-    if svi is not None:
-        info.svis.append(svi)
+    close_svi()
     return info
 
 
@@ -163,6 +237,12 @@ _PAGER = ("Press any key", "--More--")
 
 async def _read_cli_config(device: Device, credential: Credential) -> str:
     """Running-Config live lesen — mit enable (os6/tplink) und Pager-Handling."""
+    if device.adapter_id not in _LEGACY_RAW:
+        from netbuddy.adapters.factory import connect
+
+        adapter, resource = connect(device, credential)
+        async with resource:
+            return await adapter.get_config()
     p = params_from_credential(device, credential)
     line_end = "\r\n" if device.adapter_id == "tplink_jetstream" else "\n"
     conn = await asyncssh.connect(
@@ -427,7 +507,21 @@ async def _meraki_infos(credential: Credential) -> list[DeviceVlanInfo]:
 
 # ---------------------------------------------------------------- Aggregation
 
-CLI_ADAPTERS = ("dell_os6", "dell_os10", "fs_centec", "fs_ruijie", "tplink_jetstream")
+CLI_ADAPTERS = (
+    "dell_os6",
+    "dell_os10",
+    "fs_centec",
+    "fs_ruijie",
+    "tplink_jetstream",
+    "cisco_ios",
+    "cisco_nxos",
+    "aruba_cx",
+    "aruba_procurve",
+    "huawei_vrp",
+    "cisco_sb",
+)
+# Diese laufen über die rohe asyncssh-Shell (enable + Pager); alle anderen über connect().
+_LEGACY_RAW = ("dell_os6", "dell_os10", "fs_centec", "fs_ruijie", "tplink_jetstream")
 
 
 def aggregate_survey(

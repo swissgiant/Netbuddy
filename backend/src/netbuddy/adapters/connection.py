@@ -12,6 +12,11 @@ _SCRAPLI_PLATFORM = {
     "fs_centec": "generic",
     "fs_ruijie": "generic",
     "tplink_jetstream": "generic",  # eigener Transport (CR+Pager), Plattform nur fürs Param-Bauen
+    "aruba_cx": "generic",  # ArubaOS-CX: `name#`-Prompt, Pager via `no page`
+    # RawShellTransport-Vendor (eigene Shell, Plattform nur fürs Param-Bauen):
+    "aruba_procurve": "generic",
+    "huawei_vrp": "generic",
+    "cisco_sb": "generic",
 }
 
 # Diese Adapter brauchen Privileged-Exec (`enable`), bevor Pager-Abschaltung/Reads sauber
@@ -27,6 +32,7 @@ _PAGING_DISABLE = {
     "dell_os6": "terminal length 0",
     "fs_centec": "terminal length 0",
     "fs_ruijie": "terminal length 0",
+    "aruba_cx": "no page",
 }
 
 

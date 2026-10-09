@@ -1,0 +1,773 @@
+100GE1/0/1 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :a82b-cdb4-7401
+Port ID subtype                    :Interface Name
+Port ID                            :100GE1/0/2
+Port description                   :STACK-SW1-int100GE1/0/2
+System name                        :swi-bhq-002
+System description                 :Huawei Versatile Routing Platform Software
+VRP (R) software, Version 8.191 (CE6881 V200R019C10SPC800)
+Copyright (C) 2012-2020 Huawei Technologies Co., Ltd.
+HUAWEI CE6881-48S6CQ
+
+System capabilities supported      :bridge router
+System capabilities enabled        :bridge router
+Management address type            :IPv4
+Management address                 :192.168.255.2
+Expired time                       :110s
+
+Port VLAN ID(PVID)                 :1
+Port and Protocol VLAN ID(PPVID)   :unsupported
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :--
+Auto-negotiation supported         :No
+Auto-negotiation enabled           :No
+OperMau                            :speed (100000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :Yes
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+Discovered time                    :2025-09-18 08:05:37+02:00 DST
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+100GE1/0/2 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :a82b-cdb4-7401
+Port ID subtype                    :Interface Name
+Port ID                            :100GE1/0/1
+Port description                   :STACK-SW1-int100GE1/0/1
+System name                        :swi-bhq-002
+System description                 :Huawei Versatile Routing Platform Software
+VRP (R) software, Version 8.191 (CE6881 V200R019C10SPC800)
+Copyright (C) 2012-2020 Huawei Technologies Co., Ltd.
+HUAWEI CE6881-48S6CQ
+
+System capabilities supported      :bridge router
+System capabilities enabled        :bridge router
+Management address type            :IPv4
+Management address                 :192.168.255.2
+Expired time                       :110s
+
+Port VLAN ID(PVID)                 :1
+Port and Protocol VLAN ID(PPVID)   :unsupported
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :--
+Auto-negotiation supported         :No
+Auto-negotiation enabled           :No
+OperMau                            :speed (100000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :Yes
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+Discovered time                    :2025-09-18 08:05:37+02:00 DST
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+100GE1/0/3 has 0 neighbor(s)
+
+100GE1/0/4 has 0 neighbor(s)
+
+100GE1/0/5 has 0 neighbor(s)
+
+100GE1/0/6 has 0 neighbor(s)
+
+10GE1/0/1 has 0 neighbor(s)
+
+10GE1/0/2 has 0 neighbor(s)
+
+10GE1/0/3 has 0 neighbor(s)
+
+10GE1/0/4 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :5c6f-69cc-9fa0
+Port ID subtype                    :MAC Address
+Port ID                            :5c6f-69cc-9fa0
+Port description                   :NIC 1/10Gb SFP+ DA
+System name                        :Broadcom Adv. Dual 10Gb Ethernet fw_version:AFW_229.2.52.0
+System description                 :fw_version:AFW_229.2.52.0
+System capabilities supported      :stationOnly
+System capabilities enabled        :stationOnly
+Management address type            :all802
+Management address                 :5c6f-69cc-9fa0
+Expired time                       :97s
+
+Port VLAN ID(PVID)                 :--
+Port and Protocol VLAN ID(PPVID)   :--
+Port and Protocol VLAN supported   :--
+Port and Protocol VLAN enabled     :--
+VLAN name of VLAN                  :--
+Protocol identity                  :--
+Auto-negotiation supported         :--
+Auto-negotiation enabled           :--
+OperMau                            :speed (--) /duplex (--)
+Link aggregation supported         :--
+Link aggregation enabled           :--
+Aggregation port ID                :--
+Maximum frame Size                 :--
+Port Identity                      :--
+Discovered time                    :2025-09-18 08:06:16+02:00 DST
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+10GE1/0/5 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :5c6f-69cc-6981
+Port ID subtype                    :MAC Address
+Port ID                            :5c6f-69cc-6981
+Port description                   :NIC 1/10Gb SFP+ DA
+System name                        :Broadcom Adv. Dual 10Gb Ethernet fw_version:AFW_229.2.52.0
+System description                 :fw_version:AFW_229.2.52.0
+System capabilities supported      :stationOnly
+System capabilities enabled        :stationOnly
+Management address type            :all802
+Management address                 :5c6f-69cc-6981
+Expired time                       :118s
+
+Port VLAN ID(PVID)                 :--
+Port and Protocol VLAN ID(PPVID)   :--
+Port and Protocol VLAN supported   :--
+Port and Protocol VLAN enabled     :--
+VLAN name of VLAN                  :--
+Protocol identity                  :--
+Auto-negotiation supported         :--
+Auto-negotiation enabled           :--
+OperMau                            :speed (--) /duplex (--)
+Link aggregation supported         :--
+Link aggregation enabled           :--
+Aggregation port ID                :--
+Maximum frame Size                 :--
+Port Identity                      :--
+Discovered time                    :2026-10-09 15:44:01+02:00 DST
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+10GE1/0/6 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :5c6f-69cc-6991
+Port ID subtype                    :MAC Address
+Port ID                            :5c6f-69cc-6991
+Port description                   :NIC 1/10Gb SFP+ DA
+System name                        :Broadcom Adv. Dual 10Gb Ethernet fw_version:AFW_229.2.52.0
+System description                 :fw_version:AFW_229.2.52.0
+System capabilities supported      :stationOnly
+System capabilities enabled        :stationOnly
+Management address type            :all802
+Management address                 :5c6f-69cc-6991
+Expired time                       :107s
+
+Port VLAN ID(PVID)                 :--
+Port and Protocol VLAN ID(PPVID)   :--
+Port and Protocol VLAN supported   :--
+Port and Protocol VLAN enabled     :--
+VLAN name of VLAN                  :--
+Protocol identity                  :--
+Auto-negotiation supported         :--
+Auto-negotiation enabled           :--
+OperMau                            :speed (--) /duplex (--)
+Link aggregation supported         :--
+Link aggregation enabled           :--
+Aggregation port ID                :--
+Maximum frame Size                 :--
+Port Identity                      :--
+Discovered time                    :2026-10-07 11:18:54+02:00 DST
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+10GE1/0/7 has 0 neighbor(s)
+
+10GE1/0/8 has 0 neighbor(s)
+
+10GE1/0/9 has 0 neighbor(s)
+
+10GE1/0/10 has 0 neighbor(s)
+
+10GE1/0/11 has 0 neighbor(s)
+
+10GE1/0/12 has 0 neighbor(s)
+
+10GE1/0/13 has 0 neighbor(s)
+
+10GE1/0/14 has 0 neighbor(s)
+
+10GE1/0/15 has 0 neighbor(s)
+
+10GE1/0/16 has 0 neighbor(s)
+
+10GE1/0/17 has 0 neighbor(s)
+
+10GE1/0/18 has 0 neighbor(s)
+
+10GE1/0/19 has 0 neighbor(s)
+
+10GE1/0/20 has 0 neighbor(s)
+
+10GE1/0/21 has 0 neighbor(s)
+
+10GE1/0/22 has 0 neighbor(s)
+
+10GE1/0/23 has 0 neighbor(s)
+
+10GE1/0/24 has 0 neighbor(s)
+
+10GE1/0/25 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :d039-ea91-2380
+Port ID subtype                    :MAC Address
+Port ID                            :d039-ea91-2380
+Port description                   :--
+System name                        :--
+System description                 :--
+System capabilities supported      :--
+System capabilities enabled        :--
+Management address type            :--
+Management address                 :--
+Expired time                       :101s
+
+Port VLAN ID(PVID)                 :--
+Port and Protocol VLAN ID(PPVID)   :--
+Port and Protocol VLAN supported   :--
+Port and Protocol VLAN enabled     :--
+VLAN name of VLAN                  :--
+Protocol identity                  :--
+Auto-negotiation supported         :--
+Auto-negotiation enabled           :--
+OperMau                            :speed (--) /duplex (--)
+Link aggregation supported         :--
+Link aggregation enabled           :--
+Aggregation port ID                :--
+Maximum frame Size                 :--
+Port Identity                      :--
+Discovered time                    :2026-03-11 14:29:12+01:00
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+10GE1/0/26 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :d039-ea91-2382
+Port ID subtype                    :MAC Address
+Port ID                            :d039-ea91-2382
+Port description                   :--
+System name                        :--
+System description                 :--
+System capabilities supported      :--
+System capabilities enabled        :--
+Management address type            :--
+Management address                 :--
+Expired time                       :102s
+
+Port VLAN ID(PVID)                 :--
+Port and Protocol VLAN ID(PPVID)   :--
+Port and Protocol VLAN supported   :--
+Port and Protocol VLAN enabled     :--
+VLAN name of VLAN                  :--
+Protocol identity                  :--
+Auto-negotiation supported         :--
+Auto-negotiation enabled           :--
+OperMau                            :speed (--) /duplex (--)
+Link aggregation supported         :--
+Link aggregation enabled           :--
+Aggregation port ID                :--
+Maximum frame Size                 :--
+Port Identity                      :--
+Discovered time                    :2026-03-11 14:29:07+01:00
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+10GE1/0/27 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :d039-ea91-5cbb
+Port ID subtype                    :MAC Address
+Port ID                            :d039-ea91-5cbb
+Port description                   :--
+System name                        :--
+System description                 :--
+System capabilities supported      :--
+System capabilities enabled        :--
+Management address type            :--
+Management address                 :--
+Expired time                       :95s
+
+Port VLAN ID(PVID)                 :--
+Port and Protocol VLAN ID(PPVID)   :--
+Port and Protocol VLAN supported   :--
+Port and Protocol VLAN enabled     :--
+VLAN name of VLAN                  :--
+Protocol identity                  :--
+Auto-negotiation supported         :--
+Auto-negotiation enabled           :--
+OperMau                            :speed (--) /duplex (--)
+Link aggregation supported         :--
+Link aggregation enabled           :--
+Aggregation port ID                :--
+Maximum frame Size                 :--
+Port Identity                      :--
+Discovered time                    :2026-03-11 14:53:20+01:00
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+10GE1/0/28 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :d039-ea91-5cbd
+Port ID subtype                    :MAC Address
+Port ID                            :d039-ea91-5cbd
+Port description                   :--
+System name                        :--
+System description                 :--
+System capabilities supported      :--
+System capabilities enabled        :--
+Management address type            :--
+Management address                 :--
+Expired time                       :102s
+
+Port VLAN ID(PVID)                 :--
+Port and Protocol VLAN ID(PPVID)   :--
+Port and Protocol VLAN supported   :--
+Port and Protocol VLAN enabled     :--
+VLAN name of VLAN                  :--
+Protocol identity                  :--
+Auto-negotiation supported         :--
+Auto-negotiation enabled           :--
+OperMau                            :speed (--) /duplex (--)
+Link aggregation supported         :--
+Link aggregation enabled           :--
+Aggregation port ID                :--
+Maximum frame Size                 :--
+Port Identity                      :--
+Discovered time                    :2026-03-11 14:53:15+01:00
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+10GE1/0/29 has 0 neighbor(s)
+
+10GE1/0/30 has 0 neighbor(s)
+
+10GE1/0/31 has 0 neighbor(s)
+
+10GE1/0/32 has 0 neighbor(s)
+
+10GE1/0/33 has 0 neighbor(s)
+
+10GE1/0/34 has 0 neighbor(s)
+
+10GE1/0/35 has 0 neighbor(s)
+
+10GE1/0/36 has 0 neighbor(s)
+
+10GE1/0/37 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :5c6f-69e7-9711
+Port ID subtype                    :MAC Address
+Port ID                            :5c6f-69e7-9711
+Port description                   :NIC 1/10Gb SFP+ DA
+System name                        :Broadcom Adv. Dual 10Gb Ethernet fw_version:AFW_229.2.52.0
+System description                 :fw_version:AFW_229.2.52.0
+System capabilities supported      :stationOnly
+System capabilities enabled        :stationOnly
+Management address type            :all802
+Management address                 :5c6f-69e7-9711
+Expired time                       :111s
+
+Port VLAN ID(PVID)                 :--
+Port and Protocol VLAN ID(PPVID)   :--
+Port and Protocol VLAN supported   :--
+Port and Protocol VLAN enabled     :--
+VLAN name of VLAN                  :--
+Protocol identity                  :--
+Auto-negotiation supported         :--
+Auto-negotiation enabled           :--
+OperMau                            :speed (--) /duplex (--)
+Link aggregation supported         :--
+Link aggregation enabled           :--
+Aggregation port ID                :--
+Maximum frame Size                 :--
+Port Identity                      :--
+Discovered time                    :2025-09-18 08:05:37+02:00 DST
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+10GE1/0/38 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :5c6f-69e6-ee71
+Port ID subtype                    :MAC Address
+Port ID                            :5c6f-69e6-ee71
+Port description                   :NIC 1/10Gb SFP+ DA
+System name                        :Broadcom Adv. Dual 10Gb Ethernet fw_version:AFW_229.2.52.0
+System description                 :fw_version:AFW_229.2.52.0
+System capabilities supported      :stationOnly
+System capabilities enabled        :stationOnly
+Management address type            :all802
+Management address                 :5c6f-69e6-ee71
+Expired time                       :109s
+
+Port VLAN ID(PVID)                 :--
+Port and Protocol VLAN ID(PPVID)   :--
+Port and Protocol VLAN supported   :--
+Port and Protocol VLAN enabled     :--
+VLAN name of VLAN                  :--
+Protocol identity                  :--
+Auto-negotiation supported         :--
+Auto-negotiation enabled           :--
+OperMau                            :speed (--) /duplex (--)
+Link aggregation supported         :--
+Link aggregation enabled           :--
+Aggregation port ID                :--
+Maximum frame Size                 :--
+Port Identity                      :--
+Discovered time                    :2026-10-09 15:42:21+02:00 DST
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+10GE1/0/39 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :5c6f-69e6-e9a1
+Port ID subtype                    :MAC Address
+Port ID                            :5c6f-69e6-e9a1
+Port description                   :NIC 1/10Gb SFP+ DA
+System name                        :Broadcom Adv. Dual 10Gb Ethernet fw_version:AFW_229.2.52.0
+System description                 :fw_version:AFW_229.2.52.0
+System capabilities supported      :stationOnly
+System capabilities enabled        :stationOnly
+Management address type            :all802
+Management address                 :5c6f-69e6-e9a1
+Expired time                       :109s
+
+Port VLAN ID(PVID)                 :--
+Port and Protocol VLAN ID(PPVID)   :--
+Port and Protocol VLAN supported   :--
+Port and Protocol VLAN enabled     :--
+VLAN name of VLAN                  :--
+Protocol identity                  :--
+Auto-negotiation supported         :--
+Auto-negotiation enabled           :--
+OperMau                            :speed (--) /duplex (--)
+Link aggregation supported         :--
+Link aggregation enabled           :--
+Aggregation port ID                :--
+Maximum frame Size                 :--
+Port Identity                      :--
+Discovered time                    :2026-10-07 11:17:55+02:00 DST
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+10GE1/0/40 has 0 neighbor(s)
+
+10GE1/0/41 has 0 neighbor(s)
+
+10GE1/0/42 has 0 neighbor(s)
+
+10GE1/0/43 has 0 neighbor(s)
+
+10GE1/0/44 has 0 neighbor(s)
+
+10GE1/0/45 has 0 neighbor(s)
+
+10GE1/0/46 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :a0f8-49f9-8a0c
+Port ID subtype                    :Interface Name
+Port ID                            :te2/0/4
+Port description                   :--
+System name                        :swi-bhq-020
+System description                 :--
+System capabilities supported      :bridge router
+System capabilities enabled        :bridge router
+Management address type            :IPv4
+Management address                 :10.131.63.220
+Management address type            :IPv6
+Management address                 :fe80:0000:0000:0000:a2f8:49ff:fef9:8a0c
+Expired time                       :118s
+
+Port VLAN ID(PVID)                 :0
+Port and Protocol VLAN ID(PPVID)   :--
+Port and Protocol VLAN supported   :--
+Port and Protocol VLAN enabled     :--
+VLAN name of VLAN                  :--
+Protocol identity                  :--
+Auto-negotiation supported         :--
+Auto-negotiation enabled           :--
+OperMau                            :speed (--) /duplex (--)
+Link aggregation supported         :--
+Link aggregation enabled           :--
+Aggregation port ID                :--
+Maximum frame Size                 :--
+Port Identity                      :--
+Discovered time                    :2025-09-18 08:09:47+02:00 DST
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+10GE1/0/47 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :7857-7329-7da0
+Port ID subtype                    :Interface Name
+Port ID                            :XGigabitEthernet0/0/24
+Port description                   :link-swi-bhq-001.48
+System name                        :swi-bhq-003
+System description                 :Huawei Switch S6730-S24X6Q
+Huawei Versatile Routing Platform Software
+VRP (R) software, Version 5.170 (S6730 V200R022C00SPC500)
+Copyright (C) 2000-2022 HUAWEI TECH Co., Ltd.
+System capabilities supported      :bridge router
+System capabilities enabled        :bridge router
+Management address type            :IPv4
+Management address                 :192.168.1.251
+Expired time                       :119s
+
+Port VLAN ID(PVID)                 :1
+Port and Protocol VLAN ID(PPVID)   :unsupported
+VLAN name of VLAN 1                :VLAN 0001
+Protocol identity                  :--
+Auto-negotiation supported         :No
+Auto-negotiation enabled           :No
+OperMau                            :speed (10000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :Yes
+Aggregation port ID                :1
+Maximum frame Size                 :9216
+Port Identity                      :--
+Discovered time                    :2026-06-25 01:46:44+02:00 DST
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+Unrecognized organizationally defined TLV
+  TLV OUI                          :00-18-82
+  TLV subtype                      :30
+  Index                            :1
+  TLV information                  :05 01 00
+  TLV OUI                          :00-18-82
+  TLV subtype                      :40
+  Index                            :1
+  TLV information                  :00 00 00 01
+  TLV OUI                          :00-18-82
+  TLV subtype                      :41
+  Index                            :1
+  TLV information                  :03 01 01 01 0c 31 30 32 30 43 30 31 37 34 34 36 35 02 0c 53 36 37 33 30 2d 53 32 34 58 36 51 03 01 00 01 0c 31 30 32 31 31 30 30 31 30 33 30 35 02 0c 53 36 37 33 30 2d 53 32 34 58 36 51
+
+10GE1/0/48 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :7857-7329-7da0
+Port ID subtype                    :Interface Name
+Port ID                            :XGigabitEthernet1/0/23
+Port description                   :link-swi-bhq-001.47
+System name                        :swi-bhq-003
+System description                 :Huawei Switch S6730-S24X6Q
+Huawei Versatile Routing Platform Software
+VRP (R) software, Version 5.170 (S6730 V200R022C00SPC500)
+Copyright (C) 2000-2022 HUAWEI TECH Co., Ltd.
+System capabilities supported      :bridge router
+System capabilities enabled        :bridge router
+Management address type            :IPv4
+Management address                 :192.168.1.251
+Expired time                       :113s
+
+Port VLAN ID(PVID)                 :1
+Port and Protocol VLAN ID(PPVID)   :unsupported
+VLAN name of VLAN 1                :VLAN 0001
+Protocol identity                  :--
+Auto-negotiation supported         :No
+Auto-negotiation enabled           :No
+OperMau                            :speed (10000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :Yes
+Aggregation port ID                :1
+Maximum frame Size                 :9216
+Port Identity                      :--
+Discovered time                    :2025-09-18 08:09:50+02:00 DST
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--
+
+Unrecognized organizationally defined TLV
+  TLV OUI                          :00-18-82
+  TLV subtype                      :30
+  Index                            :1
+  TLV information                  :05 01 00
+  TLV OUI                          :00-18-82
+  TLV subtype                      :40
+  Index                            :1
+  TLV information                  :00 00 00 01
+  TLV OUI                          :00-18-82
+  TLV subtype                      :41
+  Index                            :1
+  TLV information                  :03 01 01 01 0c 31 30 32 30 43 30 31 37 34 34 36 35 02 0c 53 36 37 33 30 2d 53 32 34 58 36 51 03 01 00 01 0c 31 30 32 31 31 30 30 31 30 33 30 35 02 0c 53 36 37 33 30 2d 53 32 34 58 36 51
+
+MEth0/0/0 has 1 neighbor(s):
+
+Neighbor index                     :1
+Chassis type                       :MAC Address
+Chassis ID                         :a82b-cdb4-7401
+Port ID subtype                    :Interface Name
+Port ID                            :MEth0/0/0
+Port description                   :--
+System name                        :swi-bhq-002
+System description                 :Huawei Versatile Routing Platform Software
+VRP (R) software, Version 8.191 (CE6881 V200R019C10SPC800)
+Copyright (C) 2012-2020 Huawei Technologies Co., Ltd.
+HUAWEI CE6881-48S6CQ
+
+System capabilities supported      :bridge router
+System capabilities enabled        :bridge router
+Management address type            :IPv4
+Management address                 :192.168.255.2
+Expired time                       :98s
+
+Port VLAN ID(PVID)                 :--
+Port and Protocol VLAN ID(PPVID)   :--
+Port and Protocol VLAN supported   :--
+Port and Protocol VLAN enabled     :--
+VLAN name of VLAN                  :--
+Protocol identity                  :--
+Auto-negotiation supported         :--
+Auto-negotiation enabled           :--
+OperMau                            :speed (--) /duplex (--)
+Link aggregation supported         :--
+Link aggregation enabled           :--
+Aggregation port ID                :--
+Maximum frame Size                 :--
+Port Identity                      :--
+Discovered time                    :2025-09-18 08:05:36+02:00 DST
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Network Card ID                    :--

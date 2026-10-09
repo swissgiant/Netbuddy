@@ -118,3 +118,95 @@ def test_parse_meraki_switch_ports() -> None:
     assert 60 in info.vlans  # voiceVlan registriert
     assert set(info.trunk_vlans) == {1, 20, 30, 31, 32}
     assert info.site == "S00 - Steelco HQ"
+
+
+_PROCURVE_CFG = """hostname "swi-bhq-011"
+trunk 1/48,2/48,3/48,4/48 trk10 lacp
+vlan 1
+   name "DEFAULT_VLAN"
+   untagged 1/1-1/47,2/1-2/47
+   ip address 10.131.63.211 255.255.255.0
+   exit
+vlan 1011
+   name "Guest LAN"
+   tagged 1/1-1/3,Trk10
+   exit
+vlan 1027
+   name "Printers"
+   untagged 1/31,1/41
+   tagged Trk10
+   exit
+"""
+
+_HUAWEI_CFG = """sysname swi-bhq-003
+#
+vlan batch 666 1000 1011 to 1013
+#
+vlan 666
+ name Nirvana
+vlan 1011
+ description Guest LAN
+#
+interface Vlanif1063
+ ip address 10.131.63.203 255.255.255.0
+ dhcp select relay
+ dhcp relay server-ip 10.131.11.10
+#
+interface Eth-Trunk1
+ port link-type trunk
+ port trunk allow-pass vlan 2 to 4094
+#
+interface XGigabitEthernet0/0/5
+ port link-type access
+ port default vlan 1011
+#
+interface XGigabitEthernet0/0/6
+ port link-type trunk
+ port trunk allow-pass vlan 666 1000 1011
+#
+"""
+
+_CX_CFG = """hostname swbat01
+vlan 1
+vlan 500
+    description Legacy
+vlan 1064
+    description AP Management
+interface lag 1
+    vlan trunk native 1
+    vlan trunk allowed 1,1011,1027,1031-1033,1063-1064
+interface 1/1/1
+    vlan access 500
+interface 1/1/46
+    vlan access 1064
+interface vlan 1063
+    ip address 10.141.63.201/24
+    ip helper-address 10.141.11.10
+"""
+
+
+def test_parse_procurve_vlan_blocks() -> None:
+    info = parse_cli_config("swi-bhq-011", _PROCURVE_CFG)
+    assert info.vlans == {1: "DEFAULT_VLAN", 1011: "Guest LAN", 1027: "Printers"}
+    assert info.access_ports == {1: 94, 1027: 2}
+    assert info.trunk_vlans == [1011, 1027]
+    assert [(s.vlan_id, s.ip) for s in info.svis] == [(1, "10.131.63.211")]
+
+
+def test_parse_huawei_vrp_config() -> None:
+    info = parse_cli_config("swi-bhq-003", _HUAWEI_CFG)
+    assert set(info.vlans) == {666, 1000, 1011, 1012, 1013, 1063}
+    assert info.vlans[666] == "Nirvana" and info.vlans[1011] == "Guest LAN"
+    assert info.access_ports == {1011: 1}
+    assert info.trunk_vlans == [666, 1000, 1011]  # "2 to 4094" = Catch-all, zählt nicht
+    svi = info.svis[0]
+    assert (svi.vlan_id, svi.ip, svi.helpers) == (1063, "10.131.63.203", ["10.131.11.10"])
+
+
+def test_parse_aruba_cx_config() -> None:
+    info = parse_cli_config("swbat01", _CX_CFG)
+    assert info.vlans[500] == "Legacy" and info.vlans[1064] == "AP Management"
+    assert info.access_ports == {500: 1, 1064: 1}
+    assert info.trunk_vlans == [1, 1011, 1027, 1031, 1032, 1033, 1063, 1064]
+    svi = info.svis[0]
+    assert (svi.vlan_id, svi.ip, svi.helpers) == (1063, "10.141.63.201", ["10.141.11.10"])

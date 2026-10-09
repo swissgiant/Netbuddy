@@ -1,0 +1,10 @@
+Active-image: flash://system/images/image1.bin
+  Version: 3.1.1.7
+  MD5 Digest: 4805a22186295e82609a0a3e6def88e0
+  Date: 12-Aug-2021
+  Time: 15:02:37
+Inactive-image: flash://system/images/_image1.bin
+  Version: 3.1.1.7
+  MD5 Digest: 4805a22186295e82609a0a3e6def88e0
+  Date: 12-Aug-2021
+  Time: 15:02:37

@@ -1,0 +1,57 @@
+ Status and Counters - General System Information
+
+  System Name        : swi-bhq-011
+  System Contact     : ICT Group
+  System Location    : BHQ
+  MAC Age Time (sec) : 300
+  Time Zone          : 60
+  Daylight Time Rule : Western-Europe
+
+  Software revision  : WB.15.17.0008
+  Base MAC Addr      : 3ca82a-5a1d0b
+
+ Member :1
+
+  ROM Version        : WB.15.05
+  Up Time            : 386 days
+  CPU Util (%)       : 0
+  MAC Addr           : 3ca82a-5a1d00
+  Serial Number      : SG55FLYMDF
+  Memory   - Total   : 162,599,424
+             Free    : 74,648,600
+
+
+
+ Member :2
+
+  ROM Version        : WB.15.05
+  Up Time            : 177 days
+  CPU Util (%)       : 0
+  MAC Addr           : 480fcf-09e240
+  Serial Number      : SG55FLYM83
+  Memory   - Total   : 162,599,424
+             Free    : 89,552,864
+
+
+
+ Member :3
+
+  ROM Version        : WB.15.05
+  Up Time            : 386 days
+  CPU Util (%)       : 4
+  MAC Addr           : 480fcf-09c480
+  Serial Number      : SG55FLYM8F
+  Memory   - Total   : 162,599,424
+             Free    : 76,538,536
+
+
+
+ Member :4
+
+  ROM Version        : WB.15.05
+  Up Time            : 386 days
+  CPU Util (%)       : 0
+  MAC Addr           : 480fcf-09e300
+  Serial Number      : SG55FLYMFC
+  Memory   - Total   : 162,599,424
+             Free    : 89,553,212

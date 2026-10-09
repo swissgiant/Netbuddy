@@ -1,0 +1,6 @@
+Value MODEL (.+?)
+
+Start
+  ^\s+System Description\s*:\s*(?:HP|HPE|Aruba|ProCurve)\s+${MODEL}\s+Switch -> Record Done
+
+Done

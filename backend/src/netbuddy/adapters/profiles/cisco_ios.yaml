@@ -13,6 +13,7 @@ lldp_control:
   config_enter: ["configure terminal"]
   config_exit: ["end"]
   enable_global: ["lldp run"]
+  save: ["write memory"]
 
 capabilities:
   read_system_info:

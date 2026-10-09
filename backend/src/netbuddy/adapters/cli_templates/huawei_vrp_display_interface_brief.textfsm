@@ -1,0 +1,6 @@
+Value INTERFACE (\d*[A-Za-z][\w\-]*?\d[\w/.:\-]*)
+Value PHY (\S+)
+Value PROTOCOL (\S+)
+
+Start
+  ^\s*${INTERFACE}\s+${PHY}\s+${PROTOCOL}(\s+\S+){0,4}\s*$$ -> Record

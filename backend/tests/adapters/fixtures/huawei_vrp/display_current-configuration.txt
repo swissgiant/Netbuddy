@@ -1,0 +1,767 @@
+!Software Version V200R019C10SPC800
+!Last configuration was updated at 2026-09-09 14:50:31+02:00 DST by admin
+!Last configuration was saved at 2026-04-13 11:15:07+02:00 DST by admin
+#
+clock timezone bern add 01:00:00
+clock daylight-saving-time bern repeating 01:00 last Sun Mar 01:00 last Sun Oct 01:00
+#
+sysname swi-bhq-001
+#
+undo ftp server source all-interface
+undo ftp ipv6 server source all-interface
+#
+dfs-group 1
+ priority 150
+ source ip 192.168.255.1 peer 192.168.255.2
+ consistency-check enable mode strict
+ dfs-master led enable
+ dual-active detection enhanced enable
+#
+device board 1 board-type CE6881-48S6CQ
+#
+drop-profile default
+#
+dcb pfc
+#
+ntp server disable
+ntp ipv6 server disable
+ntp server source-interface all disable
+ntp ipv6 server source-interface all disable
+ntp server source-interface Vlanif1063
+ntp unicast-server 172.16.1.110 source-interface Vlanif1063
+#
+vlan batch 130 666 1000 1011 to 1013 1021 to 1027 1031 to 1037 1041 to 1043 1051 to 1058 1061 to 1064 1071 to 1072
+vlan batch 1091 to 1092 1175
+#
+stp bridge-address 0039-0039-0039
+stp mode rstp
+stp v-stp enable
+stp instance 0 root primary
+#
+rsa peer-public-key 172.16.0.1
+ public-key-code begin
+ 3082010A
+  02820101
+    00B959A2 E8F3EC64 FA726DCE DE54DC44 9EEACC8E CD5C191E 049D8A6F 977AC65D
+    997726E1 CAD0A589 E0839314 5DEADD6E 622F1B01 D976BF16 8C2CA2E2 6621BE17
+    019A19EE 6A8D2EC5 C6C8DE89 C9270946 D0DE5AE6 13E57869 7EEA365C 1872972A
+    20379189 6DCF1FF9 A107503F 2694449A F1079F0A C33D3738 960ABD94 7FEF29AE
+    9F626972 FAB24A03 653C1638 116473CC 59FF24A7 580898DF 76D9506A BE99FE40
+    2CF8A594 FAEEB086 64F8C4BD 013ADD7D CCA75ADC 851E679F 55B27143 9B4AF258
+    3B59577A 5F6A8CEF 5564731E FBD529CD 5D17B314 E7F31823 C5EBC9D7 6085A92B
+    B28C3679 7BA1A02E 9DB79923 E6DA2BED 363EACE6 C5792DBA 5524388A 096CB595
+    0F
+  0203
+    010001
+ public-key-code end
+ peer-public-key end
+#
+rsa peer-public-key 192.168.255.1
+ public-key-code begin
+ 3082010A
+  02820101
+    00B959A2 E8F3EC64 FA726DCE DE54DC44 9EEACC8E CD5C191E 049D8A6F 977AC65D
+    997726E1 CAD0A589 E0839314 5DEADD6E 622F1B01 D976BF16 8C2CA2E2 6621BE17
+    019A19EE 6A8D2EC5 C6C8DE89 C9270946 D0DE5AE6 13E57869 7EEA365C 1872972A
+    20379189 6DCF1FF9 A107503F 2694449A F1079F0A C33D3738 960ABD94 7FEF29AE
+    9F626972 FAB24A03 653C1638 116473CC 59FF24A7 580898DF 76D9506A BE99FE40
+    2CF8A594 FAEEB086 64F8C4BD 013ADD7D CCA75ADC 851E679F 55B27143 9B4AF258
+    3B59577A 5F6A8CEF 5564731E FBD529CD 5D17B314 E7F31823 C5EBC9D7 6085A92B
+    B28C3679 7BA1A02E 9DB79923 E6DA2BED 363EACE6 C5792DBA 5524388A 096CB595
+    0F
+  0203
+    010001
+ public-key-code end
+ peer-public-key end
+#
+rsa peer-public-key 192.168.255.2
+ public-key-code begin
+ 3082010A
+  02820101
+    00C89CB7 6F10A1BC 7648D83F C7310D49 A971F4CF 99FD4C16 EB889481 75EE0DB2
+    601159C8 BAEC61F1 6AAC09B8 0EE881B5 CD0416D2 6D3FED0D 5BEA9D0E 84FC2491
+    2B75456A 203E00DE 041DFF19 6DAD0AC5 4EE5AF5D 721287EA 063CCE1C 8FB02DDE
+    33586EE3 58860561 532B8B90 500739E1 B6C5B139 2FC75932 EC3917F1 D213B14E
+    7350EE60 21FEBCB4 7EAADA85 95B1D611 2C2A30DC F9CE1831 F71065BE 9A1E6D11
+    E789128D 678E64F0 C66B7A55 851F9D8F 11BE1112 1BB917BB 1EFEC281 E15EF6A4
+    201723AE 8F603BC3 15931B6E AA60F18F 99049B12 E4F38B7A 0B20C589 6E45652C
+    68041CB5 75AFFEBB D45D13F3 7261132F CC676CBA C8B6E017 59639C79 A47A92AA
+    27
+  0203
+    010001
+ public-key-code end
+ peer-public-key end
+#
+dhcp enable
+#
+telnet server disable
+telnet ipv6 server disable
+undo telnet server-source all-interface
+undo telnet ipv6 server-source all-interface
+#
+diffserv domain default
+#
+dhcp relay server group dhcpgroup1
+ server 172.16.1.110 0
+ server 172.16.1.35 1
+#
+vlan 130
+ description MGM
+ name MGM
+#
+vlan 666
+ name Nirvana
+#
+vlan 1000
+ description CATO
+#
+vlan 1011
+ description Guest LAN
+#
+vlan 1012
+ description DMZ
+#
+vlan 1013
+ description 3rd Party Connections
+#
+vlan 1021
+ description Voice
+#
+vlan 1022
+ description Cameras
+#
+vlan 1023
+ description Badge Readers
+#
+vlan 1024
+ description BMD Acadamy
+#
+vlan 1025
+ description BMD R&D
+#
+vlan 1026
+ description BMD Manufacturing
+#
+vlan 1027
+ description Printers
+#
+vlan 1031
+ description Clients 1 LAN
+#
+vlan 1032
+ description Clients 2 LAN
+#
+vlan 1033
+ description Clients 3 WiFi
+#
+vlan 1034
+ description VDI/RDS
+#
+vlan 1035
+ description Generic Servers
+#
+vlan 1036
+ description Test Clients
+#
+vlan 1037
+ description Test Servers
+#
+vlan 1041
+ description Authentication Services
+#
+vlan 1042
+ description Manufacturing Applications
+#
+vlan 1043
+ description Business Applications
+#
+vlan 1051
+ description Backup
+#
+vlan 1052
+ description storage CIFS
+#
+vlan 1053
+ description Storage CIFS_DR
+#
+vlan 1054
+ description Storage NFS1
+#
+vlan 1055
+ description Storage iSCSI1
+#
+vlan 1056
+ description Storage iSCSI2
+#
+vlan 1057
+ description Storage Repl1
+#
+vlan 1058
+ description Storage Repl2
+#
+vlan 1061
+ description Jumphost
+#
+vlan 1062
+ description Management Tools
+#
+vlan 1063
+ description Management Interfaces
+#
+vlan 1064
+ description AP Management
+#
+vlan 1071
+ description Syslog
+#
+vlan 1072
+ description Forensic
+#
+vlan 1091
+ description Legacy 1
+#
+vlan 1092
+ description Legacy 2
+#
+vlan 1175
+ description BSAG Legacy
+ name "BSAG Legacy"
+#
+aaa
+ undo local-user policy security-enhance
+ local-user admin password irreversible-cipher $1c$QXIi<bHb8A$"aTv.d,G09E{b8Jb\W*Z,y`!>[O7=Y>NhzHXS)NH$
+ local-user admin service-type terminal ssh
+ local-user admin level 3
+ #
+ authentication-scheme default
+ #
+ authorization-scheme default
+ #
+ accounting-scheme default
+ #
+ domain default
+ #
+ domain default_admin
+#
+stack
+#
+license
+#
+interface Vlanif1
+ ip address 172.16.0.1 255.255.248.0
+ mac-address a416-e7e9-7dae
+#
+interface Vlanif130
+ description MGM
+ ip address 172.16.13.2 255.255.255.0
+ vrrp vrid 130 virtual-ip 172.16.13.1
+ vrrp vrid 130 priority 110
+ vrrp vrid 130 preempt timer delay 60
+#
+interface Vlanif1000
+ description Cato-peering
+ ip address 10.131.0.1 255.255.255.240
+ mac-address a416-e7e9-7dae
+#
+interface Vlanif1063
+ description Management interface
+ ip address 10.131.63.201 255.255.255.0
+#
+interface MEth0/0/0
+ ip address 192.168.255.1 255.255.255.252
+#
+interface Eth-Trunk0
+ mode lacp-static
+ peer-link 1
+#
+interface Eth-Trunk21
+ description nfs-sto4
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 666 1054
+ stp edged-port enable
+ mode lacp-static
+ dfs-group 1 m-lag 21
+#
+interface Eth-Trunk27
+ description Uplink CATO1.6
+ port link-type trunk
+ port trunk pvid vlan 1000
+ port trunk allow-pass vlan 2 to 4094
+ stp root-protection
+ dfs-group 1 m-lag 27
+#
+interface Eth-Trunk28
+ description Uplink CATO2.6
+ port link-type trunk
+ port trunk pvid vlan 1000
+ port trunk allow-pass vlan 2 to 4094
+ stp root-protection
+ dfs-group 1 m-lag 28
+#
+interface Eth-Trunk29
+ description nfs-sto3
+ port default vlan 1054
+ stp edged-port enable
+ mode lacp-dynamic
+ lacp timeout fast
+ dfs-group 1 m-lag 29
+ lacp port-id-extension enable
+#
+interface Eth-Trunk42
+ description swi-bhq-020
+ port link-type trunk
+ port trunk allow-pass vlan 2 to 4094
+ stp root-protection
+ dfs-group 1 m-lag 42
+#
+interface Eth-Trunk48
+ description swi-bhq-003
+ port link-type trunk
+ port trunk allow-pass vlan 2 to 4094
+ stp root-protection
+ mode lacp-static
+ dfs-group 1 m-lag 48
+#
+interface Eth-Trunk110
+ description stobchz-001-n1-e0d
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 666 1057
+ stp root-protection
+ stp edged-port enable
+ mode lacp-static
+ dfs-group 1 m-lag 110
+#
+interface Eth-Trunk111
+ description stobchz-001-n1-e0f
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 666 1052 1054 1056 to 1057
+ stp root-protection
+ stp edged-port enable
+ mode lacp-static
+ dfs-group 1 m-lag 111
+#
+interface Eth-Trunk112
+ description stobchz-001-n2-e0d
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 666 1057
+ stp root-protection
+ stp edged-port enable
+ mode lacp-static
+ dfs-group 1 m-lag 112
+#
+interface Eth-Trunk113
+ description stobchz-001-n2-e0f
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 666 1052 1054 1056 to 1057
+ stp root-protection
+ stp edged-port enable
+ mode lacp-static
+ dfs-group 1 m-lag 113
+#
+interface Eth-Trunk114
+ description stobchz-002-e0d.intercluster
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 666 1057
+ stp root-protection
+ stp edged-port enable
+ mode lacp-static
+ dfs-group 1 m-lag 114
+#
+interface Eth-Trunk115
+ description stobchz-002-e0f.NFS
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 666 1052 1054
+ stp root-protection
+ stp edged-port enable
+ mode lacp-static
+ dfs-group 1 m-lag 115
+#
+interface Eth-Trunk116
+ description stobchz-002-n2-e0d
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 666 1057
+ stp root-protection
+ stp edged-port enable
+ mode lacp-static
+ dfs-group 1 m-lag 116
+#
+interface Eth-Trunk117
+ description stobchz-002-n2-e0f
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 250 666 1052 1054 1057
+ stp root-protection
+ stp edged-port enable
+ mode lacp-static
+ dfs-group 1 m-lag 117
+#
+interface Eth-Trunk118
+ description stobchz-005-n01
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 666 1052 1054 1056 to 1057
+ stp root-protection
+ stp edged-port enable
+ mode lacp-static
+ dfs-group 1 m-lag 118
+#
+interface Eth-Trunk119
+ description stobchz-005-n02
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 666 1052 1054 1056 to 1057
+ stp root-protection
+ stp edged-port enable
+ mode lacp-static
+ dfs-group 1 m-lag 119
+#
+interface Eth-Trunk120
+ description soo-nas1
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 666 1052 to 1057
+ stp root-protection
+ stp edged-port enable
+ mode lacp-static
+ dfs-group 1 m-lag 120
+#
+interface Eth-Trunk121
+ description soo-nas1
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 666 1052 to 1057
+ stp root-protection
+ stp edged-port enable
+ mode lacp-static
+ dfs-group 1 m-lag 121
+#
+interface 10GE1/0/1
+ description spbchz-esxi01-vmnic6
+ port default vlan 1062
+ stp edged-port enable
+ device transceiver 10GBASE-FIBER
+#
+interface 10GE1/0/2
+ description spbchz-esxi02-vmnic6
+ port default vlan 1062
+ stp edged-port enable
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/3
+ description spbchz-esxi03-vmnic6
+ port default vlan 1062
+ stp edged-port enable
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/4
+ description spbchz-esxi01.vmnic5
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 1054
+ stp edged-port enable
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/5
+ description spbchz-esxi02.vmnic5
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 1054
+ stp edged-port enable
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/6
+ description spbchz-esxi03.vmnic5
+ port link-type trunk
+ port trunk pvid vlan 666
+ port trunk allow-pass vlan 1054
+ stp edged-port enable
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/7
+ description CH-SP-P-VEEAM-1-nic1
+ port default vlan 1051
+ device transceiver 1000BASE-T
+#
+interface 10GE1/0/8
+#
+interface 10GE1/0/9
+#
+interface 10GE1/0/10
+#
+interface 10GE1/0/11
+#
+interface 10GE1/0/12
+#
+interface 10GE1/0/13
+ description soo-nas1-n01-e2a
+ eth-trunk 120
+ device transceiver 10GBASE-FIBER
+#
+interface 10GE1/0/14
+ description soo-nas1-n02-e2a
+ eth-trunk 121
+ device transceiver 10GBASE-FIBER
+#
+interface 10GE1/0/15
+ description stobch-003-nic6
+ eth-trunk 29
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/16
+ description CH-SP-P-VEEAM-1-nicB
+ port link-type trunk
+ port trunk pvid vlan 1054
+ port trunk allow-pass vlan 1054 to 1056 1062
+ stp edged-port enable
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/17
+ device transceiver 10GBASE-FIBER
+#
+interface 10GE1/0/18
+ device transceiver 10GBASE-FIBER
+#
+interface 10GE1/0/19
+ description s00s-sto1-mgmt
+ port default vlan 1063
+ stp edged-port enable
+ device transceiver 1000BASE-T
+#
+interface 10GE1/0/20
+#
+interface 10GE1/0/21
+ description stobch-004-nic6
+ eth-trunk 21
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/22
+ description stobch-005-mgmt
+ port default vlan 1063
+ stp edged-port enable
+ device transceiver 1000BASE-T
+#
+interface 10GE1/0/23
+ description stobchz-005-n01-e2a
+ eth-trunk 118
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/24
+ description stobchz-005-n02-e2a
+ eth-trunk 119
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/25
+ description stobchz-002-n2-e0d
+ eth-trunk 116
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/26
+ description stobchz-002-n2-e0f
+ eth-trunk 117
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/27
+ description stobchz-002-e0d.intercluster
+ eth-trunk 114
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/28
+ description stobchz-002-e0f.NFS
+ eth-trunk 115
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/29
+ description stobchz-001-n2-e0d
+ eth-trunk 112
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/30
+ description stobchz-001-n2-e0f
+ eth-trunk 113
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/31
+ description stobchz-001-n1-e0d
+ eth-trunk 110
+ device transceiver 10GBASE-FIBER
+#
+interface 10GE1/0/32
+ description stobchz-001-n1-e0f
+ eth-trunk 111
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/33
+ description esx-mgmt
+ port default vlan 1063
+ stp edged-port enable
+ device transceiver 1000BASE-T
+ speed auto 1000
+#
+interface 10GE1/0/34
+ description esx-LAN
+ port link-type trunk
+ port trunk allow-pass vlan 1011 to 1013 1034 to 1037 1041 to 1043 1051 1061 to 1064 1071 to 1072 1091 to 1092 1175
+ stp edged-port enable
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/35
+ description esx-Storage
+ port link-type trunk
+ port trunk allow-pass vlan 1054
+ stp edged-port enable
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/36
+#
+interface 10GE1/0/37
+ description spbchz-esxi01.vmnic3
+ port link-type trunk
+ port trunk allow-pass vlan 1011 to 1013 1024 1034 to 1037 1041 to 1043 1051 1054 1061 to 1064 1071 to 1072 1091 to 1092
+ stp edged-port enable
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/38
+ description spbchz-esxi02.vmnic3
+ port link-type trunk
+ port trunk allow-pass vlan 1011 to 1013 1024 1034 to 1037 1041 to 1043 1051 1054 1061 to 1064 1071 to 1072 1091 to 1092
+ stp edged-port enable
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/39
+ description spbchz-esxi03.vmnic3
+ port link-type trunk
+ port trunk allow-pass vlan 1011 to 1013 1024 1034 to 1037 1041 to 1043 1051 1054 1061 to 1064 1071 to 1072 1091 to 1092
+ stp edged-port enable
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/40
+#
+interface 10GE1/0/41
+#
+interface 10GE1/0/42
+#
+interface 10GE1/0/43
+ description CATO1_LAN4
+ eth-trunk 27
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/44
+ description CATO2_LAN4
+ eth-trunk 28
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/45
+#
+interface 10GE1/0/46
+ description CiscoSW
+ eth-trunk 42
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/47
+ description swi-bhq-003
+ eth-trunk 48
+ device transceiver 10GBASE-COPPER
+#
+interface 10GE1/0/48
+ description swi-bhq-003
+ eth-trunk 48
+ device transceiver 10GBASE-COPPER
+#
+interface 100GE1/0/1
+ description STACK-SW1-int100GE1/0/1
+ eth-trunk 0
+ device transceiver 100GBASE-COPPER
+#
+interface 100GE1/0/2
+ description STACK-SW1-int100GE1/0/2
+ eth-trunk 0
+ device transceiver 100GBASE-COPPER
+#
+interface 100GE1/0/3
+#
+interface 100GE1/0/4
+#
+interface 100GE1/0/5
+#
+interface 100GE1/0/6
+#
+interface NULL0
+#
+ip route-static 0.0.0.0 0.0.0.0 10.131.0.14
+ip route-static 172.16.21.0 255.255.255.0 172.16.254.42
+ip route-static 172.16.22.0 255.255.255.0 172.16.254.42
+#
+snmp-agent
+snmp-agent local-engineid 800007DB037CD9A0A92F01
+#
+snmp-agent sys-info location B-HQ
+snmp-agent sys-info version v2c v3
+snmp-agent group v3 checkmk privacy
+#
+snmp-agent mib-view included monitoringView interfaces
+snmp-agent mib-view included monitoringView internet
+snmp-agent mib-view included monitoringView iso
+snmp-agent mib-view included monitoringView mib-2
+snmp-agent mib-view included monitoringView system
+snmp-agent usm-user v3 monitoring
+snmp-agent usm-user v3 monitoring group checkmk
+snmp-agent usm-user v3 monitoring authentication-mode sha2-512 cipher %^%#&c&";;!mCRk+(t"P-I%Ab>QP#(E^W6y&QSN4]`-7Ot#6PWff{7^4qd89tkc#%^%#
+snmp-agent usm-user v3 monitoring privacy-mode aes128 cipher %^%#j=u~9c5,g4T.LC:Zn!A4hVEX~"Dw&0T>V_9y{aO*S2HPD;he+Z;o=oU{B"vX%^%#
+#
+snmp-agent protocol get-bulk timeout 30
+#
+snmp-agent protocol source-interface Vlanif1063
+undo snmp-agent protocol source-status all-interface
+undo snmp-agent protocol source-status ipv6 all-interface
+#
+undo snmp-agent proxy protocol source-status all-interface
+undo snmp-agent proxy protocol source-status ipv6 all-interface
+#
+lldp enable
+#
+stelnet server enable
+ssh server-source all-interface
+undo ssh ipv6 server-source all-interface
+ssh authorization-type default aaa
+#
+ssh server cipher aes256_gcm aes128_gcm aes256_ctr aes192_ctr aes128_ctr
+ssh server hmac sha2_512 sha2_256
+ssh server key-exchange dh_group_exchange_sha256
+#
+ssh server publickey rsa
+#
+ssh server dh-exchange min-len 2048
+#
+ssh client first-time enable
+ssh client peer 172.16.0.1 assign rsa-key 172.16.0.1
+ssh client peer 192.168.255.1 assign rsa-key 192.168.255.1
+ssh client peer 192.168.255.2 assign rsa-key 192.168.255.2
+#
+ssh client publickey rsa
+#
+ssh client cipher aes256_gcm aes128_gcm aes256_ctr aes192_ctr aes128_ctr
+ssh client hmac sha2_512 sha2_256
+ssh client key-exchange dh_group_exchange_sha256
+#
+dns resolve
+dns server 10.254.254.1
+dns server 10.131.0.14
+dns domain corp.belimed.com
+#
+user-interface con 0
+ authentication-mode none
+#
+user-interface vty 0 4
+ authentication-mode aaa
+ user privilege level 3
+ protocol inbound ssh
+#
+return

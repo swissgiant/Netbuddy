@@ -1,0 +1,17 @@
+Huawei Versatile Routing Platform Software
+VRP (R) software, Version 8.191 (CE6881 V200R019C10SPC800)
+Copyright (C) 2012-2020 Huawei Technologies Co., Ltd.
+HUAWEI CE6881-48S6CQ uptime is 386 days, 12 hours, 31 minutes
+Patch Version: V200R019SPH006
+
+CE6881-48S6CQ(Master) 1 : uptime is  386 days, 12 hours, 30 minutes
+        StartupTime 2025/09/18   08:05:08+01:00
+Memory    Size    : 4096 M bytes
+Flash     Size    : 4096 M bytes
+CE6881-48S6CQ version information
+1. PCB    Version : CEM48S6CQP05    VER C
+2. MAB    Version : 4
+3. Board  Type    : CE6881-48S6CQ
+4. CPLD1  Version : 259
+5. CPLD2  Version : 259
+6. BIOS   Version : 1262

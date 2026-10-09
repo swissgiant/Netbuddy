@@ -1,0 +1,9 @@
+Total number of entries: 4
+
+
+  VLAN    Interface     IP address        HW address          status
+--------------------- --------------- ------------------- ---------------
+vlan 1063  Po1        10.131.63.1     b6:d0:04:02:00:02   dynamic
+vlan 1063  Po1        10.131.63.201   7c:d9:a0:a9:2f:0f   dynamic
+vlan 1063  Po1        10.131.63.202   a8:2b:cd:b4:74:0f   dynamic
+vlan 1063  Po1        10.131.63.203   78:57:73:29:7d:ae   dynamic

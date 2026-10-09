@@ -1,0 +1,83 @@
+# ArubaOS-Switch / HP ProCurve (2530, 2540, 2920, 5400R, …). read-only + LLDP-/Backup-Pfad.
+# LIVE validiert 9.10.2026 bei Belimed: swi-bhq-011 (2920-48G-Stack, WB.15.17), swi-bsag-013
+# (2530-48G, YA.15.14), SWBSI-CORE-01 (5406Rzl2, KB.16.03), BSI_A_Aruba2540 (YC.16.10).
+# Terminal: VT100-Escapes + "Press any key"-Banner → RawShellTransport (Dialekt aruba_procurve).
+adapter_id: aruba_procurve
+ntc_platform: hp_procurve
+provenance: "ArubaOS-Switch/ProCurve — live-validated (HP 2920 WB.15.17 stack, 2530 YA.15.14, 5406R KB.16.03, Aruba 2540 YC.16.10)"
+
+backup_command: "show running-config"
+
+# `show lldp config` → "LLDP Enabled [Yes] : Yes". Global: `lldp run`, Save: `write memory`.
+lldp_control:
+  status_command: "show lldp config"
+  enabled_marker: 'LLDP Enabled\s*\[\w+\]\s*:\s*Yes'
+  config_enter: ["configure"]
+  config_exit: ["exit"]
+  enable_global: ["lldp run"]
+  save: ["write memory"]
+
+capabilities:
+  read_system_info:
+    sources:
+      - { command: "show system", parser: "textfsm:aruba_procurve_show_system.textfsm" }
+      - command: "show lldp info local-device"
+        parser: "textfsm:aruba_procurve_show_lldp_info_local-device.textfsm"
+    fields:
+      hostname: { from: name, via: [strip_or_none], default: "" }
+      vendor: { const: hp }
+      model: { from: model, via: [strip_or_none] }
+      os_version: { from: version, via: [strip_or_none] }
+      serial_number: { from: serial, via: [strip_or_none] }
+      device_type: { const: switch }
+
+  read_interfaces:
+    command: "show interfaces brief"
+    parser: "textfsm:aruba_procurve_show_interfaces_brief.textfsm"
+    fields:
+      name: port
+      admin_status:
+        from: enabled
+        via:
+          - lower
+          - lookup:
+              table: { "yes": up, "no": down }
+              default: unknown
+      oper_status:
+        from: status
+        via:
+          - lower
+          - lookup:
+              table: { up: up, down: down }
+              default: unknown
+      interface_type: { from: type, via: [strip_or_none] }
+
+  read_lldp:
+    # Summary-Tabelle (das Detail-Format gibt es nur je Port). PortId/PortDescr sind dort
+    # gekürzt ("XGi..."), SysName reicht für die Topologie-Zuordnung.
+    command: "show lldp info remote-device"
+    parser: ntc
+    fields:
+      local_interface: local_interface
+      remote_chassis_id: { from: chassis_id, via: [mac_or_raw] }
+      remote_port_id: neighbor_interface
+      remote_port_description: { from: neighbor_description, via: [strip_or_none] }
+      remote_system_name: { from: neighbor_name, via: [strip_or_none] }
+
+  read_arp:
+    command: "show arp"
+    parser: ntc
+    drop_when_empty: [mac_address]
+    fields:
+      ip_address: ip_address
+      mac_address: { from: mac_address, via: [mac_or_none] }
+      interface: { from: port, via: [strip_or_none] }
+
+  read_mac_table:
+    command: "show mac-address"
+    parser: ntc
+    drop_when_empty: [interface, mac_address]
+    fields:
+      mac_address: { from: mac_address, via: [mac_or_none] }
+      interface: { from: port, via: [strip_or_none] }
+      vlan_id: { from: vlan_id, via: [int_or_none] }

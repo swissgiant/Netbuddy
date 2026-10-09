@@ -1,5 +1,59 @@
-Port      VLAN   Type    Enabled  Status   Reason          Speed   Description
---------- ------ ------- -------- -------- --------------- ------- -----------
-1/1/1     1      1000SFP yes      up       --              1000    uplink-core
-1/1/2     10     1000T   yes      down     Administratively 0      ap-01
-1/1/3     20     1000T   no       down     Administratively 0
+--------------------------------------------------------------------------------------------------------------
+Port      Native  Mode   Type           Enabled Status  Reason                 Speed   Description
+          VLAN                                                                 (Mb/s)
+--------------------------------------------------------------------------------------------------------------
+1/1/1     500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/2     500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/3     500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/4     500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/5     500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/6     500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/7     500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/8     500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/9     500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/10    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/11    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/12    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/13    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/14    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/15    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/16    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/17    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/18    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/19    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/20    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/21    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/22    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/23    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/24    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/25    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/26    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/27    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/28    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/29    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/30    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/31    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/32    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/33    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/34    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/35    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/36    500     access 1GbT           yes     up                             1000    --
+1/1/37    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/38    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/39    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/40    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/41    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/42    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/43    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/44    500     access 1GbT           yes     down    Waiting for link       --      --
+1/1/45    1064    trunk  1GbT           yes     down    Waiting for link       --      apbat02
+1/1/46    1064    trunk  1GbT           yes     up                             1000    apbat01
+1/1/47    1       trunk  1GbT           yes     up                             1000    CATO-LAN1
+1/1/48    500     trunk  1GbT           yes     up                             1000    CATO-LAN2-Legacy
+1/1/49    1       access --             yes     down    No XCVR installed      --      --
+1/1/50    1       access --             yes     down    No XCVR installed      --      --
+1/1/51    1       access --             yes     down    No XCVR installed      --      --
+1/1/52    1       access --             yes     down    No XCVR installed      --      --
+vlan1     --             --             yes     up                             --      --
+vlan1063  --             --             yes     up                             --      --
+lag1      1       trunk  --             yes     up      --                     1000    CATO

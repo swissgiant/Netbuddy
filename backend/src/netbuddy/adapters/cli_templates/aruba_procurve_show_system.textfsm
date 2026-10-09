@@ -1,0 +1,13 @@
+Value NAME (\S+)
+Value VERSION (\S+)
+Value MAC (\S+)
+Value SERIAL (\S+)
+
+Start
+  ^\s+System Name\s+:\s+${NAME}
+  ^\s+Software revision\s+:\s+${VERSION}\s+Base MAC Addr\s+:\s+${MAC}
+  ^\s+Software revision\s+:\s+${VERSION}
+  ^\s+Base MAC Addr\s+:\s+${MAC}
+  ^.*Serial Number\s+:\s+${SERIAL} -> Done
+
+Done

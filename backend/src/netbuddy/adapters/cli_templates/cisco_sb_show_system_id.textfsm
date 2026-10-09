@@ -1,0 +1,7 @@
+Value SERIAL (\S+)
+
+Start
+  ^\s*\d+\s+${SERIAL}\s*$$ -> Record Done
+  ^\s*Serial number\s*:\s*${SERIAL} -> Record Done
+
+Done

@@ -1,0 +1,10 @@
+Value LOCAL_PORT (\S+)
+Value CHASSIS_ID (\S+)
+Value PORT_ID (\S+)
+Value SYSTEM_NAME (\S+)
+Value CAPS ([A-Za-z]+(?:, [A-Za-z]+)*)
+Value TTL (\d+)
+
+Start
+  ^\s*${LOCAL_PORT}\s+${CHASSIS_ID}\s+${PORT_ID}\s+${SYSTEM_NAME}\s+${CAPS}\s+${TTL}\s*$$ -> Record
+  ^\s*${LOCAL_PORT}\s+${CHASSIS_ID}\s+${PORT_ID}\s+${CAPS}\s+${TTL}\s*$$ -> Record

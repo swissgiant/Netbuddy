@@ -1,0 +1,220 @@
+config-file-header
+swi-bhq-020
+v3.1.1.7 / RCBS3.1_930_871_081
+CLI v1.0
+file SSD indicator encrypted
+@
+ssd-control-start
+ssd config
+ssd file passphrase control unrestricted
+no ssd file integrity control
+ssd-control-end cb0a3fdb1f3a1af4e4430033719968c0
+!
+!
+unit-type-control-start
+unit-type unit 1 network fi uplink te
+unit-type unit 2 network fi uplink te
+unit-type unit 3 network fi uplink te
+unit-type unit 4 network fi uplink te
+unit-type-control-end
+!
+vlan database
+vlan 1011-1013,1021-1027,1031-1037,1041,1054,1062-1064
+exit
+voice vlan oui-table add 0001e3 Siemens_AG_phone
+voice vlan oui-table add 00036b Cisco_phone
+voice vlan oui-table add 00096e Avaya
+voice vlan oui-table add 000fe2 H3C_Aolynk
+voice vlan oui-table add 0060b9 Philips_and_NEC_AG_phone
+voice vlan oui-table add 00d01e Pingtel_phone
+voice vlan oui-table add 00e075 Polycom/Veritel_phone
+voice vlan oui-table add 00e0bb 3Com_phone
+bonjour interface range vlan 1
+hostname swi-bhq-020
+line console
+exec-timeout 30
+exit
+line ssh
+exec-timeout 30
+exit
+username admin password encrypted $15$2yOqRw8XAuJ841g4$bSg5+iFImepQdOK9z95SSR0zAGBKxKRQcYQ54WwCtkouC2A6POrhSK2S4PqtLshr08LhHLg6i1rvLGuPTnDBCw== privilege 15
+username adm.mva password encrypted $15$fba72Ujo0N4R/rGj$4uM3NVO3I+fz35xQxEUuDIGVTAJQvuQqj/Fe9F3sZRx1JoxNH+HGN098O+12byjlsZ76R1omUn5gfEG0/PxU5w== privilege 15
+ip ssh server
+snmp-server server
+snmp-server location "BHQ Rack2 H13"
+snmp-server contact "ICT Group"
+snmp-server view monitoring system included
+snmp-server view monitoring interfaces included
+snmp-server view monitoring ip included
+snmp-server community SNMP-Belimed ro view monitoring
+snmp-server group checkmk v3 priv read monitoring
+ip http timeout-policy 1800
+no ip http server
+clock timezone J +1
+clock summer-time web recurring eu
+sntp server 172.16.1.110
+no sntp server pool.ntp.org
+no sntp server time-a.timefreq.bldrdoc.gov
+no sntp server time-b.timefreq.bldrdoc.gov
+no sntp server time-c.timefreq.bldrdoc.gov
+no sntp server time-pnp.cisco.com
+no ip domain lookup
+ip domain name corp.belimed.com
+ip name-server  10.131.0.14
+!
+interface vlan 1
+ no ip address dhcp
+!
+interface vlan 1011
+ name "Guest LAN"
+!
+interface vlan 1012
+ name DMZ
+!
+interface vlan 1013
+ name "3rd Party Connections"
+!
+interface vlan 1021
+ name Voice
+!
+interface vlan 1022
+ name Cameras
+!
+interface vlan 1023
+ name "Badge Readers"
+!
+interface vlan 1024
+ name "BMD Acadamy"
+!
+interface vlan 1025
+ name "BMD R&D"
+!
+interface vlan 1026
+ name "BMD Manufacturing"
+!
+interface vlan 1027
+ name Printers
+!
+interface vlan 1031
+ name "Clients 1 LAN"
+!
+interface vlan 1032
+ name "Clients 2 LAN"
+!
+interface vlan 1033
+ name "Clients WiFi"
+!
+interface vlan 1034
+ name VDI/RDS
+!
+interface vlan 1035
+ name "Generic Servers"
+!
+interface vlan 1036
+ name "Test Clients"
+!
+interface vlan 1037
+ name "Test Servers"
+!
+interface vlan 1041
+ name "Authentication Services"
+!
+interface vlan 1054
+ name NFS
+!
+interface vlan 1062
+ name "Management Tools"
+!
+interface vlan 1063
+ name Management
+ ip address 10.131.63.220 255.255.255.0
+!
+interface vlan 1064
+ name "AP Management"
+!
+interface FiveGigabitEthernet1/0/1
+ switchport access vlan 1062
+!
+interface FiveGigabitEthernet1/0/2
+ description ewp-g4dnd43
+ switchport access vlan 1034
+!
+interface FiveGigabitEthernet1/0/3
+ description ewp-j4dnd43
+ switchport access vlan 1034
+!
+interface FiveGigabitEthernet1/0/5
+ description apbhq-ap258
+ switchport mode trunk
+ switchport access vlan 1064
+ switchport trunk native vlan 1064
+ switchport trunk allowed vlan 1,1011,1033,1064
+!
+interface FiveGigabitEthernet1/0/6
+ description apbhq-ap260
+ switchport mode trunk
+ switchport trunk native vlan 1064
+ switchport trunk allowed vlan 1,1011,1033,1064
+!
+interface FiveGigabitEthernet1/0/7
+ description apbhq-ap262
+ switchport mode trunk
+ switchport trunk native vlan 1064
+ switchport trunk allowed vlan 1,1011,1033,1064
+!
+interface FiveGigabitEthernet1/0/8
+ switchport mode trunk
+ switchport trunk native vlan 1064
+!
+interface FiveGigabitEthernet1/0/10
+ switchport access vlan 1054
+!
+interface TenGigabitEthernet1/0/3
+ switchport mode trunk
+!
+interface TenGigabitEthernet1/0/4
+ channel-group 1 mode on
+ switchport mode trunk
+!
+interface FiveGigabitEthernet2/0/1
+ switchport access vlan 1063
+!
+interface FiveGigabitEthernet2/0/2
+ switchport access vlan 1063
+!
+interface FiveGigabitEthernet2/0/5
+ description apbhq-p259
+ switchport mode trunk
+ switchport trunk native vlan 1064
+ switchport trunk allowed vlan 1,1011,1033,1064
+!
+interface FiveGigabitEthernet2/0/6
+ description apbhq-p261
+ switchport mode trunk
+ switchport trunk native vlan 1064
+ switchport trunk allowed vlan 1,1011,1033,1064
+!
+interface FiveGigabitEthernet2/0/7
+ description apbhq-p082
+ switchport mode trunk
+ switchport trunk native vlan 1064
+ switchport trunk allowed vlan 1-1040,1042-4094
+!
+interface FiveGigabitEthernet2/0/8
+ description apbhq-p179
+ switchport mode trunk
+ switchport trunk native vlan 1064
+ switchport trunk allowed vlan 1-1040,1042-4094
+!
+interface FiveGigabitEthernet2/0/10
+ switchport access vlan 1054
+!
+interface TenGigabitEthernet2/0/4
+ channel-group 1 mode on
+!
+interface Port-Channel1
+ description "CORE Uplink"
+ switchport mode trunk
+!
+exit
+ip default-gateway 10.131.63.1

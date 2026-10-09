@@ -47,3 +47,20 @@ def test_unknown_converter_raises() -> None:
         build_converter("does_not_exist")
     with pytest.raises(ValueError, match="parametrisierter Converter"):
         build_converter({"nope": {}})
+
+
+def test_mac_converters_normalise_vendor_formats() -> None:
+    from netbuddy.adapters.converters import apply_pipeline
+
+    for raw in (
+        "0050-5684-01d7",
+        "005056-8401d7",
+        "00 50 56 84 01 d7",
+        "0050.5684.01d7",
+        "00:50:56:84:01:D7",
+    ):
+        assert apply_pipeline(raw, ["mac_or_none"]) == "00:50:56:84:01:d7"
+    assert apply_pipeline("netapp-02", ["mac_or_none"]) is None
+    assert apply_pipeline("netapp-02", ["mac_or_raw"]) == "netapp-02"
+    assert apply_pipeline("--", ["placeholder_or_none"]) is None
+    assert apply_pipeline(" CATO ", ["placeholder_or_none"]) == "CATO"

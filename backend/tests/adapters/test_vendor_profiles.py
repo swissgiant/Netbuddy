@@ -134,3 +134,85 @@ async def test_cisco_nxos() -> None:
     arp = await a.get_arp()
     assert arp[0].ip_address == "10.137.63.1"
     assert arp[0].interface == "Vlan1063"
+
+
+async def test_aruba_procurve() -> None:
+    a = _adapter("aruba_procurve")
+    info = await a.get_system_info()  # validiert (swi-bhq-011, 2920-Stack bei Belimed)
+    assert (info.hostname, info.vendor, info.model) == ("swi-bhq-011", "hp", "J9728A 2920-48G")
+    assert (info.os_version, info.serial_number) == ("WB.15.17.0008", "SG55FLYMDF")
+    interfaces = await a.get_interfaces()
+    assert len(interfaces) == 192 and interfaces[0].name == "1/1"
+    assert interfaces[0].admin_status.value == "up" and interfaces[0].oper_status.value == "down"
+    neighbors = await a.get_lldp_neighbors()
+    uplink = next(n for n in neighbors if n.local_interface == "1/48")
+    assert uplink.remote_system_name == "swi-bhq-003"
+    assert uplink.remote_chassis_id == "78:57:73:29:7d:a0"  # "78 57 73 29 7d a0" normalisiert
+    macs = await a.get_mac_table()
+    assert macs[0].mac_address == "00:50:56:84:01:d7" and macs[0].interface == "Trk10"
+    arp = await a.get_arp()
+    assert arp[0].ip_address == "10.131.63.1" and arp[0].mac_address == "b6:d0:04:02:00:02"
+
+
+async def test_huawei_vrp() -> None:
+    a = _adapter("huawei_vrp")
+    info = await a.get_system_info()  # validiert (swi-bhq-001, CE6881 bei Belimed)
+    assert (info.vendor, info.model, info.serial_number) == (
+        "huawei",
+        "CE6881-48S6CQ",
+        "DU20C0000219",
+    )
+    assert info.os_version == "CE6881 V200R019C10SPC800"
+    interfaces = await a.get_interfaces()
+    assert next(i for i in interfaces if i.name == "10GE1/0/1").oper_status.value == "up"
+    assert next(i for i in interfaces if i.name == "100GE1/0/3").oper_status.value == "down"
+    neighbors = await a.get_lldp_neighbors()
+    peer = next(n for n in neighbors if n.local_interface == "100GE1/0/1")
+    assert peer.remote_system_name == "swi-bhq-002" and peer.remote_port_id == "100GE1/0/2"
+    assert peer.remote_chassis_id == "a8:2b:cd:b4:74:01" and peer.mgmt_address == "192.168.255.2"
+    assert all(n.remote_chassis_id for n in neighbors)  # kein Filldown-Leerrecord am Ende
+    macs = await a.get_mac_table()
+    assert macs[0].mac_address == "00:07:4d:c0:6b:e8" and macs[0].vlan_id == 1
+    arp = await a.get_arp()
+    assert any(e.ip_address == "172.16.1.10" and e.interface == "Eth-Trunk0" for e in arp)
+    assert all(e.mac_address for e in arp)  # "Incomplete"-Zeilen verworfen
+
+
+async def test_cisco_sb() -> None:
+    a = _adapter("cisco_sb")
+    info = await a.get_system_info()  # validiert (swi-bhq-020, CBS350-Stack bei Belimed)
+    assert (info.hostname, info.model, info.os_version) == (
+        "swi-bhq-020",
+        "CBS350-12NP-4X",
+        "3.1.1.7",
+    )
+    assert info.serial_number == "DNI272902LF"
+    interfaces = await a.get_interfaces()
+    assert next(i for i in interfaces if i.name == "fi1/0/1").oper_status.value == "up"
+    assert next(i for i in interfaces if i.name == "fi1/0/4").oper_status.value == "down"
+    neighbors = await a.get_lldp_neighbors()
+    assert len(neighbors) == 11
+    core = next(n for n in neighbors if n.local_interface == "te2/0/4")
+    assert core.remote_system_name == "swi-bhq-001" and core.remote_port_id == "10GE1/0/46"
+    nameless = next(n for n in neighbors if n.local_interface == "fi1/0/2")
+    assert nameless.remote_system_name is None and nameless.remote_chassis_id == "EWP-J4DND43"
+    arp = await a.get_arp()
+    assert arp[0].vlan_id == 1063 and arp[0].mac_address == "b6:d0:04:02:00:02"
+
+
+async def test_aruba_cx_live_captures() -> None:
+    a = _adapter("aruba_cx")
+    info = await a.get_system_info()  # validiert (swbat01, Aruba 6000 bei Belimed)
+    assert (info.hostname, info.serial_number) == ("swbat01", "CN34L3J7S3")
+    assert info.model == "R8N85A 6000 48G CL4 4SFP Swch" and info.os_version == "PL.10.08.1010"
+    interfaces = await a.get_interfaces()
+    lag = next(i for i in interfaces if i.name == "lag1")
+    assert lag.description == "CATO" and lag.speed_mbps == 1000 and lag.oper_status.value == "up"
+    first = next(i for i in interfaces if i.name == "1/1/1")
+    assert first.description is None and first.oper_status.value == "down"
+    neighbors = await a.get_lldp_neighbors()
+    assert len(neighbors) == 1
+    assert neighbors[0].remote_system_name == "apbat-001"
+    assert neighbors[0].mgmt_address == "10.141.64.11"  # nur die IPv4 aus "v4,v6"
+    arp = await a.get_arp()
+    assert arp[0].mac_address == "b6:d0:04:04:24:52"

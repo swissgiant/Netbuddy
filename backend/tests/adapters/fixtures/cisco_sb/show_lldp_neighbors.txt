@@ -1,0 +1,18 @@
+System capability legend:
+B - Bridge; R - Router; W - Wlan Access Point; T - telephone;
+D - DOCSIS Cable Device; H - Host; r - Repeater;
+TP - Two Ports MAC Relay; S - S-VLAN; C - C-VLAN; O - Other
+
+  Port        Device ID          Port ID         System Name    Capabilities  TTL
+--------- ----------------- ----------------- ----------------- ------------ -----
+fi1/0/2      EWP-J4DND43    a4:bb:6d:b2:10:05                        O       3146
+fi1/0/3      EWP-G4DND43    a4:bb:6d:b2:0e:ea                        O       2950
+fi1/0/5   e4:38:83:72:2c:4d e4:38:83:72:2c:4d    apbhq-p258       B, R, W     109
+fi1/0/6   e4:38:83:73:37:71 e4:38:83:73:37:71    apbhq-p260       B, R, W     119
+fi1/0/7   e4:38:83:73:1b:c9 e4:38:83:73:1b:c9    apbhq-p262       B, R, W     91
+te1/0/4   a8:2b:cd:b4:74:01    10GE1/0/46        swi-bhq-002        B, R      104
+fi2/0/5   e4:38:83:71:9f:85 e4:38:83:71:9f:85    apbhq-p259       B, R, W     92
+fi2/0/6   e4:38:83:73:35:8d e4:38:83:73:35:8d    apbhq-p261       B, R, W     103
+fi2/0/7   d8:b3:70:17:a4:89 d8:b3:70:17:a4:89    apbhq-p082       B, R, W     107
+fi2/0/8   e4:38:83:73:69:e5 e4:38:83:73:69:e5    apbhq-p172       B, R, W     99
+te2/0/4   7c:d9:a0:a9:2f:01    10GE1/0/46        swi-bhq-001        B, R      113

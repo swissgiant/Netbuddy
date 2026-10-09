@@ -1,0 +1,38 @@
+LLDP state: Enabled
+Timer: 30 Seconds
+Hold multiplier: 4
+Reinit delay: 2 Seconds
+Tx delay: 2 Seconds
+Notifications Interval: 5 Seconds
+LLDP packets handling: Filtering
+Chassis ID: mac-address
+  Port       State       Optional TLVs          Address       Notifications
+--------- ----------- -------------------- ----------------- ---------------
+fi1/0/1    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi1/0/2    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi1/0/3    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi1/0/4    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi1/0/5    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi1/0/6    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi1/0/7    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi1/0/8    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi1/0/9    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi1/0/10   Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi1/0/11   Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi1/0/12   Rx and Tx       SN, SC, 4W          automatic         Disabled
+te1/0/3    Rx and Tx       SN, SC, 4W          automatic         Disabled
+te1/0/4    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi2/0/1    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi2/0/2    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi2/0/3    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi2/0/4    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi2/0/5    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi2/0/6    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi2/0/7    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi2/0/8    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi2/0/9    Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi2/0/10   Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi2/0/11   Rx and Tx       SN, SC, 4W          automatic         Disabled
+fi2/0/12   Rx and Tx       SN, SC, 4W          automatic         Disabled
+te2/0/3    Rx and Tx       SN, SC, 4W          automatic         Disabled
+te2/0/4    Rx and Tx       SN, SC, 4W          automatic         Disabled

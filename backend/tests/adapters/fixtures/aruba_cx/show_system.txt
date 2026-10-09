@@ -1,5 +1,17 @@
-Hostname            : bls-aruba-01
-System Description  : FL.10.09.1040
-Product Name        : R8N85A 6300M 48G
-Serial Number       : SG00KP12345
-Base MAC Address    : 88:3a:30:11:22:33
+swbat01# show system
+Hostname           : swbat01
+System Description : PL.10.08.1010
+System Contact     :
+System Location    :
+
+Vendor             : Aruba
+Product Name       : R8N85A 6000 48G CL4 4SFP Swch
+Chassis Serial Nbr : CN34L3J7S3
+Base MAC Address   : 38bd7a-4e8980
+ArubaOS-CX Version : PL.10.08.1010
+
+Time Zone          : UTC
+
+Up Time            : 137 weeks, 2 days, 16 hours, 50 minutes
+CPU Util (%)       : 85
+Memory Usage (%)   : 34

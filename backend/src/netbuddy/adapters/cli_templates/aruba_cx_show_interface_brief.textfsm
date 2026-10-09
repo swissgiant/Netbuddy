@@ -1,10 +1,11 @@
 Value PORT (\S+)
 Value VLAN (\S+)
+Value MODE (access|trunk|routed)
 Value TYPE (\S+)
 Value ENABLED (yes|no)
 Value STATUS (up|down)
+Value SPEED (\d+|--)
+Value DESCRIPTION (.*?)
 
 Start
-  ^Port\s+VLAN -> Next
-  ^-+ -> Next
-  ^${PORT}\s+${VLAN}\s+${TYPE}\s+${ENABLED}\s+${STATUS} -> Record
+  ^\s*${PORT}\s+${VLAN}\s+(?:${MODE}\s+)?${TYPE}\s+${ENABLED}\s+${STATUS}\s+(?:[A-Za-z][A-Za-z ]*?\s+|--\s+)?${SPEED}\s+${DESCRIPTION}\s*$$ -> Record

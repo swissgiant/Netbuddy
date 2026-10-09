@@ -1,0 +1,10 @@
+ LLDP Remote Devices Information
+
+  LocalPort | ChassisId                 PortId PortDescr SysName
+  --------- + ------------------------- ------ --------- ----------------------
+  1/48      | 78 57 73 29 7d a0         XGi... swi-bh... swi-bhq-003
+  2/48      | 78 57 73 29 7d a0         XGi... swi-bh... swi-bhq-003
+  3/48      | 78 57 73 29 7d a0         XGi... swi-bh... swi-bhq-003
+  4/22      | 94 02 30 1e 56 83         94 ... eth0      RallyBar-K02CA2
+  4/30      | 98 90 96 de ca 5f         98 ...
+  4/48      | 78 57 73 29 7d a0         XGi... swi-bh... swi-bhq-003

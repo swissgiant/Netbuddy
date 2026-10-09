@@ -1,0 +1,90 @@
+# Huawei VRP (Campus S6730 = VRP 5, CloudEngine CE6881 = VRP 8). read-only + LLDP-/Backup-Pfad.
+# LIVE validiert 9.10.2026 bei Belimed: swi-bhq-001/002 (CE6881-48S6CQ V200R019), swi-bhq-003
+# (S6730-S24X6Q V200R022), DE-MUESW01 (CE6881). Prompt <name> → RawShellTransport (huawei_vrp).
+adapter_id: huawei_vrp
+ntc_platform: huawei_vrp
+provenance: "Huawei VRP — live-validated (CE6881 V200R019C10, S6730 V200R022C00)"
+
+backup_command: "display current-configuration"
+
+# `display lldp local` liefert bei aktivem LLDP den Block "System information"; sonst
+# "Info: Global LLDP is not enabled". Global: `lldp enable` (system-view), Save: `save` + y.
+lldp_control:
+  status_command: "display lldp local"
+  enabled_marker: '(?i)System information|System name'
+  config_enter: ["system-view"]
+  config_exit: ["return"]
+  enable_global: ["lldp enable"]
+  save: ["save", "y"]
+
+capabilities:
+  read_system_info:
+    sources:
+      - { command: "display version", parser: ntc }
+      - { command: "display esn", parser: "textfsm:huawei_vrp_display_esn.textfsm" }
+    fields:
+      vendor: { const: huawei }
+      model: { from: model, via: [first_word] }
+      os_version: { from: product_version, via: [strip_or_none] }
+      serial_number: { from: serial, via: [strip_or_none] }
+      device_type: { const: switch }
+
+  read_interfaces:
+    command: "display interface brief"
+    parser: "textfsm:huawei_vrp_display_interface_brief.textfsm"
+    fields:
+      name: interface
+      admin_status:
+        from: phy
+        via:
+          - lower
+          - lookup:
+              table: { "*down": down }
+              default: up
+      oper_status:
+        from: phy
+        via:
+          - lower
+          - lookup:
+              table:
+                up: up
+                down: down
+                "*down": down
+                "^down": down
+                "#down": down
+                "-down": down
+              default: unknown
+
+  read_lldp:
+    command: "display lldp neighbor"
+    parser: "textfsm:huawei_vrp_display_lldp_neighbor.textfsm"
+    fields:
+      local_interface: local_interface
+      remote_chassis_id: { from: chassis_id, via: [mac_or_raw] }
+      remote_port_id: port_id
+      remote_port_description: { from: port_desc, via: [strip_or_none] }
+      remote_system_name: { from: system_name, via: [strip_or_none] }
+      remote_system_description: { from: system_desc, via: [strip_or_none] }
+      mgmt_address: { from: mgmt_address, via: [ip_or_none] }
+
+  read_arp:
+    command: "display arp"
+    parser: "textfsm:huawei_vrp_display_arp.textfsm"
+    drop_when_empty: [mac_address]
+    fields:
+      ip_address: ip
+      mac_address: { from: mac, via: [mac_or_none] }
+      interface: { from: interface, via: [strip_or_none] }
+
+  read_mac_table:
+    command: "display mac-address"
+    parser: "textfsm:huawei_vrp_display_mac-address.textfsm"
+    drop_when_empty: [interface, mac_address]
+    fields:
+      mac_address: { from: mac, via: [mac_or_none] }
+      interface: { from: port, via: [strip_or_none] }
+      vlan_id: { from: vlan, via: [int_or_none] }
+      entry_type:
+        from: type
+        via:
+          - enum_value: { values_of: MacEntryType, default: dynamic }

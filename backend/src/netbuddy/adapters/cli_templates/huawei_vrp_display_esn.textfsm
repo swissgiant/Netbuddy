@@ -1,0 +1,6 @@
+Value SERIAL (\S+)
+
+Start
+  ^\s*ESN of slot \d+:\s*${SERIAL} -> Record Done
+
+Done

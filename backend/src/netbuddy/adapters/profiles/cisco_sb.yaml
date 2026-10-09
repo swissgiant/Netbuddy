@@ -1,0 +1,78 @@
+# Cisco Small Business / Catalyst 1000-Business (SG300, CBS350). read-only + LLDP-/Backup-Pfad.
+# LIVE validiert 9.10.2026 bei Belimed: swi-bhq-020 (CBS350-12NP-4X Stack, 3.1.1.7, In-Band-
+# Login "User Name:"), swi-bsag-021 (SG300-28PP 1.4.7.6). → RawShellTransport (cisco_sb).
+adapter_id: cisco_sb
+ntc_platform: cisco_s300
+provenance: "Cisco Small Business — live-validated (CBS350 3.1.1.7, SG300 1.4.7.6)"
+
+backup_command: "show running-config"
+
+# `show lldp configuration` → "LLDP state: Enabled". Global: `lldp run`, Save: `write` + Y.
+lldp_control:
+  status_command: "show lldp configuration"
+  enabled_marker: '(?i)LLDP state:\s*Enabled'
+  config_enter: ["configure"]
+  config_exit: ["exit"]
+  enable_global: ["lldp run"]
+  save: ["write", "Y"]
+
+capabilities:
+  read_system_info:
+    sources:
+      - { command: "show system", parser: ntc }
+      - { command: "show version", parser: ntc }
+      - { command: "show system id", parser: "textfsm:cisco_sb_show_system_id.textfsm" }
+    fields:
+      hostname: { from: hostname, via: [strip_or_none], default: "" }
+      vendor: { const: cisco }
+      model: { from: description, via: [first_word] }
+      os_version: { from: sw_version, via: [strip_or_none] }
+      serial_number: { from: serial, via: [strip_or_none] }
+      device_type: { const: switch }
+
+  read_interfaces:
+    command: "show interfaces status"
+    parser: ntc
+    fields:
+      name: port
+      oper_status:
+        from: linkstate
+        via:
+          - lower
+          - lookup:
+              table: { up: up, down: down }
+              default: unknown
+      interface_type: { from: type, via: [strip_or_none] }
+      speed_mbps: { from: speed, via: [leading_int] }
+
+  read_lldp:
+    command: "show lldp neighbors"
+    parser: "textfsm:cisco_sb_show_lldp_neighbors.textfsm"
+    fields:
+      local_interface: local_port
+      remote_chassis_id: { from: chassis_id, via: [mac_or_raw] }
+      remote_port_id: port_id
+      remote_system_name: { from: system_name, via: [strip_or_none] }
+
+  read_arp:
+    command: "show arp"
+    parser: "textfsm:cisco_sb_show_arp.textfsm"
+    drop_when_empty: [mac_address]
+    fields:
+      ip_address: ip
+      mac_address: { from: mac, via: [mac_or_none] }
+      vlan_id: { from: vlan, via: [int_or_none] }
+      interface: { from: interface, via: [strip_or_none] }
+
+  read_mac_table:
+    command: "show mac address-table"
+    parser: ntc
+    drop_when_empty: [interface, mac_address]
+    fields:
+      mac_address: { from: destination_address, via: [mac_or_none] }
+      interface: { from: destination_port, via: [strip_or_none] }
+      vlan_id: { from: vlan_id, via: [int_or_none] }
+      entry_type:
+        from: type
+        via:
+          - enum_value: { values_of: MacEntryType, default: dynamic }

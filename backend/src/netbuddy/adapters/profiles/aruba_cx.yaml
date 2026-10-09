@@ -1,7 +1,8 @@
-# HP Aruba — ArubaOS-CX (z.B. 6300M). read-only.
-# Doku-/research-abgeleitet, UNVALIDIERT (kein Lab-Capture) — per Live-Probe bestätigen.
+# HP Aruba — ArubaOS-CX (6000/6300). read-only + LLDP-/Backup-Pfad.
+# LIVE validiert 9.10.2026 bei Belimed: swbat01 (R8N85A 6000-48G, PL.10.08), swbfi01/swbfr01
+# (PL.10.11). Scrapli-GenericDriver, Pager via `no page`.
 adapter_id: aruba_cx
-provenance: "ArubaOS-CX — vendor docs, unvalidated (kein Lab-Capture)"
+provenance: "ArubaOS-CX — live-validated (Aruba 6000 PL.10.08/PL.10.11)"
 
 backup_command: "show running-config"
 
@@ -9,10 +10,11 @@ backup_command: "show running-config"
 # ("LLDP ... : Yes/Enabled"). UNVALIDIERT (kein Aruba-Lab-Gerät).
 lldp_control:
   status_command: "show lldp configuration"
-  enabled_marker: '(?i)LLDP.*(Enabled|:\s*Yes)'
+  enabled_marker: '(?i)LLDP Enabled\s*:\s*Yes'
   config_enter: ["configure terminal"]
   config_exit: ["end"]
   enable_global: ["lldp"]
+  save: ["write memory"]
 
 capabilities:
   read_system_info:
@@ -20,10 +22,11 @@ capabilities:
       - { command: "show version", parser: "textfsm:aruba_cx_show_version.textfsm" }
       - { command: "show system", parser: "textfsm:aruba_cx_show_system.textfsm" }
     fields:
+      hostname: { from: hostname, via: [strip_or_none], default: "" }
       vendor: { const: aruba }
       model: { from: model, via: [strip_or_none] }
       os_version: version
-      serial_number: serial
+      serial_number: { from: serial, via: [strip_or_none] }
       device_type: { const: switch }
 
   read_interfaces:
@@ -45,7 +48,9 @@ capabilities:
           - lookup:
               table: { "yes": up, "no": down }
               default: unknown
-      interface_type: { from: type, via: [strip_or_none] }
+      interface_type: { from: type, via: [placeholder_or_none] }
+      description: { from: description, via: [placeholder_or_none] }
+      speed_mbps: { from: speed, via: [leading_int] }
 
   read_lldp:
     # detail statt Kurztabelle: nur das Detail-Format liefert die Management-Adresse

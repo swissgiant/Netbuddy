@@ -1,0 +1,8 @@
+Value PORT (\S+)
+Value TYPE (\S*)
+Value ENABLED (Yes|No)
+Value STATUS (Up|Down)
+Value MODE (\S+)
+
+Start
+  ^\s+${PORT}\s+${TYPE}\s*\|\s+\S+\s+${ENABLED}\s+${STATUS}\s+${MODE}\s+ -> Record

@@ -1,0 +1,8 @@
+ IP ARP table
+
+  IP Address       MAC Address       Type    Port
+  ---------------  ----------------- ------- ----
+  10.131.63.1      b6d004-020002     dynamic Trk10
+  10.131.63.41     001132-b76237     dynamic Trk10
+  10.131.63.201    7cd9a0-a92f0f     dynamic
+  10.131.63.202    a82bcd-b4740f     dynamic

@@ -3,6 +3,7 @@ from typing import Any
 from netbuddy.adapters.api_client import HttpxApiClient
 from netbuddy.adapters.base import AdapterError, SwitchAdapter
 from netbuddy.adapters.connection import params_from_credential
+from netbuddy.adapters.raw_shell_transport import DIALECTS, RawShellTransport
 from netbuddy.adapters.registry import (
     adapter_kind,
     build_adapter,
@@ -66,9 +67,12 @@ def connect(device: Device, credential: Credential) -> tuple[SwitchAdapter, Any]
 
     params = params_from_credential(device, credential)
     # TP-Link JetStream/Omada: eigener Transport (CR-Zeilenende + nicht abschaltbarer Pager).
-    transport: Any = (
-        TplinkTransport(params)
-        if device.adapter_id == "tplink_jetstream"
-        else ScrapliTransport(params)
-    )
+    # ProCurve/Huawei/Cisco-SB: rohe Shell mit Banner-/Pager-/Prompt-Eigenheiten.
+    transport: Any
+    if device.adapter_id == "tplink_jetstream":
+        transport = TplinkTransport(params)
+    elif device.adapter_id in DIALECTS:
+        transport = RawShellTransport(params, DIALECTS[device.adapter_id])
+    else:
+        transport = ScrapliTransport(params)
     return build_adapter(device.adapter_id, transport), transport
