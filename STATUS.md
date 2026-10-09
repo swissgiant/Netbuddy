@@ -42,6 +42,12 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   dann „Sites laden" → „Sync-Vorschau" → prüfen → „übernehmen" → „Geräte-Inventar laden".
   Erwartung: Belimed-Cato-Sites (HQ/SAG/DE/…, 10.131–10.1xx) matchen nicht auf Sulgen/Gro/USA/
   Cusano (dort 10.120–10.123/16) → `site_map` setzen oder als eigene Standorte anlegen lassen.
+- **Cusano S01, ESX-neu → Icos-VLAN 20 (Backup-Netz 10.1.20.0/24):** Meraki-Seite geprüft, nichts
+  zu ändern. NSW110/2,3,4,39 + NSW101/14 = Trunk native 1 allowed all, LAG 52 zum Core allowed all,
+  Stack intern; einziger Trunk ohne 20 ist der Crosslink NSW112/3 (nur VLAN 9). Offen ist nur die
+  ESX-Seite (Portgruppe/vmk mit VLAN-ID 20); danach Verify über Meraki-MAC-Tabelle in VLAN 20.
+  Hinweis: 10.123.20.x (alte vmk0) ist KEIN VLAN auf BLS-Seite (flaches /16 auf FortiGate wan1),
+  VLAN-ID 20 auf Icos dafür wäre eine L2-Vermischung — nicht machen.
 - Unverändert offen aus S88: Rückbau Firebox-Secondaries .250 / NAT-Policy, 28 Cato-Routen auf
   der Riese-Firebox, Secondary-Socket s00fw2.
 
