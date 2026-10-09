@@ -125,6 +125,27 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
     x.x.64.0/24), Controller unifi.corp.belimed.com / 10.131.62.10. **Credentials von Alex
     ausstehend;** NetBuddy braucht dafür ein Profil `aruba_procurve` (ArubaOS-Switch) und ggf.
     Huawei VRP, Aruba CX + Cisco IOS existieren.
+  - **Passwordstate-Import (Commits 5e05424, ce79209, 03cf106, e66c2f5):** `services/passwordstate.py`
+    + `GET /passwordstate/lists|preview`, `POST /passwordstate/import`, Block „Aus Passwordstate
+    importieren" auf der Credentials-Seite (Button „Listen" zeigt alle Listen samt ID, Vorschau →
+    Import). Passwordstate 9.8 (ch-sv-p-pwst-1.corp.belimed.com, von VM/Container erreichbar, interne
+    CA → verify=false): Listen-Keys gelten nur für `GET /api/passwords/<PasswordListID>`, Ordner-Keys
+    (fid=353) sind für die API nutzlos → Alex hat einen **System-Wide-API-Key** angelegt (Allowed IP
+    NetBuddy-VM), Credential „Passwordstate" (base_url + api_token, Site-Feld = 12 Listen-IDs des
+    Ordners „IT Network": 385 A41, 381 B-AT, 25 B-DE, 851 B-FI, 379 B-FR, 60 B-HQ, 69 B-NL, 89 B-SAG,
+    356 B-SI, 383 B-UK, 355 B-US, 380 CATO). Der Key sieht 461 Listen (auch Steelco: 755 Switch
+    Riese, 621 S01 Network, 764 WatchGuard, 697 Meraki, 855 S07 Switch, 808 Valla Network devices).
+    **Import 9.10. ~18:30:** 94 Einträge → 76 Credentials angelegt, 3 aktualisiert (in zwei Listen
+    doppelt), 15 ohne User/Passwort übersprungen (5G-Router, SNMP-Community, Console-Ports, ASA,
+    PSK); gleicher Titel mit zwei Usern → „swbat01 (admin)" / „swbat01 (bmdadm)". 7 Cato-Socket-
+    Logins automatisch mit den Socket-Geräten verknüpft (fwbhq01/02, fwbat01, fwbfr01, fwus01,
+    fwa41-01/02). Switch-Zugänge liegen jetzt im NetBuddy: Aruba CX swbat01/swbfi01/swbfr01/
+    swbnl01/swbuk01 (x.x.63.201), ArubaOS-Switch swi-bhq-011…019 (User manager), Core swi-bhq-001/
+    002/003 (admin), B-SAG Huawei swi-bsag-001/002/003/012 + HP swi-bsag-013…020 (manager) +
+    Cisco SB swi-bsag-021, B-US Cisco swibusl-001/011 + Dell N4032 swibusl-002, B-DE DE-MUESW01…08P,
+    B-SI „HP Coreswitch" 10.0.2.1. **Login-Verify per SSH wurde vom Auto-Mode-Classifier blockiert**
+    → Alex testet selbst oder gibt Regel frei. Nächster Schritt: Geräte anlegen + Profil
+    `aruba_procurve` (ArubaOS-Switch), ggf. Huawei VRP.
 - Unverändert offen aus S88: Rückbau Firebox-Secondaries .250 / NAT-Policy, 28 Cato-Routen auf
   der Riese-Firebox, Secondary-Socket s00fw2.
 
