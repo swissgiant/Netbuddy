@@ -17,6 +17,7 @@ from netbuddy.db.models import (
     SiteSubnet,
     VpnTunnel,
 )
+from netbuddy.services.fw_uplink import FwUplink, firewall_uplinks
 from netbuddy.services.sites_net import subnet_overlaps_site
 
 router = APIRouter(prefix="/topology", tags=["topology"])
@@ -74,6 +75,15 @@ def switch_role(device: Device) -> str | None:
 def is_core_switch(device: Device) -> bool:
     """Backbone-Switch (Core oder Distribution) — Wurzelkandidat der Site-Topologie."""
     return switch_role(device) is not None
+
+
+@router.get("/fw-uplinks", response_model=list[FwUplink])
+async def list_fw_uplinks(session: SessionDep) -> list[FwUplink]:
+    """Wo hängt die Firewall / der Cato-Socket je Standort? (Gateway-MAC in den MAC-Tabellen)."""
+    devices = (
+        (await session.execute(select(Device).where(Device.deleted_at.is_(None)))).scalars().all()
+    )
+    return await firewall_uplinks(session, devices)
 
 
 @router.get("", response_model=Topology)
@@ -205,6 +215,14 @@ async def get_topology(session: SessionDep) -> Topology:
         members.sort(key=lambda d: d.hostname)
         for a, b in itertools.pairwise(members):
             add_edge(a.id, b.id, "stack", members[0].stack_name)
+
+    # Switch↔Firewall/Cato-Socket: gemessen über die Gateway-MAC in der MAC-Tabelle (Sockets
+    # sprechen kein LLDP). Nur der direkt angeschlossene Switch (Port trägt nur Socket-MACs).
+    for up in await firewall_uplinks(session, devices):
+        if not up.direct:
+            continue
+        for fw_id in up.firewall_ids:
+            add_edge(up.switch_id, fw_id, "uplink", up.port)
 
     # AP→Switch-Uplinks (+ persistierte UniFi-Switch→Core-Uplinks) — echte, gemessene Verortung.
     # Mesh-APs (drahtloser Uplink) bekommen stattdessen eine gestrichelte Kante zum Eltern-AP.
