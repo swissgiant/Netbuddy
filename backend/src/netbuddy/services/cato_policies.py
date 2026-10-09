@@ -249,15 +249,11 @@ def parse_policy(kind: PolicyKind, data: dict[str, Any]) -> CatoPolicy:
                     f"sekundär:{st.get('transportType')}/{st.get('primaryInterfaceRole')}"
                     if st.get("transportType")
                     else "",
-                    f"pop:{(cfg.get('popLocation') or {}).get('name')}"
-                    if cfg.get("popLocation")
-                    else "",
-                    f"backhaul:{(cfg.get('backhaulingSite') or {}).get('name')}"
+                    f"pop:{_val(cfg['popLocation'])}" if cfg.get("popLocation") else "",
+                    f"backhaul:{_val(cfg['backhaulingSite'])}"
                     if cfg.get("backhaulingSite")
                     else "",
-                    f"prio:{(r.get('bandwidthPriority') or {}).get('name')}"
-                    if r.get("bandwidthPriority")
-                    else "",
+                    f"prio:{_val(r['bandwidthPriority'])}" if r.get("bandwidthPriority") else "",
                     "tcp-accel" if cfg.get("activeTcpAcceleration") else "",
                     "loss-mitigation" if cfg.get("packetLossMitigation") else "",
                 )

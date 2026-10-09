@@ -163,3 +163,48 @@ def test_parse_bypass_policy() -> None:
     rule = pol.rules[0]
     assert rule.action == "BYPASS WAN1" and not rule.enabled
     assert rule.sites == "group:Alle Sockets" and rule.destination == "application:Microsoft Teams"
+
+
+def test_parse_wan_network_tolerates_lists_in_configuration() -> None:
+    data = {
+        "policy": {
+            "wanNetwork": {
+                "policy": {
+                    "enabled": True,
+                    "audit": {},
+                    "rules": [
+                        {
+                            "rule": {
+                                "id": "w1",
+                                "name": "Backhaul SAP",
+                                "index": 1,
+                                "enabled": True,
+                                "section": {"name": "Routing"},
+                                "ruleType": "WAN",
+                                "routeType": "BACKHAUL",
+                                "source": {"site": [{"name": "B-DE"}]},
+                                "destination": {},
+                                "application": {},
+                                "configuration": {
+                                    "activeTcpAcceleration": True,
+                                    "packetLossMitigation": False,
+                                    "primaryTransport": {
+                                        "transportType": "WAN",
+                                        "primaryInterfaceRole": "WAN1",
+                                    },
+                                    "secondaryTransport": {},
+                                    "popLocation": [{"name": "Zurich"}],
+                                    "backhaulingSite": [{"name": "A41"}],
+                                },
+                                "bandwidthPriority": {"name": "P10"},
+                                "exceptions": [],
+                            }
+                        }
+                    ],
+                }
+            }
+        }
+    }
+    rule = parse_policy("wan_network", data).rules[0]
+    assert rule.action == "BACKHAUL" and rule.source == "site:B-DE"
+    assert rule.extra == "typ:WAN transport:WAN/WAN1 pop:Zurich backhaul:A41 prio:P10 tcp-accel"

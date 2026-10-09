@@ -130,13 +130,14 @@ _INFRA_TYPE = re.compile(
     r"switch|router|firewall|access point|wireless|wlan|network|gateway|controller", re.IGNORECASE
 )
 _INFRA_VENDOR = re.compile(
-    r"fortinet|ubiquiti|fs com|fiberstore|cisco|meraki|aruba|hewlett|hpe|juniper|watchguard"
-    r"|palo alto|mikrotik|zyxel|netgear|tp-link|d-link|extreme|brocade|ruckus|lancom|sophos"
-    r"|check point|allied telesis|cambium|dell",
+    r"procurve|huawei|h3c|extreme|netgear|zyxel|brocade|lancom|edge-?core|allied telesis"
+    r"|fortinet|ubiquiti|fs com|fiberstore|cisco|meraki|aruba|hewlett|hpe|juniper"
+    r"|watchguard|palo alto|mikrotik|tp-link|d-link|ruckus|sophos|check point|cambium|dell",
     re.IGNORECASE,
 )
 # Hersteller, die vor allem Server/Clients bauen → nur mit Infrastruktur-Typ als Verdacht zählen.
 _AMBIGUOUS_VENDOR = re.compile(r"dell|hewlett|hpe", re.IGNORECASE)
+_MGMT_NET = re.compile(r"management|mgmt|netdev", re.IGNORECASE)
 
 
 class CatoSocket(BaseModel):
@@ -693,6 +694,10 @@ def _infra_reason(d: CatoDevice) -> str | None:
     strong = _AMBIGUOUS_VENDOR.sub("", vendor)
     if _INFRA_VENDOR.search(strong):
         return "hersteller"
+    # HP/HPE/Dell OHNE Typ: nur im Management-Netz ein Verdacht (Belimed: HPE-Switches in
+    # "Management Interfaces" x.x.63.0/24, Server/Drucker stehen in anderen VLANs).
+    if _AMBIGUOUS_VENDOR.search(vendor) and _MGMT_NET.search(d.network_name or ""):
+        return "mgmt-netz"
     os_ = (d.os or "").lower()
     if any(k in os_ for k in ("ios", "nx-os", "junos", "fortios", "os10", "unifi", "meraki")):
         return "os"

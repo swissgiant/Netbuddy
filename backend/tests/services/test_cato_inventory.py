@@ -470,3 +470,25 @@ def test_dell_laptop_is_not_infra() -> None:
     from netbuddy.services.cato_inventory import _infra_reason
 
     assert _infra_reason(d) is None
+
+
+def test_hpe_in_management_network_is_infra_suspect() -> None:
+    from netbuddy.services.cato_inventory import _infra_reason
+
+    base = {k: None for k in CatoDevice.model_fields}
+    hpe_mgmt = CatoDevice(
+        **{
+            **base,
+            "nic_vendor": "Hewlett Packard Enterprise",
+            "network_name": "Management Interfaces",
+        }
+    )
+    hpe_office = CatoDevice(
+        **{**base, "nic_vendor": "Hewlett Packard", "network_name": "Clients 1 LAN"}
+    )
+    procurve = CatoDevice(
+        **{**base, "nic_vendor": "ProCurve Networking by HP", "network_name": "Clients 1 LAN"}
+    )
+    assert _infra_reason(hpe_mgmt) == "mgmt-netz"
+    assert _infra_reason(hpe_office) is None
+    assert _infra_reason(procurve) == "hersteller"
