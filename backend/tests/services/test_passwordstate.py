@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from netbuddy.db.models import Credential, Device, DeviceCredential, DeviceType
 from netbuddy.services.passwordstate import (
     _list_ids_from_extra,
+    credential_names,
     import_entries,
     parse_entries,
     parse_lists,
@@ -105,3 +106,20 @@ def test_parse_lists() -> None:
     ]
     lists = parse_lists(raw)
     assert [(x.list_id, x.name, x.tree_path) for x in lists] == [(7, "B-HQ Switch", "\\IT Network")]
+
+
+def test_credential_names_disambiguate_same_title_other_user() -> None:
+    raw = [
+        {"PasswordID": 1, "Title": "swbat01", "UserName": "admin ", "Password": "a"},
+        {"PasswordID": 2, "Title": "swbat01", "UserName": "bmdadm", "Password": "b"},
+        {"PasswordID": 3, "Title": "fwbat01", "UserName": "admin", "Password": "c"},
+        {"PasswordID": 4, "Title": "fwbat01", "UserName": "admin", "Password": "c"},
+    ]
+    entries = parse_entries(raw)
+    assert entries[0].username == "admin"
+    assert credential_names(entries) == {
+        1: "swbat01 (admin)",
+        2: "swbat01 (bmdadm)",
+        3: "fwbat01",
+        4: "fwbat01",
+    }

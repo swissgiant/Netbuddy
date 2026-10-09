@@ -169,7 +169,7 @@ def parse_entries(data: Any) -> list[PwEntry]:
                 list_id=int(row["PasswordListID"]) if row.get("PasswordListID") else None,
                 list_name=row.get("PasswordList"),
                 title=str(row.get("Title") or f"Passwordstate #{row['PasswordID']}"),
-                username=row.get("UserName") or None,
+                username=(row.get("UserName") or "").strip() or None,
                 password=row.get("Password") or None,
                 description=row.get("Description") or None,
                 url=row.get("URL") or None,
@@ -221,6 +221,20 @@ def _match_devices(entry: PwEntry, index: dict[str, Device]) -> list[Device]:
     return list(found.values())
 
 
+def credential_names(entries: list[PwEntry]) -> dict[int, str]:
+    """Credential-Name je Eintrag: Titel; bei gleichem Titel mit anderem User „Titel (user)“."""
+    users_by_title: dict[str, set[str]] = {}
+    for e in entries:
+        users_by_title.setdefault(e.title.strip().lower(), set()).add((e.username or "").lower())
+    out: dict[int, str] = {}
+    for e in entries:
+        title = e.title.strip()
+        if len(users_by_title[title.lower()]) > 1 and e.username:
+            title = f"{title} ({e.username})"
+        out[e.password_id] = title[:128]
+    return out
+
+
 async def preview(session: AsyncSession, entries: list[PwEntry]) -> list[PwPreviewRow]:
     index = await _device_index(session)
     existing = {
@@ -229,9 +243,10 @@ async def preview(session: AsyncSession, entries: list[PwEntry]) -> list[PwPrevi
             await session.execute(select(Credential).where(Credential.deleted_at.is_(None)))
         ).scalars()
     }
+    names = credential_names(entries)
     rows: list[PwPreviewRow] = []
     for e in entries:
-        name = e.title.strip()[:128]
+        name = names[e.password_id]
         if not e.password or not e.username:
             action = "überspringen"
         elif name.lower() in existing:
@@ -268,6 +283,7 @@ async def import_entries(
     """
     summary = PwImportSummary(dry_run=dry_run)
     index = await _device_index(session)
+    names = credential_names(entries)
     existing = {
         c.name.lower(): c
         for c in (
@@ -275,7 +291,7 @@ async def import_entries(
         ).scalars()
     }
     for e in entries:
-        name = e.title.strip()[:128]
+        name = names[e.password_id]
         if not e.password or not e.username:
             summary.skipped.append(f"{name} (ohne User/Passwort)")
             continue
