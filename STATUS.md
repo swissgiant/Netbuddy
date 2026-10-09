@@ -4,6 +4,47 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S89 — Cato-Networks-Anbindung: Sites, Netzbereiche, Geräte-Inventar (9.10.2026)
+
+- **Ziel (Alex):** NetBuddy an Cato anbinden, damit alle Netze sichtbar sind (auch Belimed-Seite),
+  dort nach Switches gesucht und die Inventur gemacht werden kann.
+- **Gebaut (read-only gegenüber Cato):** `services/cato_inventory.py` + Route `/cato` + Ansicht
+  „☁️ Cato" (admin). Cato-GraphQL `https://api.catonetworks.com/api/v1/graphql2`, Header
+  `x-api-key`; Credential „CatoCloud" = `base_url` + `api_token` + `extra.account_id`
+  (Formularfeld „site / org_id / account_id"), optional `extra.site_map`
+  `{"<Cato-Site>": "<NetBuddy-Site>"}`.
+  - `GET /cato/sites`: `accountSnapshot` (Site, Typ, connType, HA, Status, PoP, Sockets mit
+    Serial/Plattform/Version/LAN-IP/Connected) + je Site `site.networkRangeList` (Subnetz, VLAN,
+    Gateway/Socket-IP, DHCP-Typ/-Range, rangeType, internetOnly).
+  - `POST /cato/sync?dry_run=true|false`: Cato-Site → NetBuddy-Standort (Reihenfolge: site_map >
+    Name/Code > Subnetz-Überlappung mit bestehenden `SiteSubnet` > neu anlegen), Netzbereiche →
+    `SiteSubnet` („Cato <Site>: <Range> VLAN n"), Sockets → `Device` (adapter `cato`, Firewall,
+    mgmt_ip = Socket-LAN-IP, Match per Serial/Hostname, API-Credential verknüpft). Nichts wird
+    gelöscht/verschoben; Subnetz an anderem Standort = gemeldeter Konflikt. UI: Vorschau zuerst,
+    „übernehmen" nur nach Vorschau + Confirm.
+  - `GET /cato/devices?infra_only=true`: Cato-Geräte-Inventar (`devices.list`, seitenweise 200,
+    nach lastSeen) → Infrastruktur-Verdacht per hw.type/category (switch/router/firewall/AP…),
+    Hersteller-OUI (Fortinet/Ubiquiti/Cisco/Meraki/FS/Aruba/… — Dell/HPE nur mit Infra-Typ) oder OS;
+    Abgleich gegen bekannte Devices (Mgmt-IP/Hostname) + Profil-Schätzung (`guess_adapter`).
+    UI-Button „+ Gerät anlegen" (Credential danach im Geräte-Detail zuordnen).
+- **Adapter `cato` nachgezogen:** Endpoint `graphql2`, Site-Match über `extra.site_name` ODER
+  Socket-LAN-IP (= `device.mgmt_ip`), Serial/Plattform aus `socketInfo`. Weiter nur
+  `READ_SYSTEM_INFO` (Cato liefert keine Interface-/ARP-/LLDP-Sicht pro Socket über die API).
+- Schema-Quelle: PyPI `catocli` 3.1.4 (`queryPayloads/`, `models/`), nicht die 10-MB-Doku-Seite.
+  Weitere brauchbare Queries für später: `site.knownHostList` (DHCP-Hosts je Site),
+  `socketPortMetrics`, `entityLookup(type: siteRange|networkInterface)`.
+- Tests: `tests/services/test_cato_inventory.py` (Parsen, Dry-Run vs. Apply, Idempotenz,
+  Subnetz-Match/Konflikt, Infra-Filter), Adapter-Test per Socket-IP. 291 Tests grün, mypy strict,
+  tsc/vitest grün. Deployt auf Prod (backend/worker/frontend).
+- **Offen (Alex):** API-Key in der Cato Management Application anlegen (Administration → API
+  Management → API Keys, Berechtigung View, optional Quell-IP-Allowlist: NetBuddy-VM egress
+  **62.204.100.146**), Account-ID (Zahl in der CMA-URL) notieren, Credential in NetBuddy anlegen,
+  dann „Sites laden" → „Sync-Vorschau" → prüfen → „übernehmen" → „Geräte-Inventar laden".
+  Erwartung: Belimed-Cato-Sites (HQ/SAG/DE/…, 10.131–10.1xx) matchen nicht auf Sulgen/Gro/USA/
+  Cusano (dort 10.120–10.123/16) → `site_map` setzen oder als eigene Standorte anlegen lassen.
+- Unverändert offen aus S88: Rückbau Firebox-Secondaries .250 / NAT-Policy, 28 Cato-Routen auf
+  der Riese-Firebox, Secondary-Socket s00fw2.
+
 ## S87 — Riese: Nexus-Core im NetBuddy, `cisco_nxos`-Profil, Netz-Struktur-/Stabilitätsanalyse (5.10.2026)
 
 - **Nexus-Paar s00ncs101/102 (N9K-C93180YC-FX3, NX-OS 10.5(3), 10.137.63.251/.252) als Devices in

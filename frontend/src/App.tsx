@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { AuthUser } from "./api";
 import { authLogout, fetchMe } from "./api";
 import { applyTheme, initialTheme, type Theme } from "./theme";
+import { CatoView } from "./views/CatoView";
 import { CredentialsView } from "./views/CredentialsView";
 import { DevicesView } from "./views/DevicesView";
 import { DiscoveryView } from "./views/DiscoveryView";
@@ -25,6 +26,7 @@ type View =
   | "vlans"
   | "credentials"
   | "unifi"
+  | "cato"
   | "users"
   | "sso";
 
@@ -38,6 +40,7 @@ const NAV: { key: View; label: string; adminOnly?: boolean }[] = [
   { key: "vlans", label: "🏷️ VLANs" },
   { key: "credentials", label: "🔑 Credentials" },
   { key: "unifi", label: "📶 UniFi", adminOnly: true },
+  { key: "cato", label: "☁️ Cato", adminOnly: true },
   { key: "users", label: "👤 Benutzer", adminOnly: true },
   { key: "sso", label: "🔐 SSO", adminOnly: true },
 ];
@@ -102,6 +105,7 @@ export default function App() {
         {view === "vlans" && <VlanView />}
         {view === "credentials" && <CredentialsView />}
         {view === "unifi" && <UnifiView />}
+        {view === "cato" && <CatoView />}
         {view === "users" && <UsersView me={user} />}
         {view === "sso" && <SsoView />}
       </main>

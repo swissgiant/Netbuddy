@@ -10,6 +10,7 @@ from netbuddy.api.routes import (
     adapters,
     audit,
     auth,
+    cato,
     credentials,
     device_credentials,
     devices,
@@ -67,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(users.router)
     app.include_router(vpn.router)
+    app.include_router(cato.router)
     app.include_router(unifi.router)
     app.include_router(audit.router)
     app.include_router(search.router)

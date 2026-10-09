@@ -468,6 +468,79 @@ export const toggleUnifiHost = (hostId: string, enabled: boolean) =>
 export const runUnifiImport = () =>
   http<UnifiImportSummary>("/unifi/import", { method: "POST" });
 
+// --- Cato Networks (Sites/Netze/Geräte-Inventar) ---------------------------------------------
+export interface CatoSocket {
+  serial: string | null;
+  name: string | null;
+  platform: string | null;
+  version: string | null;
+  is_primary: boolean | null;
+  internal_ip: string | null;
+  connected: boolean | null;
+  ha_role: string | null;
+}
+export interface CatoRange {
+  id: string | null;
+  name: string | null;
+  subnet: string | null;
+  vlan: number | null;
+  gateway: string | null;
+  local_ip: string | null;
+  range_type: string | null;
+  dhcp_type: string | null;
+  dhcp_range: string | null;
+  internet_only: boolean | null;
+}
+export interface CatoSite {
+  id: string;
+  name: string;
+  type: string | null;
+  conn_type: string | null;
+  connectivity: string | null;
+  pop: string | null;
+  is_ha: boolean | null;
+  host_count: number | null;
+  sockets: CatoSocket[];
+  ranges: CatoRange[];
+}
+export interface CatoCandidate {
+  id: string | null;
+  name: string | null;
+  ip: string | null;
+  mac: string | null;
+  nic_vendor: string | null;
+  site: string | null;
+  network_name: string | null;
+  subnet: string | null;
+  hw_type: string | null;
+  hw_model: string | null;
+  manufacturer: string | null;
+  os: string | null;
+  category: string | null;
+  first_seen: string | null;
+  last_seen: string | null;
+  is_managed: boolean | null;
+  reason: string;
+  guessed_adapter: string | null;
+  known_device_id: string | null;
+}
+export interface CatoSyncSummary {
+  dry_run: boolean;
+  sites_created: string[];
+  sites_matched: string[];
+  subnets_created: string[];
+  subnets_existing: number;
+  subnets_conflict: string[];
+  sockets_created: number;
+  sockets_updated: number;
+  sockets_skipped: string[];
+}
+export const fetchCatoSites = () => http<CatoSite[]>("/cato/sites");
+export const syncCato = (dryRun: boolean) =>
+  http<CatoSyncSummary>(`/cato/sync?dry_run=${dryRun}`, { method: "POST" });
+export const fetchCatoDevices = (infraOnly: boolean) =>
+  http<CatoCandidate[]>(`/cato/devices?infra_only=${infraOnly}`);
+
 // --- PoE / AP-Verortung ---
 export interface ApLocationInfo {
   ap_mac: string;

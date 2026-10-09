@@ -32,16 +32,17 @@ class SiteNotFoundError(AdapterError):
 class CatoAdapter:
     """Read-only-Adapter für Cato Networks (Cloud-SASE) über die GraphQL-API.
 
-    Cloud-API (`base_url` = https://api.catonetworks.com), Auth-Header `x-api-key`
-    (Credential: `extra.auth_header` auf `x-api-key`). Pflicht in `extra`:
-    `account_id` und `site_name` (welche Site dieses „Gerät" repräsentiert).
-    Cato-Sockets liefern keine Interface-/ARP-/LLDP-Sicht über die API —
-    nur Stammdaten. **Unvalidiert** (kein Account im Lab).
+    Cloud-API (`base_url` = https://api.catonetworks.com, Endpoint `/api/v1/graphql2`),
+    Auth-Header `x-api-key`. Pflicht in `extra`: `account_id`. Die Site wird über
+    `extra.site_name` gewählt, sonst über die Socket-LAN-IP (= `device.mgmt_ip`, so legt
+    `services.cato_inventory.sync_sites` die Socket-Devices an). Cato-Sockets liefern keine
+    Interface-/ARP-/LLDP-Sicht über die API — nur Stammdaten; Netze/Geräte-Inventar kommen
+    über `services.cato_inventory`.
     """
 
     adapter_id: ClassVar[str] = "cato"
     capabilities_set: ClassVar[frozenset[Capability]] = frozenset({Capability.READ_SYSTEM_INFO})
-    provenance: ClassVar[str] = "Cato GraphQL-API — unvalidiert (kein Account im Lab)"
+    provenance: ClassVar[str] = "Cato GraphQL-API (accountSnapshot) — Socket-Stammdaten"
 
     def __init__(
         self,
@@ -54,17 +55,18 @@ class CatoAdapter:
         opts = options or {}
         self._account_id = str(opts.get("account_id", ""))
         self._site_name = str(opts.get("site_name", ""))
+        self._match_ip = match_ip
 
     def capabilities(self) -> frozenset[Capability]:
         return self.capabilities_set
 
     async def get_system_info(self) -> SystemInfo:
-        if not self._account_id or not self._site_name:
+        if not self._account_id or not (self._site_name or self._match_ip):
             raise AdapterError(
-                "Cato braucht extra.account_id und extra.site_name in der Credential"
+                "Cato braucht extra.account_id (und extra.site_name oder eine Socket-IP)"
             )
         payload = await self._client.post_json(
-            "/api/v1/graphql",
+            "/api/v1/graphql2",
             {"query": _QUERY_SNAPSHOT, "variables": {"accountID": self._account_id}},
         )
         sites = (
@@ -74,19 +76,26 @@ class CatoAdapter:
         )
         for site in sites:
             name = (site.get("info") or {}).get("name")
-            if name != self._site_name:
-                continue
             devices = site.get("devices") or []
-            socket = devices[0] if devices else {}
+            socket: dict[str, Any] | None = None
+            if self._site_name:
+                if name == self._site_name:
+                    socket = devices[0] if devices else {}
+            else:
+                socket = next((d for d in devices if d.get("internalIP") == self._match_ip), None)
+            if socket is None:
+                continue
+            info = socket.get("socketInfo") or {}
             return SystemInfo(
-                hostname=name or "",
+                hostname=socket.get("name") or name or "",
                 vendor="cato",
-                model=((socket.get("socketInfo") or {}).get("model")) or "Cato Socket",
-                os_version=socket.get("version"),
-                serial_number=socket.get("serial"),
+                model=info.get("platform") or "Cato Socket",
+                os_version=socket.get("version") or info.get("version"),
+                serial_number=info.get("serial"),
                 device_type=DeviceType.FIREWALL,
             )
-        raise SiteNotFoundError(f"Cato-Site {self._site_name!r} nicht im Account-Snapshot")
+        wanted = self._site_name or f"Socket {self._match_ip}"
+        raise SiteNotFoundError(f"Cato-Site {wanted!r} nicht im Account-Snapshot")
 
     async def get_interfaces(self) -> list[InterfaceData]:
         raise CapabilityNotSupportedError(self.adapter_id, Capability.READ_INTERFACES)

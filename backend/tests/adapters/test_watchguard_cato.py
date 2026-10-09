@@ -38,9 +38,9 @@ _SNAPSHOT: dict[str, Any] = {
                         {
                             "id": "d1",
                             "name": "socket-it",
-                            "serial": "CATO123",
+                            "internalIP": "10.9.0.1",
                             "version": "23.0",
-                            "socketInfo": {"model": "X1500"},
+                            "socketInfo": {"serial": "CATO123", "platform": "X1500"},
                         }
                     ],
                 }
@@ -63,12 +63,23 @@ async def test_cato_system_info_for_site() -> None:
     client = _FakeGraphql()
     adapter = CatoAdapter(client, options={"account_id": "42", "site_name": "Werk Italien"})
     info = await adapter.get_system_info()
-    assert info.hostname == "Werk Italien"
+    assert info.hostname == "socket-it"
     assert info.vendor == "cato"
     assert info.model == "X1500"
     assert info.serial_number == "CATO123"
     assert info.device_type is DeviceType.FIREWALL
     assert client.bodies[0]["variables"] == {"accountID": "42"}
+
+
+async def test_cato_system_info_by_socket_ip() -> None:
+    """Ohne site_name wird die Site über die Socket-LAN-IP (= device.mgmt_ip) gefunden."""
+    adapter = CatoAdapter(_FakeGraphql(), match_ip="10.9.0.1", options={"account_id": "42"})
+    info = await adapter.get_system_info()
+    assert info.serial_number == "CATO123" and info.model == "X1500"
+    with pytest.raises(SiteNotFoundError):
+        await CatoAdapter(
+            _FakeGraphql(), match_ip="10.9.0.2", options={"account_id": "42"}
+        ).get_system_info()
 
 
 async def test_cato_unknown_site_raises() -> None:

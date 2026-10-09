@@ -40,7 +40,7 @@ export function CredentialsView() {
               extra:
                 form.ssh_port === 22 || form.ssh_port === 23 ? {} : { transport: proto },
             }
-          : { name: form.name, base_url: form.base_url, api_token: form.api_token, extra: siteOrOrg ? { site: siteOrOrg, org_id: siteOrOrg } : {} };
+          : { name: form.name, base_url: form.base_url, api_token: form.api_token, extra: siteOrOrg ? { site: siteOrOrg, org_id: siteOrOrg, account_id: siteOrOrg } : {} };
       await createCredential(body);
       setForm({ name: "", ssh_port: 22 });
       setSiteOrOrg("");
@@ -101,7 +101,7 @@ export function CredentialsView() {
             <>
               <input placeholder="base_url (https://…)" value={form.base_url ?? ""} onChange={(e) => set("base_url", e.target.value)} />
               <input placeholder="api_token" type="password" value={form.api_token ?? ""} onChange={(e) => set("api_token", e.target.value)} />
-              <input placeholder="site / org_id (opt.)" value={siteOrOrg} onChange={(e) => setSiteOrOrg(e.target.value)} />
+              <input placeholder="site / org_id / account_id (opt.)" value={siteOrOrg} onChange={(e) => setSiteOrOrg(e.target.value)} />
             </>
           )}
           <button onClick={submit} disabled={!form.name}>Anlegen</button>
