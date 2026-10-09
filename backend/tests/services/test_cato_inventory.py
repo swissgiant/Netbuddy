@@ -492,3 +492,5 @@ def test_hpe_in_management_network_is_infra_suspect() -> None:
     assert _infra_reason(hpe_mgmt) == "mgmt-netz"
     assert _infra_reason(hpe_office) is None
     assert _infra_reason(procurve) == "hersteller"
+    phone = CatoDevice(**{**base, "nic_vendor": "Huawei Technologies Co.,Ltd", "os": "Android"})
+    assert _infra_reason(phone) is None

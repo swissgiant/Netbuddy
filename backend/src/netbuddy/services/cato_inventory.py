@@ -685,7 +685,12 @@ async def _sync_sockets(
             )
 
 
+_CLIENT_OS = {"android", "ios", "ipados", "watchos"}
+
+
 def _infra_reason(d: CatoDevice) -> str | None:
+    if (d.os or "").strip().lower() in _CLIENT_OS:
+        return None  # Handys/Tablets (z.B. Huawei-Phones im Gäste-WLAN) sind nie Infrastruktur
     blob = " ".join(str(x) for x in (d.hw_type, d.category) if x)
     if _INFRA_TYPE.search(blob):
         return "typ"
