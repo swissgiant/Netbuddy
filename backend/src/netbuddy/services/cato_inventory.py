@@ -67,7 +67,7 @@ _QUERY_RANGES = """
 query ranges($accountId: ID!, $siteId: String!) {
   site(accountId: $accountId) {
     networkRangeList(input: { site: { by: ID, input: $siteId } }) {
-      items { networkRangeId name rangeType subnet localIp gateway vlan
+      items { networkRangeId name rangeType subnet translatedSubnet localIp gateway vlan
         dhcpSettings { dhcpType ipRange } internetOnly }
       total
     }
@@ -136,6 +136,7 @@ class CatoRange(BaseModel):
     id: str | None
     name: str | None
     subnet: str | None
+    translated_subnet: str | None = None  # Range-NAT: so sieht der Rest des Cato-WAN das Netz
     vlan: int | None
     gateway: str | None
     local_ip: str | None
@@ -308,6 +309,11 @@ def parse_ranges(data: dict[str, Any]) -> list[CatoRange]:
                 id=str(r.get("networkRangeId")) if r.get("networkRangeId") else None,
                 name=r.get("name"),
                 subnet=r.get("subnet"),
+                translated_subnet=(
+                    r.get("translatedSubnet")
+                    if r.get("translatedSubnet") and r.get("translatedSubnet") != r.get("subnet")
+                    else None
+                ),
                 vlan=int(vlan) if vlan not in (None, "") else None,
                 gateway=r.get("gateway"),
                 local_ip=r.get("localIp"),
@@ -520,6 +526,8 @@ async def sync_sites(
             label = f"Cato {cato.name}: {r.name or r.range_type or ''}".strip()
             if r.vlan:
                 label += f" VLAN {r.vlan}"
+            if r.translated_subnet:
+                label += f" | NAT von aussen {r.translated_subnet}"
             summary.subnets_created.append(f"{net} — {label}")
             if not dry_run:
                 sub = SiteSubnet(site_id=site.id, cidr=str(net), description=label[:255])

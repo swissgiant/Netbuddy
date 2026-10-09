@@ -195,23 +195,24 @@ export function CatoView() {
                 </tr>
                 {open[s.id] && (
                   <tr key={`${s.id}-r`}>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       <table>
                         <thead>
-                          <tr><th>Netzbereich</th><th>Subnetz</th><th>VLAN</th><th>Gateway / Socket-IP</th><th>DHCP</th><th>Typ</th></tr>
+                          <tr><th>Netzbereich</th><th>Subnetz (innen)</th><th>NAT (von aussen)</th><th>VLAN</th><th>Gateway / Socket-IP</th><th>DHCP</th><th>Typ</th></tr>
                         </thead>
                         <tbody>
                           {s.ranges.map((r) => (
                             <tr key={r.id ?? `${r.subnet}-${r.vlan}`}>
                               <td>{r.name ?? "—"}</td>
                               <td><code>{r.subnet ?? "—"}</code></td>
+                              <td>{r.translated_subnet ? <code title="Range-NAT: andere Cato-Sites erreichen dieses Netz nur über diese Adresse">{r.translated_subnet}</code> : <span className="muted">—</span>}</td>
                               <td>{r.vlan ?? "—"}</td>
                               <td className="muted">{r.gateway ?? r.local_ip ?? "—"}</td>
                               <td className="muted">{r.dhcp_type ?? "—"}{r.dhcp_range ? ` ${r.dhcp_range}` : ""}</td>
                               <td className="muted">{r.range_type ?? "—"}{r.internet_only ? " (nur Internet)" : ""}</td>
                             </tr>
                           ))}
-                          {s.ranges.length === 0 && <tr><td colSpan={6} className="muted">keine Netzbereiche (IPsec-/Cloud-Site?)</td></tr>}
+                          {s.ranges.length === 0 && <tr><td colSpan={7} className="muted">keine Netzbereiche (IPsec-/Cloud-Site?)</td></tr>}
                         </tbody>
                       </table>
                     </td>

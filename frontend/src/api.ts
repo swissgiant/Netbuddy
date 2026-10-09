@@ -483,6 +483,7 @@ export interface CatoRange {
   id: string | null;
   name: string | null;
   subnet: string | null;
+  translated_subnet: string | null;
   vlan: number | null;
   gateway: string | null;
   local_ip: string | null;
