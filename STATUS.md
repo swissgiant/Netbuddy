@@ -98,10 +98,12 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
     mit distance 1 angelegt → per `no ip route 10.120.0.0/14` bereinigt, final nur distance 2.
     **Ergebnis:** ICMP aus BLS nach Icos geht (10.1.2.10, 10.1.20.10, 192.168.105.254, Firebox-
     Interfaces), **TCP nicht** (DC 10.1.2.10:53/389/445, 10.1.20.10:443 zu) → WatchGuard-Policies
-    am Cusano-Cluster erlauben 10.120.x nur ICMP. Nächster Schritt: Cusano-Config-XML (Policy
-    Manager → Save as XML) analysieren wie bei Riese, oder Alias mit 10.120.0.0/14 in die
-    passenden Policies (von Alex). ESXi 10.1.2.211–214 antworten auch nicht auf ICMP (Host-FW
-    oder Gateway-Config auf den neuen Hosts prüfen).
+    am Cusano-Cluster erlaubten 10.120.x nur ICMP. **Gelöst 9.10. ~15:00:** Alex hat im Policy
+    Manager eine Any-Policy von 10.120.0.0/14 angelegt (Claude durfte das nicht: Auto-Mode-
+    Classifier blockt Firewall-Aufweichungen auf Prod-Firewalls). Verify danach von der NetBuddy-
+    VM: 10.1.2.209:3389/445, DC 10.1.2.10:53/389/445, 10.1.20.10:443, 192.168.105.110:3389,
+    192.168.105.2:445 alle offen → Icos komplett aus BLS erreichbar. ESXi 10.1.2.211–214 antworten
+    über vmk1 nicht (Default-GW auf der 10.123-Seite, asymmetrisch) → über 10.123.20.x ansprechen.
   - **Cato-Policies lesbar (Commit 7ef7307, aae718e, c29170e):** `services/cato_policies.py`,
     `GET /cato/policies/{internet|wan|lan|bypass|wan_network}`, Cato-Tab „Firewall / Policies"
     mit Filter. Live: WAN 233, Internet 130, Socket-LAN 36 (11 Site-Regeln + Subregeln), Bypass 4
