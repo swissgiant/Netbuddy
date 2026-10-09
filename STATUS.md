@@ -4,6 +4,70 @@
 
 Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert nur den **aktuellen Fortschritt** und was als Nächstes ansteht. Letzter Commit `bc59b3b` (S54).
 
+## S90 — Belimed-Standorte: Vollinventur, LLDP, Backups, VLAN-Karte, Topologie (9.10.2026 abends)
+
+**Auftrag (Alex, autonom):** alle Belimed-Standorte inventarisieren, LLDP aktivieren wo aus, jeden Switch
+discovern, unbekannte Switches finden/aufnehmen, Standort-Pläne neu zeichnen und die Verbindung zum
+Cato-Punkt prüfen, Config-Backups aller Switche (Belimed + alle anderen), VLANs erkennen und kartieren.
+
+- **Passwordstate** (Commits 03cf106, e66c2f5): System-Wide-Key, `GET /passwordstate/lists`, Button
+  „Listen"; Listen 385/381/25/851/379/60/69/89/356/383/355/380 (IT Network) + 869/375/855 (B-SI, B-SI2,
+  B-DK) importiert → 107 Credentials. Hinweis: Credential-Felder waren anfangs vertauscht (URL im
+  Username, Key im Passwort) → per Skript nach base_url/api_token verschoben.
+- **Neue Vendor-Profile (Commit db26cba), alle live gegen Belimed-Captures validiert:**
+  `aruba_procurve` (ArubaOS-Switch/ProCurve 2510/2530/2540/2920/3800/5406R; ntc hp_procurve + eigene
+  Templates; LLDP nur Summary-Format → SysNames auf 22 Zeichen gekürzt), `huawei_vrp` (CE6881 VRP8 und
+  S6730/S5735 VRP5; eigene Templates für interface brief/lldp neighbor/mac/arp/esn), `cisco_sb` (CBS350/
+  SG300, ntc cisco_s300 + eigene LLDP/ARP-Templates, In-Band-Login „User Name:"), `aruba_cx` jetzt
+  live-validiert (Aruba 6000/6100, Templates neu). **`adapters/raw_shell_transport.py`**: eigene asyncssh-
+  Shell für ProCurve (VT100-Escapes, „Press any key", `no page`), Huawei (`<name>`-Prompt, `screen-length
+  0 temporary`) und Cisco SB (`terminal datadump`), mit Legacy-SSH-Fallback (group1/3des) für alte
+  Firmware. Converter `mac_or_none`/`mac_or_raw` (Huawei `0050-5684-01d7`, ProCurve `005056-8401d7`
+  und `78 57 73 29 7d a0` → kanonisch) und `placeholder_or_none`. Crawl-Hints für die neuen Vendor.
+- **VLAN-Survey** kennt jetzt ProCurve (`vlan N` + untagged/tagged/ip address im Block), Huawei (`vlan
+  batch … to …`, `port default vlan`, `port trunk allow-pass vlan`, Vlanif + dhcp relay), ArubaOS-CX
+  (`vlan access`/`vlan trunk allowed`/`interface vlan`), Cisco SB/IOS; Config-Read für die neuen Vendor
+  über `connect()` + `get_config()`. Catch-all-Trunks (`1-4094`) zählen nicht als Träger.
+- **Topologie (Commits aac8d54, 0d353b0):** `services/fw_uplink.py` + `GET /topology/fw-uplinks`:
+  Switch↔Firewall/Cato-Socket-Kanten aus der Gateway-MAC (ARP für erste/letzte Adresse der Site-Subnetze)
+  in den MAC-Tabellen — der direkt angeschlossene Switch ist der, dessen Port NUR Socket-MACs trägt
+  (≤12), Core-Uplinks tragen hunderte. SVI/CPU-Ports und statische Einträge ausgeschlossen. Abgeschnittene
+  ProCurve-SysNames („BSI_C_Aruba2540...") werden per eindeutigem Präfix aufgelöst.
+- **Inventur-Ergebnis (Prod, 9.10. 19–21 Uhr):** 62 Belimed-Switches angelegt (Site automatisch aus den
+  Cato-Subnetzen; B-DE 192.168.50.x manuell), Credentials verknüpft, Discovery: **51 OK**, 11 nicht
+  erreichbar. Hostnamen auf die echten SysNames angeglichen (Passwordstate-Titel in `notes`), z.B.
+  SWBSI-CORE-01 → HP-5406Rzl2, SWBSI-A-01 → BSI_A_Aruba2540_48G_1, SWBSI-H-01 → swi-bsi-h1 (Aruba 6100 CX).
+  - B-HQ: Core swi-bhq-001/002 (CE6881, M-LAG), Distribution swi-bhq-003 (S6730-Stack), Access swi-bhq-011
+    (2920-Stack ×4)/012/013/014 (2920), 016 (2530-8G), 020 (CBS350-Stack); swi-bhq-015 = HP 1810 (nur Web),
+    **swi-bhq-017/018/019 offline** (alle Ports zu, DNS vorhanden). Socket-Uplink: **swi-bhq-001 und -002
+    Eth-Trunk28** (Beschreibung „Uplink CATO2.6") → B-HQ-socket2 aktiv.
+  - B-DE: Core DE-MUESW01/02 (CE6881), Access DE-MUESW03–08P (S5735); Socket-Uplink **DE-MUESW02
+    Eth-Trunk22**; UniFi US-16-XG ×2 an den Cores (nur über den Belimed-UniFi-Controller managebar).
+  - B-SI: Core HP-5406Rzl2 (VSF ×2), Distribution SWBSI-DELL-SW01/02 (OS10 S5224F), 15 Access
+    (Aruba 2540/3800/2530/2510, swi-bsi-h1 Aruba 6100), Trzin (3800 an Cisco „sn-trzin-main-sw0" = Fremd-
+    Switch). Socket-Uplink **HP-5406Rzl2 Trk22** (RackA/RackD). Nicht per CLI: SWBSI-F/G-01 (SSH aus),
+    SWBSI-A-CAM (nur https), BSI-A-MgmtSwitch (Instant On 1930), V1810/V1905 (Web).
+  - B-SAG: 8 Access (2530/2920/2510, SG300) erreichbar, alle hängen an **swi-bsag-011** (altes Core
+    SAGSW11, SSH resetet → nur Telnet offen) → **Huawei-Core swi-bsag-001/002/003 von BLS aus nicht
+    erreichbar** (Timeout, vermutlich SSH-ACL; swi-bsag-001 sieht die BLS-FW1 per LLDP direkt =
+    Crosslink), swi-bsag-012 (Huawei „Greuter") Login verweigert, swi-bsag-015 ausser Betrieb. Socket-
+    Uplink deshalb nicht messbar (Gateway-MAC nur Richtung 011).
+  - B-AT/B-FI/B-FR: je ein Aruba 6000 (swbat01/swbfi01/swbfr01), Socket direkt an **lag1** („CATO").
+    B-NL (swbnl01) / B-UK (swbuk01): keine Cato-Site, von BLS nicht erreichbar.
+  - B-US: Core WS-C3850 swibusl-001 (Stack ×2), 2960X-Stack swibusl-011, Dell N4032 swibusl-002.
+    **LLDP war aus → aktiviert** (Backup → `lldp run` → `write memory` → Verify, 4 bzw. 11 Nachbarn).
+    Socket-Uplink **swibusl-001 Po7**. Alle anderen Belimed-Switches hatten LLDP bereits an.
+  - B-DK (Aruba 1960 Instant On) und B-SI2 (Aruba 1930 Instant On): kein SSH, nur Web/Cloud.
+- **Backups:** 79 Sicherungen (50 Belimed-Switches + 27 übrige: Dell/FS/TP-Link/Nexus/FortiGates,
+  2 unverändert); Meraki/UniFi-Cloud-Geräte und Cato-Sockets haben keinen Config-Backup-Pfad (Cloud).
+- **VLAN-Karte:** Survey 186 s, jetzt 17 Sites: B-HQ 42, B-DE 47, B-SI 61, B-US 48, B-SAG 19, B-AT/FI/FR
+  je 9 VLANs; Belimed-Schema 1011 Guest, 1021 Voice, 1022 Cameras, 1027 Printers, 1031/1032 Clients,
+  1033 WiFi, 1063 Mgmt, 1064 AP-Mgmt, 1000 CATO; B-SI eigenes Schema (500 MGMT, 600 Client, 700 Secure,
+  800 VOIP, 900 External, DHCP-Relay 10.0.2.70).
+- **Offen:** B-SAG-Core-Zugang (ACL/Creds klären), swi-bhq-017–019 physisch prüfen, swi-bsag-011 ggf. per
+  Telnet, Belimed-UniFi-Controller (unifi.corp.belimed.com) als Credential für US-16-XG/APs, Aruba
+  Instant On nur via Cloud-API.
+
 ## S89 — Cato-Networks-Anbindung: Sites, Netzbereiche, Geräte-Inventar (9.10.2026)
 
 - **Ziel (Alex):** NetBuddy an Cato anbinden, damit alle Netze sichtbar sind (auch Belimed-Seite),
