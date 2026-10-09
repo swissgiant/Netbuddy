@@ -15,10 +15,12 @@ from netbuddy.services.cato_inventory import (
     InfraCandidate,
     SyncSummary,
     fetch_devices,
+    fetch_known_hosts,
     fetch_sites,
     infra_candidates,
     sync_sites,
 )
+from netbuddy.services.cato_policies import CatoPolicy, PolicyKind, fetch_policy
 
 router = APIRouter(prefix="/cato", tags=["cato"])
 
@@ -76,3 +78,21 @@ async def list_devices(session: SessionDep, infra_only: bool = True) -> list[Inf
     async with _api(cred) as api:
         devices = await _guard(fetch_devices(api))
     return await infra_candidates(session, devices, infra_only=infra_only)
+
+
+@router.get("/hosts", response_model=list[InfraCandidate])
+async def list_known_hosts(session: SessionDep, infra_only: bool = True) -> list[InfraCandidate]:
+    """Known Hosts aller Cato-Sites (Socket-Sicht), Ersatz für das unlizenzierte Geräte-Inventar."""
+    cred = await _cato_credential(session)
+    async with _api(cred) as api:
+        sites = await _guard(fetch_sites(api, with_ranges=False))
+        hosts = await _guard(fetch_known_hosts(api, sites))
+    return await infra_candidates(session, hosts, infra_only=infra_only)
+
+
+@router.get("/policies/{kind}", response_model=CatoPolicy)
+async def get_policy(kind: PolicyKind, session: SessionDep) -> CatoPolicy:
+    """Eine Cato-Policy lesen: internet, wan, lan (Socket-LAN), bypass, wan_network."""
+    cred = await _cato_credential(session)
+    async with _api(cred) as api:
+        return await _guard(fetch_policy(api, kind))

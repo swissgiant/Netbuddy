@@ -1,6 +1,14 @@
 import { useState } from "react";
-import type { CatoCandidate, CatoSite, CatoSyncSummary } from "../api";
-import { createDevice, fetchCatoDevices, fetchCatoSites, syncCato } from "../api";
+import type { CatoCandidate, CatoPolicy, CatoSite, CatoSyncSummary } from "../api";
+import { createDevice, fetchCatoDevices, fetchCatoHosts, fetchCatoPolicy, fetchCatoSites, syncCato } from "../api";
+
+const POLICY_KINDS: { key: string; label: string; hint: string }[] = [
+  { key: "wan", label: "WAN-Firewall", hint: "Site ↔ Site / User ↔ Site über das Cato-WAN" },
+  { key: "internet", label: "Internet-Firewall", hint: "Zugriff aus Sites/Usern ins Internet" },
+  { key: "lan", label: "Socket-LAN-Firewall", hint: "lokal am Socket zwischen VLANs/Ranges, inkl. NAT" },
+  { key: "bypass", label: "Socket-Bypass", hint: "Traffic, der am Cato-Tunnel vorbei direkt aus dem Socket geht" },
+  { key: "wan_network", label: "WAN-Network-Regeln", hint: "Routing/Transport/QoS im Cato-WAN" },
+];
 
 const ADAPTERS = [
   "cisco_ios",
@@ -28,6 +36,9 @@ export function CatoView() {
   const [sites, setSites] = useState<CatoSite[]>([]);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [devices, setDevices] = useState<CatoCandidate[] | null>(null);
+  const [policyKind, setPolicyKind] = useState("wan");
+  const [policy, setPolicy] = useState<CatoPolicy | null>(null);
+  const [ruleFilter, setRuleFilter] = useState("");
   const [infraOnly, setInfraOnly] = useState(true);
   const [siteFilter, setSiteFilter] = useState("");
   const [summary, setSummary] = useState<CatoSyncSummary | null>(null);
@@ -69,6 +80,20 @@ export function CatoView() {
       setMsg(`${d.length} Geräte aus dem Cato-Inventar${infraOnly ? " (nur Infrastruktur-Verdacht)" : ""}.`);
     });
 
+  const loadHosts = () =>
+    run("hosts", async () => {
+      const d = await fetchCatoHosts(infraOnly);
+      setDevices(d);
+      setMsg(`${d.length} Known Hosts aus den Cato-Sockets${infraOnly ? " (nur Infrastruktur-Verdacht)" : ""}.`);
+    });
+
+  const loadPolicy = () =>
+    run("policy", async () => {
+      const p = await fetchCatoPolicy(policyKind);
+      setPolicy(p);
+      setMsg(`${p.rules.length} Regeln (${POLICY_KINDS.find((k) => k.key === p.kind)?.label ?? p.kind}).`);
+    });
+
   const adopt = async (c: CatoCandidate) => {
     if (!c.ip) {
       setError("Kein IP-Eintrag im Cato-Inventar — Gerät manuell anlegen.");
@@ -97,6 +122,14 @@ export function CatoView() {
   };
 
   const siteNames = Array.from(new Set((devices ?? []).map((d) => d.site ?? "—"))).sort();
+  const needle = ruleFilter.trim().toLowerCase();
+  const shownRules = (policy?.rules ?? []).filter(
+    (r) =>
+      !needle ||
+      [r.name, r.section, r.sites, r.source, r.destination, r.application, r.service, r.extra, r.action, r.description]
+        .filter(Boolean)
+        .some((x) => String(x).toLowerCase().includes(needle)),
+  );
   const shown = (devices ?? []).filter((d) => !siteFilter || (d.site ?? "—") === siteFilter);
 
   return (
@@ -131,9 +164,20 @@ export function CatoView() {
           <input type="checkbox" checked={infraOnly} onChange={(e) => setInfraOnly(e.target.checked)} />
           nur Infrastruktur-Verdacht
         </label>
-        <button onClick={loadDevices} disabled={busy !== null}>
+        <button onClick={loadDevices} disabled={busy !== null} title="Cato-Geräte-Inventar (devices-API, Lizenz nötig)">
           {busy === "devices" ? "Lade…" : "🔍 Geräte-Inventar laden"}
         </button>
+        <button onClick={loadHosts} disabled={busy !== null} title="Known Hosts je Site (Socket-Sicht: Name/IP/MAC/User/OS, Hersteller per OUI)">
+          {busy === "hosts" ? "Lade…" : "🧭 Known-Hosts laden"}
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <strong>Firewall / Policies:</strong>
+        <select value={policyKind} onChange={(e) => setPolicyKind(e.target.value)}>
+          {POLICY_KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
+        </select>
+        <button onClick={loadPolicy} disabled={busy !== null}>{busy === "policy" ? "Lade…" : "📜 Regeln laden"}</button>
+        <span className="muted">{POLICY_KINDS.find((k) => k.key === policyKind)?.hint}</span>
       </div>
       {msg && <p style={{ color: "var(--ok, green)" }}>{msg}</p>}
       {error && <p className="error">{error}</p>}
@@ -222,6 +266,49 @@ export function CatoView() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {policy && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+            <strong>{POLICY_KINDS.find((k) => k.key === policy.kind)?.label ?? policy.kind}</strong>
+            <span className="muted">
+              {policy.enabled === false ? "Policy deaktiviert · " : ""}
+              {policy.published_at ? `veröffentlicht ${fmtTime(policy.published_at)}${policy.published_by ? ` von ${policy.published_by}` : ""}` : ""}
+            </span>
+            <input placeholder="Filter (Name, Quelle, Ziel, Service…)" value={ruleFilter} onChange={(e) => setRuleFilter(e.target.value)} style={{ minWidth: 260 }} />
+            <span className="muted">{shownRules.length} / {policy.rules.length}</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Status</th><th>Aktion</th><th>Name</th><th>Sektion</th><th>Sites</th><th>Quelle</th><th>Ziel</th><th>App</th><th>Service</th><th>Extra</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shownRules.map((r) => (
+                <tr key={`${r.kind}-${r.index}-${r.name}`} style={{ opacity: r.enabled ? 1 : 0.5 }}>
+                  <td>{r.index ?? "—"}</td>
+                  <td>{r.enabled ? "an" : "aus"}</td>
+                  <td>
+                    <span className="badge" style={{ background: /BLOCK/i.test(r.action ?? "") ? "var(--warn, orange)" : /ALLOW|BYPASS/i.test(r.action ?? "") ? "var(--ok, green)" : undefined }}>
+                      {r.action ?? "—"}{r.direction ? ` ${r.direction}` : ""}
+                    </span>
+                  </td>
+                  <td title={r.description ?? undefined}>{r.name}</td>
+                  <td className="muted">{r.section ?? "—"}</td>
+                  <td className="muted">{r.sites ?? "—"}</td>
+                  <td><code>{r.source}</code></td>
+                  <td><code>{r.destination}</code></td>
+                  <td className="muted">{r.application ?? "—"}</td>
+                  <td className="muted">{r.service ?? "alle"}</td>
+                  <td className="muted">{r.extra ?? ""}</td>
+                </tr>
+              ))}
+              {shownRules.length === 0 && <tr><td colSpan={11} className="muted">keine Regeln</td></tr>}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {devices && (

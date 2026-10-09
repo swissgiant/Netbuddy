@@ -23,6 +23,7 @@ gelöscht oder verschoben — Konflikte (Subnetz schon an anderem Standort) werd
 import ipaddress
 import re
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel
@@ -41,6 +42,7 @@ from netbuddy.db.models import (
     SiteSubnet,
 )
 from netbuddy.services.crawl import guess_adapter
+from netbuddy.services.oui import vendor_for_mac
 
 GRAPHQL_PATH = "/api/v1/graphql2"
 _PAGE = 200
@@ -83,6 +85,21 @@ query socketCfg($accountId: ID!, $siteId: String!) {
     siteSocketConfiguration(input: { site: { by: ID, input: $siteId } }) {
       primarySocketConfiguration { description serial managementIp socketInfo { model platform } }
       secondarySocketConfiguration { description serial managementIp socketInfo { model platform } }
+    }
+  }
+}
+"""
+
+# Known Hosts je Site (DHCP-/ARP-Sicht des Sockets) — Ersatz, wenn das Geräte-Inventar (`devices`)
+# im Account nicht lizenziert ist. Liefert Name/IP/MAC/Identität/OS, Hersteller kommt aus der OUI.
+_QUERY_KNOWN_HOSTS = """
+query knownHosts($accountId: ID!, $siteId: String!, $from: Int!, $limit: Int!) {
+  site(accountId: $accountId) {
+    knownHostList(input: { site: { by: ID, input: $siteId },
+                           paging: { from: $from, limit: $limit } }) {
+      knownHost { hostName ip macAddress networkRange { name subnet } ipAllocationType
+        lastActivitySeconds identity operatingSystem }
+      pageInfo { total }
     }
   }
 }
@@ -421,6 +438,61 @@ async def fetch_sites(api: CatoApi, *, with_ranges: bool = True) -> list[CatoSit
     return sorted(sites, key=lambda s: s.name.lower())
 
 
+def parse_known_hosts(site: CatoSite, data: dict[str, Any]) -> tuple[list[CatoDevice], int]:
+    """knownHostList einer Site → CatoDevice-Liste (Hersteller per OUI) + Gesamtzahl."""
+    payload = (data.get("site") or {}).get("knownHostList") or {}
+    out: list[CatoDevice] = []
+    for h in payload.get("knownHost") or []:
+        mac = h.get("macAddress") or None
+        last = h.get("lastActivitySeconds")
+        nr = h.get("networkRange") or {}
+        os_ = h.get("operatingSystem")
+        out.append(
+            CatoDevice(
+                id=f"{site.id}:{h.get('ip')}:{mac or '-'}",
+                name=h.get("hostName") or None,
+                ip=h.get("ip"),
+                mac=mac,
+                nic_vendor=vendor_for_mac(mac) if mac else None,
+                site=site.name,
+                network_name=nr.get("name"),
+                subnet=nr.get("subnet"),
+                hw_type=None,
+                hw_model=None,
+                manufacturer=None,
+                os=None if os_ in (None, "", "Unknown") else os_,
+                category=f"user:{h['identity']}" if h.get("identity") else None,
+                first_seen=None,
+                last_seen=datetime.fromtimestamp(last, tz=UTC).isoformat() if last else None,
+                is_managed=None,
+            )
+        )
+    return out, int((payload.get("pageInfo") or {}).get("total") or 0)
+
+
+async def fetch_known_hosts(
+    api: CatoApi, sites: list[CatoSite], *, page: int = 500
+) -> list[CatoDevice]:
+    """Known Hosts aller Sites (seitenweise); Sites ohne Host-Sicht (IPsec/Cloud) überspringen."""
+    out: list[CatoDevice] = []
+    for site in sites:
+        offset = 0
+        while len(out) < _MAX_DEVICES:
+            try:
+                data = await api.query(
+                    _QUERY_KNOWN_HOSTS,
+                    {"accountId": api.account_id, "siteId": site.id, "from": offset, "limit": page},
+                )
+            except AdapterError:
+                break
+            hosts, total = parse_known_hosts(site, data)
+            out.extend(hosts)
+            offset += page
+            if not hosts or offset >= total:
+                break
+    return out
+
+
 async def fetch_devices(api: CatoApi) -> list[CatoDevice]:
     """Komplettes Geräte-Inventar (seitenweise, nach lastSeen absteigend)."""
     devices: list[CatoDevice] = []
@@ -610,7 +682,9 @@ def _infra_reason(d: CatoDevice) -> str | None:
     if _INFRA_TYPE.search(blob):
         return "typ"
     vendor = " ".join(str(x) for x in (d.manufacturer, d.nic_vendor) if x)
-    if _INFRA_VENDOR.search(vendor) and not _AMBIGUOUS_VENDOR.search(vendor):
+    # "Aruba, a Hewlett Packard Enterprise Company" zählt (aruba), "Dell Inc." allein nicht.
+    strong = _AMBIGUOUS_VENDOR.sub("", vendor)
+    if _INFRA_VENDOR.search(strong):
         return "hersteller"
     os_ = (d.os or "").lower()
     if any(k in os_ for k in ("ios", "nx-os", "junos", "fortios", "os10", "unifi", "meraki")):

@@ -17,6 +17,7 @@ from netbuddy.services.cato_inventory import (
     apply_socket_config,
     infra_candidates,
     parse_devices,
+    parse_known_hosts,
     parse_ranges,
     parse_sites,
     sync_sites,
@@ -408,6 +409,43 @@ async def test_infra_candidates_filters_and_marks_known(db_session: AsyncSession
     assert cands[1].guessed_adapter == "meraki"
     everything = await infra_candidates(db_session, devices, infra_only=False)
     assert len(everything) == 3 and {c.reason for c in everything} == {"typ", "hersteller", "-"}
+
+
+def test_parse_known_hosts_with_oui_vendor() -> None:
+    site = parse_sites(_SNAPSHOT)[0]
+    data = {
+        "site": {
+            "knownHostList": {
+                "knownHost": [
+                    {
+                        "hostName": "S00NSW120",
+                        "ip": "10.137.63.20",
+                        "macAddress": "98:18:88:aa:bb:cc",
+                        "networkRange": {"name": "Mgmt", "subnet": "10.137.63.0/24"},
+                        "lastActivitySeconds": 1791536265,
+                        "identity": None,
+                        "operatingSystem": "Unknown",
+                    },
+                    {
+                        "hostName": None,
+                        "ip": "10.137.31.12",
+                        "macAddress": None,
+                        "networkRange": None,
+                        "lastActivitySeconds": None,
+                        "identity": "beat.meier",
+                        "operatingSystem": "Windows",
+                    },
+                ],
+                "pageInfo": {"total": 2},
+            }
+        }
+    }
+    hosts, total = parse_known_hosts(site, data)
+    assert total == 2 and hosts[0].site == "Steelco HQ" and hosts[0].subnet == "10.137.63.0/24"
+    assert hosts[0].last_seen is not None and hosts[0].last_seen.startswith("2026-10-09")
+    assert hosts[0].os is None and hosts[1].os == "Windows"
+    assert hosts[1].category == "user:beat.meier"
+    assert hosts[1].nic_vendor is None
 
 
 def test_dell_laptop_is_not_infra() -> None:

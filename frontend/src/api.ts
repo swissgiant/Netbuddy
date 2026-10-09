@@ -537,7 +537,33 @@ export interface CatoSyncSummary {
   sockets_updated: number;
   sockets_skipped: string[];
 }
+export interface CatoRule {
+  kind: string;
+  index: number | null;
+  name: string;
+  description: string | null;
+  section: string | null;
+  enabled: boolean;
+  action: string | null;
+  direction: string | null;
+  sites: string | null;
+  source: string;
+  destination: string;
+  application: string | null;
+  service: string | null;
+  extra: string | null;
+}
+export interface CatoPolicy {
+  kind: string;
+  enabled: boolean | null;
+  published_at: string | null;
+  published_by: string | null;
+  rules: CatoRule[];
+}
 export const fetchCatoSites = () => http<CatoSite[]>("/cato/sites");
+export const fetchCatoHosts = (infraOnly: boolean) =>
+  http<CatoCandidate[]>(`/cato/hosts?infra_only=${infraOnly}`);
+export const fetchCatoPolicy = (kind: string) => http<CatoPolicy>(`/cato/policies/${kind}`);
 export const syncCato = (dryRun: boolean) =>
   http<CatoSyncSummary>(`/cato/sync?dry_run=${dryRun}`, { method: "POST" });
 export const fetchCatoDevices = (infraOnly: boolean) =>
