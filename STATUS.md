@@ -36,12 +36,49 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
 - Tests: `tests/services/test_cato_inventory.py` (Parsen, Dry-Run vs. Apply, Idempotenz,
   Subnetz-Match/Konflikt, Infra-Filter), Adapter-Test per Socket-IP. 291 Tests grün, mypy strict,
   tsc/vitest grün. Deployt auf Prod (backend/worker/frontend).
-- **Offen (Alex):** API-Key in der Cato Management Application anlegen (Administration → API
-  Management → API Keys, Berechtigung View, optional Quell-IP-Allowlist: NetBuddy-VM egress
-  **62.204.100.146**), Account-ID (Zahl in der CMA-URL) notieren, Credential in NetBuddy anlegen,
-  dann „Sites laden" → „Sync-Vorschau" → prüfen → „übernehmen" → „Geräte-Inventar laden".
-  Erwartung: Belimed-Cato-Sites (HQ/SAG/DE/…, 10.131–10.1xx) matchen nicht auf Sulgen/Gro/USA/
-  Cusano (dort 10.120–10.123/16) → `site_map` setzen oder als eigene Standorte anlegen lassen.
+- **Live seit 9.10. nachmittags:** Credential „Cato" (Account 8984, belimed.cc.catonetworks.com)
+  ist drin, 20 Cato-Sites / 507 Netzbereiche geladen. Nachgezogen (Commits 9094b8b, c7c48ba):
+  - Socket-Name/Mgmt-IP kommen aus `site.siteSocketConfiguration` (accountSnapshot liefert
+    name/internalIP leer); Single-Socket ohne managementIp → localIp des Native-Range.
+  - `site_map`-Wert `""`/`"-"`/null = Site überspringen (`sites_skipped`). Gesetzt:
+    SCO-S00-Riese→S00 - Steelco HQ, SCO-S00-Valla→S00 - Valla Office, SCO-S01-Cusano→S01 - Icos
+    Pharma, SCO-S02-Padova→S02 - Steelco Service, SCO-S05-Vianen→S05 - Steelco Benelux,
+    **BLS = skip** (IPsec-Site, nur 10.120.0.0/14 = unsere vier Standorte), **SCO-VPN = skip**
+    (alte IPsec-Site, disconnected, trägt ~45 Steelco-Subnetze doppelt mit altem NAT 10.154.x).
+  - **Range-NAT** (`translatedSubnet`): Spalte „NAT (von aussen)" im Cato-Tab + Segment-Label
+    „| NAT von aussen x/24". Steelco-Muster: Riese innen 10.0.X/192.168.X → aussen 10.137.1XX
+    (10.0.2.0/24 → 10.137.102.0/24, DC = 10.137.102.10 bestätigt), Cusano 192.168.104 → 10.138.104,
+    10.1.42 → 10.41.42, 10.1.28 → 10.41.28; die übrigen z-S01-Ranges ohne NAT (Gateway 10.138.0.1).
+  - **Sync-Vorschau (wartet auf Go):** 13 neue Standorte (Belimed: A41, Alibaba-SAP-CN, Azure,
+    B-AT, B-DE, B-DK, B-FI, B-FR, B-HQ, B-SAG, B-SI, B-SI2, B-US), 5 zugeordnet, 454 Segmente,
+    0 Konflikte, 24 Socket-Devices (2 übersprungen: Alibaba ohne Socket). Cusano-Sockets haben in
+    Cato keine Beschreibung → Hostname „SCO-S01-Cusano-socket1/2" (ggf. s01fw1/2 nachbenennen).
+  - **`devices`-Inventar ist im Account unlizenziert** (Cato-Fehler „unlicensed"). Ersatz:
+    `site.knownHostList` (hostName/ip/mac/identity/OS, Riese 858, B-HQ 254) → Inventar-Tab
+    darauf umstellen (TODO).
+  - **Firewall lesen:** WAN-Firewall-Policy vollständig lesbar (233 Regeln, Default-Block 233;
+    Regel 1 „Alex Kohler" = site:BLS → All Sites ALLOW). Socket-LAN-Firewall: Query-Shape
+    abweichend (Sub-Rules in `firewall{}`), noch nicht umgesetzt. `wanNetwork`-Policy lesbar.
+- **Warum 10.1.x / 192.168.105.x (Icos) von BLS aus nicht gehen — Ursache gefunden:** Hinweg
+  komplett (Sulgen-FortiGate: 79 Statics in den IPsec „CATO", u.a. 10.1.2.0/24, 10.1.20.0/23,
+  192.168.105.0/24; Policy 105 erlaubt Netbuddy/AlexPC/MCM/LenaPC; Cato-WAN-Regel 1; Cato →
+  Cusano-Socket 10.138.0.14 → Gateway 10.138.0.1 = Icos-Firebox). **Rückweg fehlt:** die
+  Cusano-Firebox (via FortiGate-Jump gelesen) hat keine Route für 10.120.0.0/14, nur 10.128.0.0/11
+  via 10.138.0.14 → Antwort geht in die Default-Route (Internet). Sockets antworten, weil sie
+  selbst via Cato zurücksenden; traceroute: Sockets = 2 Hops, Icos-Ziele = nichts nach Sulgen-FW.
+  **Fix-Vorschlag (Steelco-Gerät, nur auf Go):** Cusano-Firebox `ip route 10.120.0.0/14
+  10.138.0.14 2` (Muster der bestehenden Routen 10.41/10.100/10.101/… via 10.138.0.14 distance 2,
+  bvpn1 distance 3 als Backup). Nebenbefund: 10.1.23.0/24 ist auf der Cusano-Firebox lokal (vlan23)
+  UND statisch via 10.138.0.14, zugleich bei Riese als NAT-Valla-BD-Service-WG1 → 10.137.223.0/24.
+- **Tagesbefunde ausserhalb Cato (9.10.):** (1) Alarm „BLS-SRV-LAYJF8B impersonated on T0DC12"
+  — Name existiert in DNS/ARP/DHCP/Cato-Hosts nirgends; DC-Security-Log 10:10–10:25 ohne Treffer;
+  von Alex als geklärt gemeldet. Nebenbei gefunden: VM de08pc1321pwa1 (00:50:56:ba:e3:cb) in
+  Sulgen Testnetz04 10.220.104.100 am ESX an Core2 Eth1/1/35, versucht Entra-Login, Testnetz hat
+  keinen Internet-/LAN-Pfad (nur Mesh-Policy 92). (2) Grosuplje BLS-SW-SLO-22 Gi1/0/32 (Netgear):
+  Link 100 Full, Dell bietet 1000/2500, **Partner bewirbt nur 10/100** → Netgear-Modell (FS?) oder
+  2-Paar-Kabel; 0 Fehler, 3 Link-Flaps 11:37–11:58. Port steht als einziger in **Access-VLAN 104**
+  (Testnetz04), dahinter nur PC-84F5VF4 (zuletzt 8.9. mit 10.121.40.236), heute ohne IP → Rückbau
+  auf VLAN 1 oder TDR-Kabeltest nur auf Go.
 - **Cusano S01, ESX-neu → Icos-VLAN 20 (Backup-Netz 10.1.20.0/24):** Meraki-Seite geprüft, nichts
   zu ändern. NSW110/2,3,4,39 + NSW101/14 = Trunk native 1 allowed all, LAG 52 zum Core allowed all,
   Stack intern; einziger Trunk ohne 20 ist der Crosslink NSW112/3 (nur VLAN 9). Offen ist nur die
