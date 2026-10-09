@@ -528,6 +528,7 @@ export interface CatoSyncSummary {
   dry_run: boolean;
   sites_created: string[];
   sites_matched: string[];
+  sites_skipped: string[];
   subnets_created: string[];
   subnets_existing: number;
   subnets_conflict: string[];

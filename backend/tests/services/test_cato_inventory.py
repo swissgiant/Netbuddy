@@ -1,3 +1,4 @@
+import copy
 from typing import Any
 
 from sqlalchemy import select
@@ -13,6 +14,7 @@ from netbuddy.db.models import (
 )
 from netbuddy.services.cato_inventory import (
     CatoDevice,
+    apply_socket_config,
     infra_candidates,
     parse_devices,
     parse_ranges,
@@ -132,6 +134,25 @@ _RANGES: dict[str, Any] = {
     }
 }
 
+_SOCKET_CFG: dict[str, Any] = {
+    "site": {
+        "siteSocketConfiguration": {
+            "primarySocketConfiguration": {
+                "description": "s00fw1",
+                "serial": "SN-PRI",
+                "managementIp": "10.137.0.13",
+                "socketInfo": {"model": "X1700", "platform": "X1700B"},
+            },
+            "secondarySocketConfiguration": {
+                "description": "s00fw2",
+                "serial": "SN-SEC",
+                "managementIp": "10.137.0.12",
+                "socketInfo": {"model": "X1700", "platform": "X1700B"},
+            },
+        }
+    }
+}
+
 _DEVICES: dict[str, Any] = {
     "devices": {
         "list": {
@@ -201,6 +222,40 @@ def test_parse_sites_merges_socket_runtime_and_master_data() -> None:
     assert hq.sockets[0].name == "s00fw1" and hq.sockets[0].platform == "X1700"
     assert hq.sockets[1].connected is False
     assert sites[1].sockets == []
+
+
+def test_socket_config_fills_name_and_ip_with_native_fallback() -> None:
+    # HA-Site: accountSnapshot liefert name/internalIP leer → aus siteSocketConfiguration
+    snap = copy.deepcopy({"accountSnapshot": {"sites": _SNAPSHOT["accountSnapshot"]["sites"][:1]}})
+    for dev in snap["accountSnapshot"]["sites"][0]["devices"]:
+        dev["name"] = ""
+        dev["internalIP"] = ""
+    site = parse_sites(snap)[0]
+    site.ranges = parse_ranges(_RANGES)
+    apply_socket_config(site, _SOCKET_CFG)
+    assert {k.serial: (k.name, k.internal_ip) for k in site.sockets} == {
+        "SN-PRI": ("s00fw1", "10.137.0.13"),
+        "SN-SEC": ("s00fw2", "10.137.0.12"),
+    }
+    # Single-Socket ohne managementIp → localIp des Native-Range
+    single = parse_sites(snap)[0]
+    single.sockets = single.sockets[:1]
+    single.ranges = parse_ranges(_RANGES)
+    cfg = {
+        "site": {
+            "siteSocketConfiguration": {
+                "primarySocketConfiguration": {
+                    "description": None,
+                    "serial": "SN-PRI",
+                    "managementIp": None,
+                    "socketInfo": None,
+                },
+                "secondarySocketConfiguration": None,
+            }
+        }
+    }
+    apply_socket_config(single, cfg)
+    assert single.sockets[0].internal_ip == "10.137.0.14" and single.sockets[0].name is None
 
 
 def test_parse_ranges_and_devices() -> None:
@@ -288,6 +343,22 @@ async def test_sync_sites_matches_by_subnet_overlap_and_reports_conflict(
     assert report.sites_matched == ["Steelco HQ → S00 - Steelco HQ (subnetz 10.137.0.0/16)"]
     assert report.subnets_conflict == ["10.137.62.0/24 (Steelco HQ) liegt schon bei Woanders"]
     assert report.subnets_created == ["10.137.0.0/28 — Cato Steelco HQ: Native"]
+
+
+async def test_sync_sites_skips_sites_mapped_to_empty(db_session: AsyncSession) -> None:
+    cred = Credential(
+        name="CatoCloud",
+        base_url="https://api.catonetworks.com",
+        extra={"account_id": "42", "site_map": {"HQ": "-", "Steelco HQ": None}},
+    )
+    db_session.add(cred)
+    await db_session.flush()
+    sites = parse_sites(_SNAPSHOT)
+    sites[0].ranges = parse_ranges(_RANGES)
+    report = await sync_sites(db_session, cred, sites, dry_run=False)
+    assert report.sites_skipped == ["Steelco HQ", "HQ"]
+    assert report.sites_created == [] and report.subnets_created == []
+    assert (await db_session.execute(select(Site))).scalars().all() == []
 
 
 async def test_infra_candidates_filters_and_marks_known(db_session: AsyncSession) -> None:

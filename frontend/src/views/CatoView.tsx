@@ -144,6 +144,9 @@ export function CatoView() {
           <ul>
             <li>Neue Standorte ({summary.sites_created.length}): {summary.sites_created.join(", ") || "—"}</li>
             <li>Zugeordnet ({summary.sites_matched.length}): {summary.sites_matched.join("; ") || "—"}</li>
+            {summary.sites_skipped.length > 0 && (
+              <li className="muted">Übersprungen (site_map): {summary.sites_skipped.join(", ")}</li>
+            )}
             <li>Neue Segmente ({summary.subnets_created.length}), {summary.subnets_existing} schon vorhanden</li>
             {summary.subnets_created.length > 0 && (
               <ul>{summary.subnets_created.map((s) => <li key={s}><code>{s}</code></li>)}</ul>

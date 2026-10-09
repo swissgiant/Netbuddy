@@ -3,7 +3,9 @@
 Quelle: Cato Management Application, Endpoint ``https://api.catonetworks.com/api/v1/graphql2``
 mit Header ``x-api-key``. Credential „CatoCloud": ``base_url``, ``api_token`` und
 ``extra.account_id`` (Pflicht); optional ``extra.site_map`` =
-``{"<Cato-Site>": "<NetBuddy-Site>"}``, wenn Cato-Site und NetBuddy-Standort anders heißen.
+``{"<Cato-Site>": "<NetBuddy-Site>"}``, wenn Cato-Site und NetBuddy-Standort anders heißen;
+Wert ``""``/``"-"``/``null`` = Cato-Site beim Sync überspringen (z.B. eine IPsec-Site, deren
+Netzbereich nur das eigene WAN zusammenfasst).
 
 Drei Lesesichten, bewusst getrennt von der DB-Logik (ohne Netz testbar)::
 
@@ -68,6 +70,19 @@ query ranges($accountId: ID!, $siteId: String!) {
       items { networkRangeId name rangeType subnet localIp gateway vlan
         dhcpSettings { dhcpType ipRange } internetOnly }
       total
+    }
+  }
+}
+"""
+
+# Socket-Stammdaten je Site: Name (description) + Management-IP je Socket — im accountSnapshot
+# sind name/internalIP leer. Bei Single-Socket-Sites ist managementIp null → Native-Range localIp.
+_QUERY_SOCKET_CFG = """
+query socketCfg($accountId: ID!, $siteId: String!) {
+  site(accountId: $accountId) {
+    siteSocketConfiguration(input: { site: { by: ID, input: $siteId } }) {
+      primarySocketConfiguration { description serial managementIp socketInfo { model platform } }
+      secondarySocketConfiguration { description serial managementIp socketInfo { model platform } }
     }
   }
 }
@@ -174,6 +189,7 @@ class SyncSummary(BaseModel):
     dry_run: bool
     sites_created: list[str] = []
     sites_matched: list[str] = []  # "Cato-Site → NetBuddy-Standort (Grund)"
+    sites_skipped: list[str] = []  # per site_map ausgeschlossen
     subnets_created: list[str] = []
     subnets_existing: int = 0
     subnets_conflict: list[str] = []  # Subnetz liegt schon an einem anderen Standort
@@ -342,17 +358,60 @@ def parse_devices(data: dict[str, Any]) -> tuple[list[CatoDevice], int]:
 # --- Netz-Calls ---------------------------------------------------------------------------------
 
 
+def apply_socket_config(site: CatoSite, data: dict[str, Any]) -> None:
+    """siteSocketConfiguration → Socket-Name/Management-IP (per Serial) nachtragen.
+
+    Fehlt die Management-IP (Single-Socket), gilt die localIp des ersten Native-Range.
+    """
+    cfg = (data.get("site") or {}).get("siteSocketConfiguration") or {}
+    native_ip = next(
+        (r.local_ip for r in site.ranges if r.range_type == "Native" and r.local_ip), None
+    )
+    for key in ("primarySocketConfiguration", "secondarySocketConfiguration"):
+        entry = cfg.get(key) or {}
+        serial = entry.get("serial")
+        if not serial:
+            continue
+        sock = next((k for k in site.sockets if k.serial == serial), None)
+        if sock is None:
+            sock = CatoSocket(
+                serial=serial,
+                name=None,
+                platform=(entry.get("socketInfo") or {}).get("platform"),
+                version=None,
+                is_primary=key.startswith("primary"),
+                internal_ip=None,
+                connected=None,
+                ha_role=None,
+            )
+            site.sockets.append(sock)
+        sock.name = entry.get("description") or sock.name or None
+        sock.internal_ip = entry.get("managementIp") or sock.internal_ip or None
+    if len(site.sockets) == 1 and not site.sockets[0].internal_ip:
+        site.sockets[0].internal_ip = native_ip
+
+
+async def _fetch_site_details(api: CatoApi, site: CatoSite) -> None:
+    try:
+        site.ranges = parse_ranges(
+            await api.query(_QUERY_RANGES, {"accountId": api.account_id, "siteId": site.id})
+        )
+    except AdapterError:
+        return  # z.B. IPsec-/Cloud-Sites ohne Socket-Netzbereiche
+    if "SOCKET" not in (site.conn_type or "").upper():
+        return
+    try:
+        cfg = await api.query(_QUERY_SOCKET_CFG, {"accountId": api.account_id, "siteId": site.id})
+    except AdapterError:
+        return
+    apply_socket_config(site, cfg)
+
+
 async def fetch_sites(api: CatoApi, *, with_ranges: bool = True) -> list[CatoSite]:
     sites = parse_sites(await api.query(_QUERY_SNAPSHOT, {"accountID": api.account_id}))
     if with_ranges:
         for site in sites:
-            try:
-                data = await api.query(
-                    _QUERY_RANGES, {"accountId": api.account_id, "siteId": site.id}
-                )
-            except AdapterError:
-                continue  # z.B. IPsec-/Cloud-Sites ohne Socket-Netzbereiche
-            site.ranges = parse_ranges(data)
+            await _fetch_site_details(api, site)
     return sorted(sites, key=lambda s: s.name.lower())
 
 
@@ -383,13 +442,21 @@ def _net(cidr: str | None) -> ipaddress.IPv4Network | ipaddress.IPv6Network | No
         return None
 
 
+_SKIP_VALUES = {"", "-", "skip", "none", "null"}
+
+
 def _resolve_site(
     cato: CatoSite,
     site_map: dict[str, str],
     sites: list[Site],
     subnets: list[SiteSubnet],
 ) -> tuple[Site | None, str]:
-    """Cato-Site → NetBuddy-Standort: site_map > Name/Code > Subnetz-Überlappung."""
+    """Cato-Site → NetBuddy-Standort: site_map > Name/Code > Subnetz-Überlappung.
+
+    ``site_map``-Wert ``""``/``"-"`` → ``(None, "skip")``: Site wird nicht synchronisiert.
+    """
+    if cato.name in site_map and site_map[cato.name].strip().lower() in _SKIP_VALUES:
+        return None, "skip"
     wanted = site_map.get(cato.name)
     if wanted:
         for s in sites:
@@ -412,12 +479,18 @@ async def sync_sites(
     session: AsyncSession, credential: Credential, cato_sites: list[CatoSite], *, dry_run: bool
 ) -> SyncSummary:
     """Cato-Sites → Standorte + Segmente + Socket-Devices. ``dry_run`` ändert nichts."""
-    site_map = {str(k): str(v) for k, v in ((credential.extra or {}).get("site_map") or {}).items()}
+    site_map = {
+        str(k): "" if v is None else str(v)
+        for k, v in ((credential.extra or {}).get("site_map") or {}).items()
+    }
     sites = list((await session.execute(select(Site).where(Site.deleted_at.is_(None)))).scalars())
     subnets = list((await session.execute(select(SiteSubnet))).scalars())
     summary = SyncSummary(dry_run=dry_run)
     for cato in cato_sites:
         site, how = _resolve_site(cato, site_map, sites, subnets)
+        if how == "skip":
+            summary.sites_skipped.append(cato.name)
+            continue
         if site is None:
             summary.sites_created.append(cato.name)
             site = Site(
