@@ -122,6 +122,16 @@ async def get_topology(session: SessionDep) -> Topology:
     devices_by_id = {device.id: device for device in devices}
     ip2dev = {str(d.mgmt_ip): d for d in devices}
 
+    def resolve_name(name: str) -> Device | None:
+        """Hostname-Match inkl. Kurzname; ProCurve-LLDP kürzt SysNames auf 22 Zeichen + "..."
+        → eindeutiger Präfix-Treffer zählt (mehrdeutig = kein Match, keine Erfindung)."""
+        hit = by_hostname.get(name) or by_hostname.get(name.split(".")[0])
+        if hit is not None or not name.endswith("..."):
+            return hit
+        prefix = name[:-3].lower()
+        hits = {d.id: d for h, d in by_hostname.items() if h.lower().startswith(prefix)}
+        return next(iter(hits.values())) if len(hits) == 1 else None
+
     def is_ap(device_id: uuid.UUID | None) -> bool:
         d = devices_by_id.get(device_id) if device_id else None
         return d is not None and d.device_type == DeviceType.AP
@@ -172,9 +182,7 @@ async def get_topology(session: SessionDep) -> Topology:
             continue
         remote = None
         if n.remote_system_name:
-            remote = by_hostname.get(n.remote_system_name) or by_hostname.get(
-                n.remote_system_name.split(".")[0]
-            )
+            remote = resolve_name(n.remote_system_name)
         if remote is None and n.remote_mgmt_address:
             remote = ip2dev.get(str(n.remote_mgmt_address))
         if remote is not None:

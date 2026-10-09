@@ -175,3 +175,49 @@ async def test_topology_ap_lldp_uplink_core_role_and_stack(
     assert (f"device:{sw_a}", f"device:{sw_b}") in by_type["stack"]
     # alle verbunden → kein "Unbekannter Switch"
     assert all(n["type"] != "unknown" for n in topo["nodes"])
+
+
+async def test_topology_resolves_truncated_procurve_sysname(
+    api_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """ProCurve-LLDP kürzt SysNames auf 22 Zeichen + "..." → eindeutiger Präfix = Kante."""
+    site = await api_client.post("/sites", json={"name": "B-SI", "code": "BSI"})
+    site_id = site.json()["id"]
+    core = await api_client.post(
+        "/devices",
+        json={
+            "hostname": "BSI_C_Aruba2540_48G_1",
+            "mgmt_ip": "10.100.50.23",
+            "vendor": "hp",
+            "adapter_id": "aruba_procurve",
+            "site_id": site_id,
+        },
+    )
+    access = await api_client.post(
+        "/devices",
+        json={
+            "hostname": "HP-5406Rzl2",
+            "mgmt_ip": "10.134.63.100",
+            "vendor": "hp",
+            "adapter_id": "aruba_procurve",
+            "site_id": site_id,
+        },
+    )
+    access_id = uuid.UUID(access.json()["id"])
+    iface = Interface(device_id=access_id, name="1/C24")
+    db_session.add(iface)
+    await db_session.flush()
+    db_session.add(
+        LldpNeighbor(
+            local_device_id=access_id,
+            local_interface_id=iface.id,
+            remote_chassis_id="64:e8:81:a1:19:00",
+            remote_port_id="49",
+            remote_system_name="BSI_C_Aruba2540...",
+        )
+    )
+    await db_session.commit()
+
+    topo = (await api_client.get("/topology")).json()
+    lldp_edges = {(e["source"], e["target"]) for e in topo["edges"] if e["type"] == "lldp"}
+    assert (f"device:{access_id}", f"device:{core.json()['id']}") in lldp_edges

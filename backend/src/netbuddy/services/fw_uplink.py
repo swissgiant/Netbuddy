@@ -10,6 +10,7 @@ erwarteten Cato-Punkt?".
 """
 
 import ipaddress
+import re
 import uuid
 from collections import defaultdict
 from collections.abc import Sequence
@@ -24,12 +25,15 @@ from netbuddy.db.models import (
     DeviceType,
     Interface,
     MacAddressEntry,
+    MacEntryType,
     SiteSubnet,
 )
 
 # Ein Port gilt als direkte Firewall-Verbindung, wenn er höchstens so viele verschiedene MACs
 # trägt (Sockets haben je VLAN eine virtuelle MAC → Handvoll, ein Core-Uplink hat hunderte).
 _DIRECT_MAX_MACS = 12
+# Logische Interfaces (SVI/CPU) tragen die eigene Gateway-MAC des L3-Switches, nie einen Uplink.
+_LOGICAL_PORT = re.compile(r"^(vlan|vlanif|cpu|loopback|lo\d|null|mgmt|meth)", re.IGNORECASE)
 
 
 class FwUplink(BaseModel):
@@ -98,11 +102,14 @@ async def firewall_uplinks(session: AsyncSession, devices: Sequence[Device]) -> 
                 .where(
                     MacAddressEntry.device_id.in_(switch_ids),
                     MacAddressEntry.deleted_at.is_(None),
+                    MacAddressEntry.entry_type != MacEntryType.STATIC,
                 )
             )
         ).all()
         per_port: dict[tuple[uuid.UUID, str], set[str]] = defaultdict(set)
         for dev_id, port, mac in rows:
+            if _LOGICAL_PORT.match(port):
+                continue  # SVI/CPU: eigene MAC des L3-Switches, kein Uplink
             per_port[(dev_id, port)].add(_canon(mac))
         for sw in switches:
             candidates = [
