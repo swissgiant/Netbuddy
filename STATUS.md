@@ -85,6 +85,44 @@ Projektkontext und Konventionen stehen in `CLAUDE.md`. Diese Datei dokumentiert 
   ESX-Seite (Portgruppe/vmk mit VLAN-ID 20); danach Verify über Meraki-MAC-Tabelle in VLAN 20.
   Hinweis: 10.123.20.x (alte vmk0) ist KEIN VLAN auf BLS-Seite (flaches /16 auf FortiGate wan1),
   VLAN-ID 20 auf Icos dafür wäre eine L2-Vermischung — nicht machen.
+- **Nachmittag 9.10. — Sync übernommen, Rückroute gebaut, Policies + Known-Hosts-Inventur:**
+  - **Sync übernommen (Go Alex):** 13 Belimed-Standorte neu, 454 Segmente, 24 Socket-Devices.
+    Nachkorrektur: B-US war per Subnetz-Überlappung (10.10.10.0/23 ⊂ Alibaba-Native 10.10.0.0/16)
+    an Alibaba-SAP-CN gehängt → Fix 544e28c (Überlappung nur gegen VORBESTEHENDE Segmente) +
+    Daten repariert (Site B-US angelegt, 39 Segmente + B-US-socket1 verschoben). 4 gemeldete
+    Konflikte sind Cato-intern doppelt (192.168.1/3 Riese↔B-DE, 10.0.2.0/24 Riese↔B-SI,
+    10.1.23.0/24 Cusano↔Riese-NAT). Zweiter Lauf idempotent (0 neu).
+  - **Cusano-Firebox Rückroute gesetzt (Go Alex, 9.10. ~14:00):** Backup-Image
+    `bls-rueckroute-20261009`, dann `ip route 10.120.0.0/14 10.138.0.14 distance 2`. Syntax-
+    Falle: `distance` ist Pflicht-Keyword; `… 10.138.0.14 ?` hat die Hilfe gezeigt UND die Route
+    mit distance 1 angelegt → per `no ip route 10.120.0.0/14` bereinigt, final nur distance 2.
+    **Ergebnis:** ICMP aus BLS nach Icos geht (10.1.2.10, 10.1.20.10, 192.168.105.254, Firebox-
+    Interfaces), **TCP nicht** (DC 10.1.2.10:53/389/445, 10.1.20.10:443 zu) → WatchGuard-Policies
+    am Cusano-Cluster erlauben 10.120.x nur ICMP. Nächster Schritt: Cusano-Config-XML (Policy
+    Manager → Save as XML) analysieren wie bei Riese, oder Alias mit 10.120.0.0/14 in die
+    passenden Policies (von Alex). ESXi 10.1.2.211–214 antworten auch nicht auf ICMP (Host-FW
+    oder Gateway-Config auf den neuen Hosts prüfen).
+  - **Cato-Policies lesbar (Commit 7ef7307, aae718e, c29170e):** `services/cato_policies.py`,
+    `GET /cato/policies/{internet|wan|lan|bypass|wan_network}`, Cato-Tab „Firewall / Policies"
+    mit Filter. Live: WAN 233, Internet 130, Socket-LAN 36 (11 Site-Regeln + Subregeln), Bypass 4
+    (Microsoft-Apps, Teamcenter, iam.myplymovent, Guests), WAN-Network 43. **Befund Socket-LAN
+    Cusano:** Regel „CATO - Legacy LAN S01" blockt gezielt und ohne Log any↔192.168.109.119 (=
+    BLS-FortiGate-Crosslink), danach any→any allow. Internet-/WAN-FW zuletzt 8./9.10. von
+    marcel.vanas publiziert.
+  - **Known-Hosts-Inventur (Ersatz für unlizenzierte devices-API):** `GET /cato/hosts`, Button
+    „Known-Hosts laden"; 2393 Hosts (Riese 869, B-SI 478, B-HQ 253, Cusano 173, B-DE 159, …),
+    Hersteller per OUI, Infra-Heuristik erweitert (HP/HPE/Dell nur im Management-Netz =
+    „mgmt-netz", ProCurve/Huawei/…, Handy-OS raus). **Belimed-Switch-Kandidaten** (alle aus BLS
+    via Cato erreichbar, SSH-Banner gelesen):
+    B-HQ 10.131.63.212/.213/.214/.216 = ArubaOS-Switch/ProCurve (Mocana 5.8), B-SI 10.134.0.1 =
+    ArubaOS-Switch (Mocana 6.3), B-AT 10.141.63.201 / B-FI 10.146.63.201 / B-FR 10.143.63.201 =
+    **Aruba CX** (OpenSSH PKIX, Web UI), B-SAG 10.132.63.220 = alter ProCurve (OpenSSH 3.7),
+    10.132.63.221 = Cisco Small Business (OpenSSH 5.9 RL), 10.132.63.212 = Huawei VRP,
+    10.132.63.211 HP (22 offen, kein Banner), B-US 10.135.63.201/.203 = **Cisco IOS**, B-DK
+    10.147.63.104 HPE (nur 443). Belimed-WLAN: UniFi-APs an allen Sites (AP-Management-VLAN
+    x.x.64.0/24), Controller unifi.corp.belimed.com / 10.131.62.10. **Credentials von Alex
+    ausstehend;** NetBuddy braucht dafür ein Profil `aruba_procurve` (ArubaOS-Switch) und ggf.
+    Huawei VRP, Aruba CX + Cisco IOS existieren.
 - Unverändert offen aus S88: Rückbau Firebox-Secondaries .250 / NAT-Policy, 28 Cato-Routen auf
   der Riese-Firebox, Secondary-Socket s00fw2.
 
