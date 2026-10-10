@@ -182,6 +182,19 @@ async def _netapp(client: httpx.AsyncClient, base: str, user: str, pw: str) -> d
     )
     drecs = disks.json().get("records", [])
     out["disk_count"] = len(drecs)
+    try:
+        lifs = await client.get(
+            f"{base}/api/network/ip/interfaces", auth=auth, params={"fields": "ip.address"}
+        )
+        ips = [
+            (r.get("ip") or {}).get("address")
+            for r in lifs.json().get("records", [])
+            if (r.get("ip") or {}).get("address")
+        ]
+        if ips:
+            out["ips"] = ips
+    except Exception:
+        pass
     return out
 
 
