@@ -8,7 +8,7 @@ import uuid
 from datetime import date, datetime
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy import select
 
 from netbuddy.api.deps import SessionDep
@@ -28,6 +28,11 @@ router = APIRouter(prefix="/storage-devices", tags=["storage-devices"])
 
 class StorageDeviceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("mgmt_ip", mode="before")
+    @classmethod
+    def _ip_str(cls, v: object) -> str | None:
+        return str(v) if v is not None else None
 
     id: uuid.UUID
     name: str

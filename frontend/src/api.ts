@@ -64,8 +64,25 @@ export interface Credential {
   username: string | null;
   ssh_port: number;
   base_url: string | null;
+  extra: Record<string, unknown>;
+  snmp_version: string | null;
   kind: "ssh" | "telnet" | "api";
+  has_password: boolean;
+  has_api_token: boolean;
+  has_snmp_community: boolean;
   created_at: string;
+}
+export interface CredentialUpdate {
+  name?: string;
+  username?: string | null;
+  password?: string | null;
+  enable_password?: string | null;
+  ssh_port?: number;
+  base_url?: string | null;
+  api_token?: string | null;
+  snmp_community?: string | null;
+  snmp_version?: string | null;
+  extra?: Record<string, unknown>;
 }
 export interface CredentialCreate {
   name: string;
@@ -75,6 +92,8 @@ export interface CredentialCreate {
   ssh_port?: number;
   base_url?: string | null;
   api_token?: string | null;
+  snmp_community?: string | null;
+  snmp_version?: string | null;
   extra?: Record<string, unknown>;
 }
 
@@ -237,6 +256,8 @@ export const resetPortVlan = (id: string, iface: string) =>
   });
 
 export const fetchCredentials = () => http<Credential[]>("/credentials");
+export const updateCredential = (id: string, body: CredentialUpdate) =>
+  http<Credential>(`/credentials/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 export const createCredential = (body: CredentialCreate) =>
   http<Credential>("/credentials", { method: "POST", body: JSON.stringify(body) });
 export const deleteCredential = (id: string) =>

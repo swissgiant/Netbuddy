@@ -33,6 +33,10 @@ _ENT_SERIAL = "1.3.6.1.2.1.47.1.1.1.1.11"
 _ENT_MODEL = "1.3.6.1.2.1.47.1.1.1.1.13"
 _NETAPP_MODEL = "1.3.6.1.4.1.789.1.1.5.0"
 _NETAPP_SERIAL = "1.3.6.1.4.1.789.1.1.9.0"
+_SYNO_MODEL = "1.3.6.1.4.1.6574.1.5.1.0"
+_SYNO_SERIAL = "1.3.6.1.4.1.6574.1.5.2.0"
+_QNAP_MODEL = "1.3.6.1.4.1.24681.1.2.12.0"
+_QNAP_SERIAL = "1.3.6.1.4.1.24681.1.4.4.0"
 
 
 class SnmpSummary(BaseModel):
@@ -59,10 +63,26 @@ def _int(value: Any) -> int | None:
         return None
 
 
-async def _community(session: AsyncSession) -> str | None:
+async def _communities(session: AsyncSession) -> list[str]:
+    """Read-Communities: dedizierte SNMP-Credentials (PRTG) zuerst, dann Switch-Liste."""
+    out: list[str] = []
+    snmp_creds = (
+        (
+            await session.execute(
+                select(Credential).where(
+                    Credential.deleted_at.is_(None), Credential.snmp_community.isnot(None)
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for c in sorted(snmp_creds, key=lambda x: 0 if "prtg" in x.name.lower() else 1):
+        if c.snmp_community and c.snmp_community not in out:
+            out.append(c.snmp_community)
     from netbuddy.services.passwordstate import PasswordstateApi
 
-    cred = (
+    pw = (
         (
             await session.execute(
                 select(Credential).where(
@@ -73,15 +93,18 @@ async def _community(session: AsyncSession) -> str | None:
         .scalars()
         .first()
     )
-    if cred is None:
-        return None
-    async with PasswordstateApi(cred) as api:
-        for lst in await api.fetch_lists():
-            if lst.name == "B-HQ Switch":
-                for entry in await api.fetch_list(lst.list_id):
-                    if "SNMP Community" in entry.title and entry.password:
-                        return entry.password
-    return None
+    if pw is not None:
+        try:
+            async with PasswordstateApi(pw) as api:
+                for lst in await api.fetch_lists():
+                    if lst.name == "B-HQ Switch":
+                        for entry in await api.fetch_list(lst.list_id):
+                            if "SNMP Community" in entry.title and entry.password:
+                                if entry.password not in out:
+                                    out.append(entry.password)
+        except Exception:
+            pass
+    return out
 
 
 class _Snmp:
@@ -166,6 +189,16 @@ async def _enrich_storage(snmp: _Snmp, dev: StorageDevice) -> bool:
             dev.model = model[:120]
     except Exception:
         pass
+    for model_oid, serial_oid in ((_SYNO_MODEL, _SYNO_SERIAL), (_QNAP_MODEL, _QNAP_SERIAL)):
+        try:
+            model = _text(await snmp.get(model_oid))
+            if model:
+                dev.model = model[:120]
+                serial = _text(await snmp.get(serial_oid))
+                if serial:
+                    dev.service_tag = serial[:128]
+        except Exception:
+            continue
     usable, used = _capacity_gb(await snmp.table())
     if usable:
         dev.capacity_usable_gb = usable
@@ -201,9 +234,9 @@ async def _enrich_physical(snmp: _Snmp, dev: PhysicalServer) -> bool:
 
 
 async def snmp_enrich(session: AsyncSession) -> SnmpSummary:
-    community = await _community(session)
-    summary = SnmpSummary(community_found=bool(community))
-    if not community:
+    communities = await _communities(session)
+    summary = SnmpSummary(community_found=bool(communities))
+    if not communities:
         return summary
 
     storage = (
@@ -232,18 +265,30 @@ async def snmp_enrich(session: AsyncSession) -> SnmpSummary:
     summary.physical_total = len(physical)
 
     for dev in storage:
-        try:
-            snmp = _Snmp(str(dev.mgmt_ip), community)
-            await _enrich_storage(snmp, dev)
-            summary.storage_enriched += 1
-        except Exception:
+        ok = False
+        for community in communities:
+            try:
+                snmp = _Snmp(str(dev.mgmt_ip), community)
+                await _enrich_storage(snmp, dev)
+                summary.storage_enriched += 1
+                ok = True
+                break
+            except Exception:
+                continue
+        if not ok:
             summary.no_response.append(f"storage:{dev.name}")
     for pdev in physical:
-        try:
-            snmp = _Snmp(str(pdev.mgmt_ip), community)
-            await _enrich_physical(snmp, pdev)
-            summary.physical_enriched += 1
-        except Exception:
+        ok = False
+        for community in communities:
+            try:
+                snmp = _Snmp(str(pdev.mgmt_ip), community)
+                await _enrich_physical(snmp, pdev)
+                summary.physical_enriched += 1
+                ok = True
+                break
+            except Exception:
+                continue
+        if not ok:
             summary.no_response.append(f"phys:{pdev.hostname}")
     await session.commit()
     return summary

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import type { Credential, CredentialCreate } from "../api";
-import { createCredential, deleteCredential, fetchCredentials } from "../api";
+import type { Credential, CredentialCreate, CredentialUpdate } from "../api";
+import { createCredential, deleteCredential, fetchCredentials, updateCredential } from "../api";
 import { Th, useSort } from "../sort";
 import { PasswordstateImport } from "./PasswordstateImport";
 
@@ -14,6 +14,8 @@ export function CredentialsView() {
   // Protokoll folgt dem Port: 22 = SSH, 23 = Telnet; nur bei anderen Ports erscheint die Auswahl.
   const [proto, setProto] = useState<"ssh" | "telnet">("ssh");
   const [error, setError] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [edit, setEdit] = useState<CredentialUpdate>({});
 
   const { sorted: sortedCreds, sort: credSort, toggle: credToggle } = useSort(creds, {
     target: (c) => c.base_url ?? c.username ?? null,
@@ -56,6 +58,26 @@ export function CredentialsView() {
     if (!confirm("Credential entfernen?")) return;
     await deleteCredential(id);
     reload();
+  };
+
+  const startEdit = (c: Credential) => {
+    setEditId(c.id);
+    setEdit({ name: c.name, username: c.username ?? "", base_url: c.base_url ?? "",
+      ssh_port: c.ssh_port, snmp_version: c.snmp_version ?? "",
+      extra: c.extra ?? {} });
+  };
+  const saveEdit = async () => {
+    if (!editId) return;
+    setError(null);
+    try {
+      const body: CredentialUpdate = { ...edit };
+      // leere Secrets nicht senden (bleiben unverändert); leere snmp_version -> null
+      (["password", "api_token", "enable_password", "snmp_community"] as const).forEach((k) => {
+        if (!body[k]) delete body[k];
+      });
+      await updateCredential(editId, body);
+      setEditId(null); setEdit({}); reload();
+    } catch (e) { setError(String(e)); }
   };
 
   const set = (k: keyof CredentialCreate, v: string) =>
@@ -131,11 +153,36 @@ export function CredentialsView() {
                 <td><span className="badge">{c.kind.toUpperCase()}</span></td>
                 <td className="muted">{c.base_url ?? c.username ?? "—"}</td>
                 <td className="muted">{c.base_url ? "—" : c.ssh_port}</td>
-                <td><button className="danger" onClick={() => remove(c.id)}>entfernen</button></td>
+                <td>
+                  <button className="ghost" onClick={() => startEdit(c)}>✏️</button>{" "}
+                  <button className="danger" onClick={() => remove(c.id)}>entfernen</button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+        {editId && (
+          <div style={{ border: "1px solid var(--border,#444)", borderRadius: 8, padding: 12, marginTop: 10 }}>
+            <h4 style={{ marginTop: 0 }}>Credential bearbeiten <span className="muted">(Secrets leer = unverändert)</span></h4>
+            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 6, maxWidth: 560 }}>
+              <label>Name</label><input value={edit.name ?? ""} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
+              <label>Username</label><input value={edit.username ?? ""} onChange={(e) => setEdit({ ...edit, username: e.target.value })} />
+              <label>Passwort</label><input type="password" placeholder="•••• (leer = behalten)" onChange={(e) => setEdit({ ...edit, password: e.target.value })} />
+              <label>Base-URL</label><input value={edit.base_url ?? ""} onChange={(e) => setEdit({ ...edit, base_url: e.target.value })} />
+              <label>API-Token</label><input type="password" placeholder="•••• (leer = behalten)" onChange={(e) => setEdit({ ...edit, api_token: e.target.value })} />
+              <label>SSH-Port</label><input type="number" value={edit.ssh_port ?? 22} onChange={(e) => setEdit({ ...edit, ssh_port: Number(e.target.value) })} />
+              <label>SNMP-Community</label><input type="password" placeholder="•••• (leer = behalten)" onChange={(e) => setEdit({ ...edit, snmp_community: e.target.value })} />
+              <label>SNMP-Version</label>
+              <select value={edit.snmp_version ?? ""} onChange={(e) => setEdit({ ...edit, snmp_version: e.target.value })}>
+                <option value="">—</option><option value="v1">v1</option><option value="v2c">v2c</option><option value="v3">v3</option>
+              </select>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <button onClick={saveEdit}>Speichern</button>{" "}
+              <button className="ghost" onClick={() => { setEditId(null); setEdit({}); }}>Abbrechen</button>
+            </div>
+          </div>
+        )}
         <p className="muted" style={{ fontSize: 12 }}>Geheimnisse werden serverseitig verschlüsselt (Fernet) gespeichert und nie zurückgegeben.</p>
       </div>
       <PasswordstateImport onImported={reload} />
