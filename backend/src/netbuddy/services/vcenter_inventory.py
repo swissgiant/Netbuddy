@@ -56,7 +56,9 @@ _DC_SITE_ALIAS = {
     "BSIG": "B-SI",
     "BSI": "B-SI",
     "BDEM": "B-DE",
+    "BDE": "B-DE",
     "BUSL": "B-US",
+    "BUS": "B-US",
 }
 
 
