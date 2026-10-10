@@ -297,6 +297,9 @@ def _apply(dev: StorageDevice, info: dict[str, Any], vendor: str, used_serials: 
         dev.disk_count = info["disk_count"]
     if info.get("disks"):
         dev.disks = info["disks"]
+    if info.get("ips"):
+        merged = sorted(set((dev.ip_addresses or []) + list(info["ips"])))
+        dev.ip_addresses = merged
     if not dev.vendor:
         dev.vendor = vendor
     dev.hardware_status = HardwareStatus.OK

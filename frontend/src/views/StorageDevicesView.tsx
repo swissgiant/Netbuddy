@@ -136,7 +136,7 @@ export function StorageDevicesView() {
 </div>
         </>
       ) : (
-        <div style={{ fontFamily: "monospace", fontSize: 13 }}>
+        <div style={{ fontFamily: "monospace", fontSize: 13, overflow: "auto", maxHeight: "calc(100vh - 180px)", border: "1px solid var(--border)", borderRadius: 8, padding: 8 }}>
           {tree.map((n) => {
             const p = pct(n.capacity_usable_gb, n.capacity_used_gb);
             const open = exp.has(n.key);

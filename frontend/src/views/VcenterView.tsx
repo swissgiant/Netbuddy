@@ -83,7 +83,7 @@ export function VcenterView() {
         </button>
       </h2>
       {err && <p className="error">{err}</p>}
-      <div style={{ fontFamily: "monospace", fontSize: 13 }}>
+      <div style={{ fontFamily: "monospace", fontSize: 13, overflow: "auto", maxHeight: "calc(100vh - 180px)", border: "1px solid var(--border)", borderRadius: 8, padding: 8 }}>
         {rows.map((vc) => {
           const hosts = (vc.hosts as unknown as HostEntry[]) ?? [];
           const vcId = vc.id;

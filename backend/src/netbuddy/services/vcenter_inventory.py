@@ -111,6 +111,9 @@ class VcDatastore(BaseModel):
     free_gb: int
     hosts: int
     local: bool
+    nfs_host: str | None = None
+    nfs_path: str | None = None
+    naa: str | None = None
 
 
 class VcCluster(BaseModel):
@@ -289,6 +292,18 @@ def _collect_datastores(content: Any, dc: Any, snap: VcSnapshot) -> None:
         for d in view.view:
             s = d.summary
             hosts = len(d.host or [])
+            nfs_host = nfs_path = naa = None
+            info = d.info
+            try:
+                if isinstance(info, vim.host.NasDatastoreInfo) and info.nas:
+                    nfs_host = info.nas.remoteHost
+                    nfs_path = info.nas.remotePath
+                elif isinstance(info, vim.host.VmfsDatastoreInfo) and info.vmfs:
+                    extents = info.vmfs.extent or []
+                    if extents:
+                        naa = extents[0].diskName
+            except Exception:
+                pass
             snap.datastores.append(
                 VcDatastore(
                     dc=dc.name,
@@ -298,6 +313,9 @@ def _collect_datastores(content: Any, dc: Any, snap: VcSnapshot) -> None:
                     free_gb=int(s.freeSpace / 1073741824),
                     hosts=hosts,
                     local=(s.type == "VMFS" and hosts <= 1),
+                    nfs_host=nfs_host,
+                    nfs_path=nfs_path,
+                    naa=naa,
                 )
             )
     finally:
@@ -416,10 +434,17 @@ async def _sync_snapshot(
         sd.capacity_raw_gb = x.cap_gb
         sd.capacity_usable_gb = x.cap_gb
         sd.capacity_used_gb = x.cap_gb - x.free_gb
-        sd.protocols = ["VMFS"]
+        sd.protocols = ["NFS"] if x.nfs_host else ["VMFS"]
         sd.source = "vcenter-datastore"
         sd.last_seen = now
-        sd.extra = {"datastore_type": x.type, "hosts_mounted": x.hosts, "datacenter": x.dc}
+        sd.extra = {
+            "datastore_type": x.type,
+            "hosts_mounted": x.hosts,
+            "datacenter": x.dc,
+            "nfs_host": x.nfs_host,
+            "nfs_path": x.nfs_path,
+            "naa": x.naa,
+        }
         await session.flush()
         ds_sid[x.name] = sd.id
         summary.storage_created += int(found_sd is None)

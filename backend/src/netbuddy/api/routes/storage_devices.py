@@ -251,53 +251,101 @@ async def storage_tree(session: SessionDep) -> list[StorageTreeNode]:
                 )
             )
 
+    arrays = [d for d in devices if d.source != "vcenter-datastore"]
+    datastores = [d for d in devices if d.source == "vcenter-datastore"]
+
+    # Arrays nach allen bekannten Adressen/Namen indizieren (für NFS-Host-Auflösung)
+    array_by_addr: dict[str, StorageDevice] = {}
+    for a in arrays:
+        for ip in (a.mgmt_ip, a.reachable_ip, *(a.ip_addresses or [])):
+            if ip:
+                array_by_addr[str(ip)] = a
+        if a.dns_name:
+            array_by_addr[a.dns_name.lower()] = a
+
     roots: list[StorageTreeNode] = []
+    node_for_array: dict[uuid.UUID, StorageTreeNode] = {}
     groups: dict[str, StorageTreeNode] = {}
-    for d in sorted(devices, key=lambda x: x.name.lower()):
-        if d.source == "vcenter-datastore":
-            key, label = _array_key(d.name)
-            gkey = f"{key}:{d.site_id}"
-            node = groups.get(gkey)
-            if node is None:
-                node = StorageTreeNode(
-                    key=gkey,
-                    name=label,
-                    site_name=names.get(d.site_id) if d.site_id else None,
-                    storage_type=StorageType.ENTERPRISE_ARRAY,
-                    is_group=True,
-                    capacity_usable_gb=0,
-                    capacity_used_gb=0,
-                )
-                groups[gkey] = node
-                roots.append(node)
-            node.children.append(
-                StorageChild(
-                    id=d.id,
-                    name=d.name,
-                    storage_type=d.storage_type,
-                    capacity_usable_gb=d.capacity_usable_gb,
-                    capacity_used_gb=d.capacity_used_gb,
-                    datastore_type=str((d.extra or {}).get("datastore_type") or "") or None,
-                    attachments=attach.get(d.id, []),
-                )
+
+    def array_node(a: StorageDevice) -> StorageTreeNode:
+        node = node_for_array.get(a.id)
+        if node is None:
+            node = StorageTreeNode(
+                key=str(a.id),
+                name=a.name,
+                vendor=a.vendor,
+                model=a.model,
+                site_name=names.get(a.site_id) if a.site_id else None,
+                storage_type=a.storage_type,
+                mgmt_ip=str(a.mgmt_ip) if a.mgmt_ip else None,
+                reachable_ip=str(a.reachable_ip) if a.reachable_ip else None,
+                service_tag=a.service_tag,
+                capacity_usable_gb=a.capacity_usable_gb,
+                capacity_used_gb=a.capacity_used_gb,
+                children=[],
             )
+            node_for_array[a.id] = node
+            roots.append(node)
+        return node
+
+    def child_of(d: StorageDevice) -> StorageChild:
+        ex = d.extra or {}
+        label = d.name
+        if ex.get("nfs_host"):
+            label = f"{d.name}  ({ex.get('nfs_host')}:{ex.get('nfs_path') or ''})"
+        return StorageChild(
+            id=d.id,
+            name=label,
+            storage_type=d.storage_type,
+            capacity_usable_gb=d.capacity_usable_gb,
+            capacity_used_gb=d.capacity_used_gb,
+            datastore_type=str(ex.get("datastore_type") or "") or None,
+            attachments=attach.get(d.id, []),
+        )
+
+    def group_node(
+        gkey: str, name: str, site_id: uuid.UUID | None, mgmt: str | None
+    ) -> StorageTreeNode:
+        existing = groups.get(gkey)
+        if existing is not None:
+            return existing
+        g = StorageTreeNode(
+            key=gkey,
+            name=name,
+            site_name=names.get(site_id) if site_id else None,
+            storage_type=StorageType.ENTERPRISE_ARRAY,
+            mgmt_ip=mgmt,
+            is_group=True,
+            capacity_usable_gb=0,
+            capacity_used_gb=0,
+            children=[],
+        )
+        groups[gkey] = g
+        roots.append(g)
+        return g
+
+    # 1) echte Arrays als Wurzeln (auch ohne Kinder sichtbar)
+    for a in arrays:
+        array_node(a)
+
+    # 2) Datastores/LUNs ihrem Array über die Anbindung zuordnen
+    for d in sorted(datastores, key=lambda x: x.name.lower()):
+        ex = d.extra or {}
+        nfs_host = ex.get("nfs_host")
+        target = None
+        if nfs_host:
+            target = array_by_addr.get(str(nfs_host)) or array_by_addr.get(str(nfs_host).lower())
+        if target is not None:
+            node = array_node(target)
+        elif nfs_host:
+            node = group_node(f"nfs:{nfs_host}", f"NFS {nfs_host}", d.site_id, str(nfs_host))
+        else:
+            node = group_node(
+                f"vmfs:{d.site_id}", "Block-LUNs (VMFS, Array unbekannt)", d.site_id, None
+            )
+        node.children.append(child_of(d))
+        if node.is_group:
             node.capacity_usable_gb = (node.capacity_usable_gb or 0) + (d.capacity_usable_gb or 0)
             node.capacity_used_gb = (node.capacity_used_gb or 0) + (d.capacity_used_gb or 0)
-        else:
-            roots.append(
-                StorageTreeNode(
-                    key=str(d.id),
-                    name=d.name,
-                    vendor=d.vendor,
-                    model=d.model,
-                    site_name=names.get(d.site_id) if d.site_id else None,
-                    storage_type=d.storage_type,
-                    mgmt_ip=str(d.mgmt_ip) if d.mgmt_ip else None,
-                    reachable_ip=str(d.reachable_ip) if d.reachable_ip else None,
-                    service_tag=d.service_tag,
-                    capacity_usable_gb=d.capacity_usable_gb,
-                    capacity_used_gb=d.capacity_used_gb,
-                    children=[],
-                )
-            )
+
     return sorted(roots, key=lambda n: (n.site_name or "", n.name.lower()))
