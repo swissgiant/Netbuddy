@@ -27,6 +27,7 @@ class StorageApiSummary(BaseModel):
     synology_enriched: int = 0
     netapp_enriched: int = 0
     snmp_enabled: int = 0
+    community_changed: list[str] = []
     failed: list[str] = []
     skipped_no_cred: list[str] = []
 
@@ -184,12 +185,15 @@ async def _netapp(client: httpx.AsyncClient, base: str, user: str, pw: str) -> d
     return out
 
 
-async def _enable_snmp_synology(client: httpx.AsyncClient, base: str, user: str, pw: str) -> bool:
+async def _enable_snmp_synology(
+    client: httpx.AsyncClient, base: str, user: str, pw: str
+) -> tuple[bool, str | None]:
+    """SNMP v1/v2c mit Community PRTG aktivieren (DSM). Gibt (geaendert, alte_community) zurueck."""
     auth = await client.get(
-        f"{base}/webapi/auth.cgi",
+        f"{base}/webapi/entry.cgi",
         params={
             "api": "SYNO.API.Auth",
-            "version": "3",
+            "version": "7",
             "method": "login",
             "account": user,
             "passwd": pw,
@@ -199,8 +203,16 @@ async def _enable_snmp_synology(client: httpx.AsyncClient, base: str, user: str,
     )
     sid = auth.json().get("data", {}).get("sid")
     if not sid:
-        return False
+        return False, None
     try:
+        g = await client.get(
+            f"{base}/webapi/entry.cgi",
+            params={"api": "SYNO.Core.SNMP", "version": "1", "method": "get", "_sid": sid},
+        )
+        cur = g.json().get("data", {})
+        old = cur.get("rocommunity")
+        if cur.get("enable_snmp") and cur.get("enable_snmp_v1v2") and old == _SNMP_COMMUNITY:
+            return False, old  # schon korrekt
         r = await client.get(
             f"{base}/webapi/entry.cgi",
             params={
@@ -209,25 +221,60 @@ async def _enable_snmp_synology(client: httpx.AsyncClient, base: str, user: str,
                 "method": "set",
                 "_sid": sid,
                 "enable_snmp": "true",
-                "snmpv1": "true",
-                "snmpv2": "true",
-                "community": _SNMP_COMMUNITY,
+                "enable_snmp_v1v2": "true",
+                "rocommunity": _SNMP_COMMUNITY,
+                "enable_snmp_v3": "true" if cur.get("enable_snmp_v3") else "false",
+                "contact": cur.get("contact", ""),
+                "location": cur.get("location", ""),
             },
         )
-        return bool(r.json().get("success"))
+        return bool(r.json().get("success")), old
     except Exception:
-        return False
+        return False, None
     finally:
         await client.get(
-            f"{base}/webapi/auth.cgi",
+            f"{base}/webapi/entry.cgi",
             params={
                 "api": "SYNO.API.Auth",
-                "version": "3",
+                "version": "7",
                 "method": "logout",
                 "session": "NetBuddy",
                 "_sid": sid,
             },
         )
+
+
+async def _enable_snmp_netapp(
+    client: httpx.AsyncClient, base: str, user: str, pw: str
+) -> tuple[bool, str | None]:
+    """ONTAP: SNMP aktivieren + RO-Community PRTG (via privatem CLI-Passthrough). Best effort."""
+    auth = (user, pw)
+    try:
+        await client.patch(f"{base}/api/support/snmp", auth=auth, json={"enabled": True})
+    except Exception:
+        pass
+    try:
+        # vorhandene Communities lesen
+        existing = await client.get(
+            f"{base}/api/private/cli/system/snmp/community",
+            auth=auth,
+            params={"fields": "community_name,type"},
+        )
+        names = [
+            r.get("community_name")
+            for r in existing.json().get("records", [])
+            if r.get("type") == "ro"
+        ]
+        if _SNMP_COMMUNITY in names:
+            return False, (names[0] if names else None)
+        r = await client.post(
+            f"{base}/api/private/cli/system/snmp/community",
+            auth=auth,
+            json={"type": "ro", "community_name": _SNMP_COMMUNITY},
+        )
+        return r.status_code < 300, (names[0] if names else None)
+    except Exception:
+        return False, None
 
 
 def _apply(dev: StorageDevice, info: dict[str, Any], vendor: str, used_serials: set[str]) -> None:
@@ -302,16 +349,26 @@ async def enrich_storage_apis(
                         info = await _synology(client, f"https://{ip}:5001", user, pw)
                         _apply(dev, info, "Synology", used_serials)
                         summary.synology_enriched += 1
-                        if enable_snmp and await _enable_snmp_synology(
-                            client, f"https://{ip}:5001", user, pw
-                        ):
-                            summary.snmp_enabled += 1
+                        if enable_snmp:
+                            ok, old = await _enable_snmp_synology(
+                                client, f"https://{ip}:5001", user, pw
+                            )
+                            if ok:
+                                summary.snmp_enabled += 1
+                                if old and old != _SNMP_COMMUNITY:
+                                    summary.community_changed.append(f"{dev.name}: {old}->PRTG")
                     elif (
                         vendor == "netapp" or "netapp" in name or "sto" in name
                     ) and await _port_open(ip, 443):
                         info = await _netapp(client, f"https://{ip}", user, pw)
                         _apply(dev, info, "NetApp", used_serials)
                         summary.netapp_enriched += 1
+                        if enable_snmp:
+                            ok, old = await _enable_snmp_netapp(client, f"https://{ip}", user, pw)
+                            if ok:
+                                summary.snmp_enabled += 1
+                                if old and old != _SNMP_COMMUNITY:
+                                    summary.community_changed.append(f"{dev.name}: {old}->PRTG")
                 except Exception as exc:
                     summary.failed.append(f"{dev.name}: {str(exc)[:80]}")
 
