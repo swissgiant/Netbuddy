@@ -19,6 +19,7 @@ dependencies = [
     "itsdangerous>=2.2.0",
     "loguru>=0.7.3",
     "ntc-templates>=9.1.0",
+    "puresnmp>=2.0.1",
     "pydantic-settings>=2.14.1",
     "pyvmomi>=8.0.3.0.1",
     "pyyaml>=6.0.3",

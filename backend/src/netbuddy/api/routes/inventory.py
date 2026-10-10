@@ -7,6 +7,7 @@ Aktuell: vCenter (virtuelle + physische Server + Storage-Datastores). Weitere Qu
 from fastapi import APIRouter
 
 from netbuddy.api.deps import SessionDep
+from netbuddy.services.snmp_enrich import SnmpSummary, snmp_enrich
 from netbuddy.services.vcenter_inventory import VcSyncSummary, sync_vcenters
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
@@ -16,3 +17,9 @@ router = APIRouter(prefix="/inventory", tags=["inventory"])
 async def sync_vcenter(session: SessionDep) -> list[VcSyncSummary]:
     """Ruft alle hinterlegten vCenter ab (Credential mit ``extra.kind == "vcenter"``)."""
     return await sync_vcenters(session)
+
+
+@router.post("/snmp/enrich", response_model=SnmpSummary)
+async def snmp_enrich_devices(session: SessionDep) -> SnmpSummary:
+    """Reichert Storage/physische Server per SNMP an (Community aus Passwordstate „B-HQ Switch")."""
+    return await snmp_enrich(session)

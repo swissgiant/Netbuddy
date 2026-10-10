@@ -815,6 +815,7 @@ dependencies = [
     { name = "itsdangerous" },
     { name = "loguru" },
     { name = "ntc-templates" },
+    { name = "puresnmp" },
     { name = "pydantic-settings" },
     { name = "pyvmomi" },
     { name = "pyyaml" },
@@ -847,6 +848,7 @@ requires-dist = [
     { name = "itsdangerous", specifier = ">=2.2.0" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "ntc-templates", specifier = ">=9.1.0" },
+    { name = "puresnmp", specifier = ">=2.0.1" },
     { name = "pydantic-settings", specifier = ">=2.14.1" },
     { name = "pyvmomi", specifier = ">=8.0.3.0.1" },
     { name = "pyyaml", specifier = ">=6.0.3" },
@@ -903,6 +905,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412, upload-time = "2025-05-15T12:30:07.975Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538, upload-time = "2025-05-15T12:30:06.134Z" },
+]
+
+[[package]]
+name = "puresnmp"
+version = "2.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "x690" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4e/1a/c0d94ab9c7577d61c3597096dd446e789c9c98cf39d222298f4404429041/puresnmp-2.0.1.tar.gz", hash = "sha256:08a147249a6ff92d3f463b77e21b9221ca7a836ff7401e0b8dfe47135ed4cf56", size = 64103, upload-time = "2024-07-25T16:00:11.319Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/18/62/38184153bb6bc802c51adda22bcc3c06216650ca7c690b0135d717d9e86c/puresnmp-2.0.1-py3-none-any.whl", hash = "sha256:9d6413531d33225900883df8ac3131ddac34f13eae6ac6a6ffeee7ae81d309b1", size = 62134, upload-time = "2024-07-25T16:00:09.156Z" },
 ]
 
 [[package]]
@@ -1256,6 +1270,15 @@ wheels = [
 ]
 
 [[package]]
+name = "t61codec"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4d/3d/58386307e57294005c8fe2e7b29d97f9094efcb122ab1ff4a368816b45fa/t61codec-1.0.1.tar.gz", hash = "sha256:4d854f40017ef39e699291a57a9891c74630facb370b94238284eb9a475ae23f", size = 5713, upload-time = "2019-12-08T17:04:12.906Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/01/de/47bfc18604861278a97a8381262da4b6a9b98b9f645695ebaf3f22de2558/t61codec-1.0.1-py2.py3-none-any.whl", hash = "sha256:4dae780d65086a10ff822b14ecebb762defe478645a248b74980ced87c85f723", size = 6006, upload-time = "2019-12-08T17:04:07.574Z" },
+]
+
+[[package]]
 name = "textfsm"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1472,4 +1495,16 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b3/8f/705086c9d734d3b663af0e9bb3d4de6578d08f46b1b101c2442fd9aecaa2/win32_setctime-1.2.0.tar.gz", hash = "sha256:ae1fdf948f5640aae05c511ade119313fb6a30d7eabe25fef9764dca5873c4c0", size = 4867, upload-time = "2024-12-07T15:28:28.314Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e1/07/c6fe3ad3e685340704d314d765b7912993bcb8dc198f0e7a89382d37974b/win32_setctime-1.2.0-py3-none-any.whl", hash = "sha256:95d644c4e708aba81dc3704a116d8cbc974d70b3bdb8be1d150e36be6e9d1390", size = 4083, upload-time = "2024-12-07T15:28:26.465Z" },
+]
+
+[[package]]
+name = "x690"
+version = "1.0.0.post1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "t61codec" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/78/5c/7fee7f6251575259453839f100301a0eaae6260b73762aa55de84573eee2/x690-1.0.0.post1.tar.gz", hash = "sha256:3a2a8a4e479079188aa6e847814981286b8f1c19569898fa3fe573ee0ce05349", size = 27995, upload-time = "2022-09-30T05:16:15.607Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/25/83/5da9e721caaba8654140bc991ac34e86d6bf3ad2db99ec5c77d3f88b015f/x690-1.0.0.post1-py3-none-any.whl", hash = "sha256:de754c27c9a46e6ede08036a804478ecd79591ecbe92df6f97b34adee55e9d64", size = 29376, upload-time = "2022-09-30T05:16:14.184Z" },
 ]
