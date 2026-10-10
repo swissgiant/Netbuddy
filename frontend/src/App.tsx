@@ -7,12 +7,15 @@ import { CredentialsView } from "./views/CredentialsView";
 import { DevicesView } from "./views/DevicesView";
 import { DiscoveryView } from "./views/DiscoveryView";
 import { LoginView } from "./views/LoginView";
+import { PhysicalServersView } from "./views/PhysicalServersView";
 import { PoeView } from "./views/PoeView";
 import { SitesView } from "./views/SitesView";
+import { StorageDevicesView } from "./views/StorageDevicesView";
 import { SsoView } from "./views/SsoView";
 import { TopologyView } from "./views/TopologyView";
 import { UnifiView } from "./views/UnifiView";
 import { UsersView } from "./views/UsersView";
+import { VirtualServersView } from "./views/VirtualServersView";
 import { VlanTopologyView } from "./views/VlanTopologyView";
 import { VlanView } from "./views/VlanView";
 
@@ -24,6 +27,9 @@ type View =
   | "poe"
   | "sites"
   | "vlans"
+  | "pservers"
+  | "vservers"
+  | "storage"
   | "credentials"
   | "unifi"
   | "cato"
@@ -38,6 +44,9 @@ const NAV: { key: View; label: string; adminOnly?: boolean }[] = [
   { key: "poe", label: "🔌 PoE/AP" },
   { key: "sites", label: "📍 Standorte" },
   { key: "vlans", label: "🏷️ VLANs" },
+  { key: "pservers", label: "🖥️ Phys. Server" },
+  { key: "vservers", label: "🧩 Virt. Server" },
+  { key: "storage", label: "💾 Storage" },
   { key: "credentials", label: "🔑 Credentials" },
   { key: "unifi", label: "📶 UniFi", adminOnly: true },
   { key: "cato", label: "☁️ Cato", adminOnly: true },
@@ -103,6 +112,9 @@ export default function App() {
         {view === "poe" && <PoeView />}
         {view === "sites" && <SitesView />}
         {view === "vlans" && <VlanView />}
+        {view === "pservers" && <PhysicalServersView />}
+        {view === "vservers" && <VirtualServersView />}
+        {view === "storage" && <StorageDevicesView />}
         {view === "credentials" && <CredentialsView />}
         {view === "unifi" && <UnifiView />}
         {view === "cato" && <CatoView />}

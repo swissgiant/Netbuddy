@@ -17,12 +17,15 @@ from netbuddy.api.routes import (
     discovery,
     health,
     passwordstate,
+    physical_servers,
     poe,
     search,
     sites,
+    storage_devices,
     topology,
     unifi,
     users,
+    virtual_servers,
     vlans,
     vpn,
 )
@@ -71,6 +74,9 @@ def create_app() -> FastAPI:
     app.include_router(vpn.router)
     app.include_router(cato.router)
     app.include_router(passwordstate.router)
+    app.include_router(physical_servers.router)
+    app.include_router(virtual_servers.router)
+    app.include_router(storage_devices.router)
     app.include_router(unifi.router)
     app.include_router(audit.router)
     app.include_router(search.router)

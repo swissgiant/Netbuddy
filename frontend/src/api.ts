@@ -673,3 +673,115 @@ export const importPasswordstate = (listId: string, dryRun: boolean) =>
     `/passwordstate/import?dry_run=${dryRun}${listId ? `&list_id=${encodeURIComponent(listId)}` : ""}`,
     { method: "POST" },
   );
+
+// --- Server-/Storage-Kategorien (physisch, virtuell, Storage) --------------------------------
+export interface PhysicalServer {
+  id: string;
+  hostname: string;
+  dns_name: string | null;
+  site_id: string | null;
+  site_name: string | null;
+  server_role: "esxi_host" | "hyperv_host" | "bare_metal" | "appliance" | "unknown";
+  vendor: string | null;
+  model: string | null;
+  service_tag: string | null;
+  cpu_model: string | null;
+  cpu_sockets: number | null;
+  cpu_cores: number | null;
+  cpu_threads: number | null;
+  ram_mb: number | null;
+  os_name: string | null;
+  os_version: string | null;
+  mgmt_ip: string | null;
+  oob_type: string | null;
+  ip_addresses: string[];
+  hardware_status: "ok" | "warning" | "critical" | "unknown";
+  hardware_detail: string | null;
+  warranty_provider: string | null;
+  warranty_start: string | null;
+  warranty_end: string | null;
+  warranty_status: "active" | "expired" | "unknown";
+  warranty_checked_at: string | null;
+  source: string | null;
+  last_seen: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface VirtualServer {
+  id: string;
+  name: string;
+  dns_name: string | null;
+  site_id: string | null;
+  site_name: string | null;
+  power_state: "on" | "off" | "suspended" | "unknown";
+  vcpu: number | null;
+  ram_mb: number | null;
+  cluster: string | null;
+  esxi_host: string | null;
+  physical_server_id: string | null;
+  vcenter: string | null;
+  guest_os: string | null;
+  vmware_tools: string | null;
+  disk_count: number | null;
+  disk_total_gb: number | null;
+  disks: Record<string, unknown>[];
+  datastores: string[];
+  ip_addresses: string[];
+  networks: string[];
+  source: string | null;
+  last_seen: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface StorageDevice {
+  id: string;
+  name: string;
+  dns_name: string | null;
+  site_id: string | null;
+  site_name: string | null;
+  storage_type: "enterprise_array" | "nas" | "backup_target" | "san_switch" | "unknown";
+  vendor: string | null;
+  model: string | null;
+  service_tag: string | null;
+  firmware: string | null;
+  hardware_status: "ok" | "warning" | "critical" | "unknown";
+  hardware_detail: string | null;
+  disk_count: number | null;
+  disks: Record<string, unknown>[];
+  capacity_raw_gb: number | null;
+  capacity_usable_gb: number | null;
+  capacity_used_gb: number | null;
+  mgmt_ip: string | null;
+  ip_addresses: string[];
+  protocols: string[];
+  connections: Record<string, unknown>[];
+  warranty_provider: string | null;
+  warranty_start: string | null;
+  warranty_end: string | null;
+  warranty_status: "active" | "expired" | "unknown";
+  warranty_checked_at: string | null;
+  source: string | null;
+  last_seen: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export const fetchPhysicalServers = () => http<PhysicalServer[]>("/physical-servers");
+export const updatePhysicalServer = (id: string, body: Partial<PhysicalServer>) =>
+  http<PhysicalServer>(`/physical-servers/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const deletePhysicalServer = (id: string) =>
+  http<void>(`/physical-servers/${id}`, { method: "DELETE" });
+
+export const fetchVirtualServers = () => http<VirtualServer[]>("/virtual-servers");
+export const updateVirtualServer = (id: string, body: Partial<VirtualServer>) =>
+  http<VirtualServer>(`/virtual-servers/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const deleteVirtualServer = (id: string) =>
+  http<void>(`/virtual-servers/${id}`, { method: "DELETE" });
+
+export const fetchStorageDevices = () => http<StorageDevice[]>("/storage-devices");
+export const updateStorageDevice = (id: string, body: Partial<StorageDevice>) =>
+  http<StorageDevice>(`/storage-devices/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const deleteStorageDevice = (id: string) =>
+  http<void>(`/storage-devices/${id}`, { method: "DELETE" });
