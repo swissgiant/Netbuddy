@@ -815,3 +815,17 @@ export interface Vcenter {
 export const fetchVcenters = () => http<Vcenter[]>("/vcenters");
 export const syncVcenters = () =>
   http<Record<string, unknown>[]>("/inventory/vcenter/sync", { method: "POST" });
+
+export interface StorageAttachment { kind: "vm" | "physical"; name: string; protocol: string | null; }
+export interface StorageChild {
+  id: string; name: string; storage_type: string;
+  capacity_usable_gb: number | null; capacity_used_gb: number | null;
+  datastore_type: string | null; attachments: StorageAttachment[];
+}
+export interface StorageTreeNode {
+  key: string; name: string; vendor: string | null; model: string | null;
+  site_name: string | null; storage_type: string; mgmt_ip: string | null;
+  service_tag: string | null; capacity_usable_gb: number | null; capacity_used_gb: number | null;
+  is_group: boolean; children: StorageChild[];
+}
+export const fetchStorageTree = () => http<StorageTreeNode[]>("/storage-devices/tree");

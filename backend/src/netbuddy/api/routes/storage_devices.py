@@ -12,7 +12,16 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 
 from netbuddy.api.deps import SessionDep
-from netbuddy.db.models import HardwareStatus, Site, StorageDevice, StorageType, WarrantyStatus
+from netbuddy.db.models import (
+    HardwareStatus,
+    PhysicalServer,
+    Site,
+    StorageDevice,
+    StorageLink,
+    StorageType,
+    VirtualServer,
+    WarrantyStatus,
+)
 
 router = APIRouter(prefix="/storage-devices", tags=["storage-devices"])
 
@@ -147,3 +156,138 @@ async def update_storage_device(
 async def delete_storage_device(row_id: uuid.UUID, session: SessionDep) -> None:
     row = await _get_or_404(session, row_id)
     row.deleted_at = datetime.now().astimezone()
+
+
+# --- Baumansicht: Array/NAS -> LUN/Volume -> Anbindung (Hosts/VMs) ---------------------------
+
+
+class StorageAttachment(BaseModel):
+    kind: str  # "vm" | "physical"
+    name: str
+    protocol: str | None = None
+
+
+class StorageChild(BaseModel):
+    id: uuid.UUID
+    name: str
+    storage_type: StorageType
+    capacity_usable_gb: int | None
+    capacity_used_gb: int | None
+    datastore_type: str | None = None
+    attachments: list[StorageAttachment] = []
+
+
+class StorageTreeNode(BaseModel):
+    key: str
+    name: str
+    vendor: str | None = None
+    model: str | None = None
+    site_name: str | None = None
+    storage_type: StorageType
+    mgmt_ip: str | None = None
+    service_tag: str | None = None
+    capacity_usable_gb: int | None = None
+    capacity_used_gb: int | None = None
+    is_group: bool = False
+    children: list[StorageChild] = []
+
+
+def _array_key(name: str) -> tuple[str, str]:
+    """(Schlüssel, Anzeigename) des zugehörigen Arrays aus einem LUN-/Datastore-Namen ableiten."""
+    low = name.lower()
+    if "dorado" in low or "sanhuawei" in low:
+        return "huawei-dorado", "Huawei Dorado"
+    if "synolog" in low or "synsan" in low or low.startswith("syn"):
+        return "synology", "Synology"
+    if "flashstore" in low:
+        return "flashstore", "Flashstore"
+    if low.startswith(("nfsb", "stob", "s00_nfs", "s00nfs")) or "nfs" in low or "-sto-" in low:
+        return "netapp", "NetApp"
+    return "lun-sonstige", "Sonstige LUNs/Datastores"
+
+
+@router.get("/tree", response_model=list[StorageTreeNode])
+async def storage_tree(session: SessionDep) -> list[StorageTreeNode]:
+    """Array/NAS als Wurzeln, darunter die LUNs/Volumes (vCenter-Datastores) und ihre Anbindung.
+
+    Echte Arrays/NAS (aus Passwordstate/SNMP) stehen mit Hersteller/Modell/Grösse oben; die
+    vCenter-LUNs werden über Namensmuster zu Array-Gruppen zusammengefasst und tragen die
+    angebundenen Hosts/VMs (aus den Storage-Links).
+    """
+    names = await _site_names(session)
+    devices = (
+        (await session.execute(select(StorageDevice).where(StorageDevice.deleted_at.is_(None))))
+        .scalars()
+        .all()
+    )
+    links = (await session.execute(select(StorageLink))).scalars().all()
+    vm_rows = (await session.execute(select(VirtualServer.id, VirtualServer.name))).all()
+    ph_rows = (await session.execute(select(PhysicalServer.id, PhysicalServer.hostname))).all()
+    vm_names: dict[uuid.UUID, str] = {r[0]: r[1] for r in vm_rows}
+    ph_names: dict[uuid.UUID, str] = {r[0]: r[1] for r in ph_rows}
+    attach: dict[uuid.UUID, list[StorageAttachment]] = {}
+    for link in links:
+        if link.virtual_server_id and link.virtual_server_id in vm_names:
+            attach.setdefault(link.storage_device_id, []).append(
+                StorageAttachment(
+                    kind="vm", name=vm_names[link.virtual_server_id], protocol=link.protocol
+                )
+            )
+        elif link.physical_server_id and link.physical_server_id in ph_names:
+            attach.setdefault(link.storage_device_id, []).append(
+                StorageAttachment(
+                    kind="physical",
+                    name=ph_names[link.physical_server_id],
+                    protocol=link.protocol,
+                )
+            )
+
+    roots: list[StorageTreeNode] = []
+    groups: dict[str, StorageTreeNode] = {}
+    for d in sorted(devices, key=lambda x: x.name.lower()):
+        if d.source == "vcenter-datastore":
+            key, label = _array_key(d.name)
+            gkey = f"{key}:{d.site_id}"
+            node = groups.get(gkey)
+            if node is None:
+                node = StorageTreeNode(
+                    key=gkey,
+                    name=label,
+                    site_name=names.get(d.site_id) if d.site_id else None,
+                    storage_type=StorageType.ENTERPRISE_ARRAY,
+                    is_group=True,
+                    capacity_usable_gb=0,
+                    capacity_used_gb=0,
+                )
+                groups[gkey] = node
+                roots.append(node)
+            node.children.append(
+                StorageChild(
+                    id=d.id,
+                    name=d.name,
+                    storage_type=d.storage_type,
+                    capacity_usable_gb=d.capacity_usable_gb,
+                    capacity_used_gb=d.capacity_used_gb,
+                    datastore_type=str((d.extra or {}).get("datastore_type") or "") or None,
+                    attachments=attach.get(d.id, []),
+                )
+            )
+            node.capacity_usable_gb = (node.capacity_usable_gb or 0) + (d.capacity_usable_gb or 0)
+            node.capacity_used_gb = (node.capacity_used_gb or 0) + (d.capacity_used_gb or 0)
+        else:
+            roots.append(
+                StorageTreeNode(
+                    key=str(d.id),
+                    name=d.name,
+                    vendor=d.vendor,
+                    model=d.model,
+                    site_name=names.get(d.site_id) if d.site_id else None,
+                    storage_type=d.storage_type,
+                    mgmt_ip=str(d.mgmt_ip) if d.mgmt_ip else None,
+                    service_tag=d.service_tag,
+                    capacity_usable_gb=d.capacity_usable_gb,
+                    capacity_used_gb=d.capacity_used_gb,
+                    children=[],
+                )
+            )
+    return sorted(roots, key=lambda n: (n.site_name or "", n.name.lower()))
