@@ -29,6 +29,7 @@ from netbuddy.db.models.storage_link import ServerKind, StorageLink
 from netbuddy.db.models.unifi_host import UnifiHost
 from netbuddy.db.models.user import AuthSession, User, UserRole
 from netbuddy.db.models.validation import ValidationCheck
+from netbuddy.db.models.vcenter import Vcenter
 from netbuddy.db.models.virtual_server import PowerState, VirtualServer
 from netbuddy.db.models.vlan import Vlan, VlanSubnet
 from netbuddy.db.models.vlan_survey import VlanSurveyRun
@@ -73,6 +74,7 @@ __all__ = [
     "User",
     "UserRole",
     "ValidationCheck",
+    "Vcenter",
     "VirtualServer",
     "Vlan",
     "VlanSubnet",

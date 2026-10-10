@@ -15,6 +15,7 @@ import { SsoView } from "./views/SsoView";
 import { TopologyView } from "./views/TopologyView";
 import { UnifiView } from "./views/UnifiView";
 import { UsersView } from "./views/UsersView";
+import { VcenterView } from "./views/VcenterView";
 import { VirtualServersView } from "./views/VirtualServersView";
 import { VlanTopologyView } from "./views/VlanTopologyView";
 import { VlanView } from "./views/VlanView";
@@ -30,6 +31,7 @@ type View =
   | "pservers"
   | "vservers"
   | "storage"
+  | "vcenter"
   | "credentials"
   | "unifi"
   | "cato"
@@ -47,6 +49,7 @@ const NAV: { key: View; label: string; adminOnly?: boolean }[] = [
   { key: "pservers", label: "🖥️ Phys. Server" },
   { key: "vservers", label: "🧩 Virt. Server" },
   { key: "storage", label: "💾 Storage" },
+  { key: "vcenter", label: "☁️ vCenter" },
   { key: "credentials", label: "🔑 Credentials" },
   { key: "unifi", label: "📶 UniFi", adminOnly: true },
   { key: "cato", label: "☁️ Cato", adminOnly: true },
@@ -115,6 +118,7 @@ export default function App() {
         {view === "pservers" && <PhysicalServersView />}
         {view === "vservers" && <VirtualServersView />}
         {view === "storage" && <StorageDevicesView />}
+        {view === "vcenter" && <VcenterView />}
         {view === "credentials" && <CredentialsView />}
         {view === "unifi" && <UnifiView />}
         {view === "cato" && <CatoView />}

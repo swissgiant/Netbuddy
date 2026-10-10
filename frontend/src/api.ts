@@ -785,3 +785,33 @@ export const updateStorageDevice = (id: string, body: Partial<StorageDevice>) =>
   http<StorageDevice>(`/storage-devices/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 export const deleteStorageDevice = (id: string) =>
   http<void>(`/storage-devices/${id}`, { method: "DELETE" });
+
+// --- vCenter-Kategorie -----------------------------------------------------------------------
+export interface VcenterCluster {
+  datacenter: string;
+  name: string;
+  host_count: number;
+  hosts: string[];
+  vm_count: number;
+}
+export interface Vcenter {
+  id: string;
+  name: string;
+  host: string | null;
+  version: string | null;
+  build: string | null;
+  full_name: string | null;
+  api_type: string | null;
+  datacenters: string[];
+  clusters: VcenterCluster[];
+  hosts: Record<string, unknown>[];
+  host_count: number | null;
+  vm_count: number | null;
+  source: string | null;
+  last_seen: string | null;
+  notes: string | null;
+  created_at: string;
+}
+export const fetchVcenters = () => http<Vcenter[]>("/vcenters");
+export const syncVcenters = () =>
+  http<Record<string, unknown>[]>("/inventory/vcenter/sync", { method: "POST" });
