@@ -115,7 +115,7 @@ class _Snmp:
 
         self._c = PyWrapper(Client(ip, V2C(community)))
 
-    async def get(self, oid: str, timeout_s: float = 2.5) -> Any:
+    async def get(self, oid: str, timeout_s: float = 1.5) -> Any:
         async with asyncio.timeout(timeout_s):
             return await self._c.get(oid)
 
@@ -264,31 +264,30 @@ async def snmp_enrich(session: AsyncSession) -> SnmpSummary:
     summary.storage_total = len(storage)
     summary.physical_total = len(physical)
 
-    for dev in storage:
-        ok = False
-        for community in communities:
-            try:
-                snmp = _Snmp(str(dev.mgmt_ip), community)
-                await _enrich_storage(snmp, dev)
-                summary.storage_enriched += 1
-                ok = True
-                break
-            except Exception:
-                continue
-        if not ok:
+    sem = asyncio.Semaphore(25)
+
+    async def do_storage(dev: StorageDevice) -> None:
+        async with sem:
+            for community in communities:
+                try:
+                    await _enrich_storage(_Snmp(str(dev.mgmt_ip), community), dev)
+                    summary.storage_enriched += 1
+                    return
+                except Exception:
+                    continue
             summary.no_response.append(f"storage:{dev.name}")
-    for pdev in physical:
-        ok = False
-        for community in communities:
-            try:
-                snmp = _Snmp(str(pdev.mgmt_ip), community)
-                await _enrich_physical(snmp, pdev)
-                summary.physical_enriched += 1
-                ok = True
-                break
-            except Exception:
-                continue
-        if not ok:
-            summary.no_response.append(f"phys:{pdev.hostname}")
+
+    async def do_physical(dev: PhysicalServer) -> None:
+        async with sem:
+            for community in communities:
+                try:
+                    await _enrich_physical(_Snmp(str(dev.mgmt_ip), community), dev)
+                    summary.physical_enriched += 1
+                    return
+                except Exception:
+                    continue
+            summary.no_response.append(f"phys:{dev.hostname}")
+
+    await asyncio.gather(*[do_storage(d) for d in storage], *[do_physical(d) for d in physical])
     await session.commit()
     return summary
