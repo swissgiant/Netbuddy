@@ -37,7 +37,7 @@ export function PhysicalServersView() {
       if (!needle) return true;
       const hay = [
         r.hostname, r.dns_name, r.site_name, r.vendor, r.model, r.service_tag,
-        r.cpu_model, r.os_name, r.mgmt_ip, r.source, r.notes, r.ip_addresses.join(" "),
+        r.cpu_model, r.os_name, r.mgmt_ip, r.reachable_ip, r.source, r.notes, r.ip_addresses.join(" "),
       ].join(" ").toLowerCase();
       return hay.includes(needle);
     });
@@ -83,6 +83,7 @@ export function PhysicalServersView() {
             <Th k="cpu_cores" sort={sort} onSort={toggle}>Cores</Th>
             <Th k="ram" sort={sort} onSort={toggle}>RAM</Th>
             <Th k="mgmt_ip" sort={sort} onSort={toggle}>Mgmt-IP</Th>
+            <Th k="reachable_ip" sort={sort} onSort={toggle}>Cato-IP</Th>
             <Th k="hardware_status" sort={sort} onSort={toggle}>HW</Th>
             <Th k="warranty" sort={sort} onSort={toggle}>Service bis</Th>
             <Th k="source" sort={sort} onSort={toggle}>Quelle</Th>
@@ -101,6 +102,7 @@ export function PhysicalServersView() {
               <td>{r.cpu_cores}{r.cpu_sockets ? <span className="muted"> /{r.cpu_sockets}S</span> : ""}</td>
               <td>{gb(r.ram_mb)}</td>
               <td>{r.mgmt_ip}</td>
+              <td className="muted">{r.reachable_ip ?? ""}</td>
               <td title={r.hardware_detail ?? ""}>
                 <select value={r.hardware_status} onChange={(e) => patch(r.id, { hardware_status: e.target.value as PhysicalServer["hardware_status"] })}>
                   {HW.map((h) => <option key={h} value={h}>{HW_ICON[h]} {h}</option>)}

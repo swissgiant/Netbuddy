@@ -26,7 +26,7 @@ router = APIRouter(prefix="/physical-servers", tags=["physical-servers"])
 class PhysicalServerRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("mgmt_ip", mode="before")
+    @field_validator("mgmt_ip", "reachable_ip", mode="before")
     @classmethod
     def _ip_str(cls, v: object) -> str | None:
         return str(v) if v is not None else None
@@ -48,6 +48,7 @@ class PhysicalServerRead(BaseModel):
     os_name: str | None
     os_version: str | None
     mgmt_ip: str | None
+    reachable_ip: str | None = None
     oob_type: str | None
     ip_addresses: list[str]
     hardware_status: HardwareStatus
@@ -90,6 +91,7 @@ class PhysicalServerUpdate(BaseModel):
     ram_mb: int | None = None
     os_name: str | None = None
     mgmt_ip: str | None = None
+    reachable_ip: str | None = None
     hardware_status: HardwareStatus | None = None
     hardware_detail: str | None = None
     warranty_start: date | None = None
@@ -105,6 +107,7 @@ async def _site_names(session: SessionDep) -> dict[uuid.UUID, str]:
 def _read(row: PhysicalServer, names: dict[uuid.UUID, str]) -> PhysicalServerRead:
     out = PhysicalServerRead.model_validate(row)
     out.mgmt_ip = str(row.mgmt_ip) if row.mgmt_ip else None
+    out.reachable_ip = str(row.reachable_ip) if row.reachable_ip else None
     out.site_name = names.get(row.site_id) if row.site_id else None
     return out
 

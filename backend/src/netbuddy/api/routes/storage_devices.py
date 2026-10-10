@@ -29,7 +29,7 @@ router = APIRouter(prefix="/storage-devices", tags=["storage-devices"])
 class StorageDeviceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("mgmt_ip", mode="before")
+    @field_validator("mgmt_ip", "reachable_ip", mode="before")
     @classmethod
     def _ip_str(cls, v: object) -> str | None:
         return str(v) if v is not None else None
@@ -52,6 +52,7 @@ class StorageDeviceRead(BaseModel):
     capacity_usable_gb: int | None
     capacity_used_gb: int | None
     mgmt_ip: str | None
+    reachable_ip: str | None = None
     ip_addresses: list[str]
     protocols: list[str]
     connections: list[dict[str, object]]
@@ -95,6 +96,7 @@ class StorageDeviceUpdate(BaseModel):
     capacity_usable_gb: int | None = None
     capacity_used_gb: int | None = None
     mgmt_ip: str | None = None
+    reachable_ip: str | None = None
     warranty_start: date | None = None
     warranty_end: date | None = None
     warranty_status: WarrantyStatus | None = None
@@ -108,6 +110,7 @@ async def _site_names(session: SessionDep) -> dict[uuid.UUID, str]:
 def _read(row: StorageDevice, names: dict[uuid.UUID, str]) -> StorageDeviceRead:
     out = StorageDeviceRead.model_validate(row)
     out.mgmt_ip = str(row.mgmt_ip) if row.mgmt_ip else None
+    out.reachable_ip = str(row.reachable_ip) if row.reachable_ip else None
     out.site_name = names.get(row.site_id) if row.site_id else None
     return out
 
@@ -190,6 +193,7 @@ class StorageTreeNode(BaseModel):
     site_name: str | None = None
     storage_type: StorageType
     mgmt_ip: str | None = None
+    reachable_ip: str | None = None
     service_tag: str | None = None
     capacity_usable_gb: int | None = None
     capacity_used_gb: int | None = None
@@ -289,6 +293,7 @@ async def storage_tree(session: SessionDep) -> list[StorageTreeNode]:
                     site_name=names.get(d.site_id) if d.site_id else None,
                     storage_type=d.storage_type,
                     mgmt_ip=str(d.mgmt_ip) if d.mgmt_ip else None,
+                    reachable_ip=str(d.reachable_ip) if d.reachable_ip else None,
                     service_tag=d.service_tag,
                     capacity_usable_gb=d.capacity_usable_gb,
                     capacity_used_gb=d.capacity_used_gb,

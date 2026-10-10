@@ -235,8 +235,7 @@ async def _enrich_physical(snmp: _Snmp, dev: PhysicalServer) -> bool:
 
 def _target_ip(dev: StorageDevice | PhysicalServer) -> str:
     """Erreichbare Adresse: Cato-übersetzte IP (extra.reachable_ip) sonst die Mgmt-IP."""
-    reachable = (dev.extra or {}).get("reachable_ip")
-    return str(reachable) if reachable else str(dev.mgmt_ip)
+    return str(dev.reachable_ip) if dev.reachable_ip else str(dev.mgmt_ip)
 
 
 async def snmp_enrich(session: AsyncSession) -> SnmpSummary:

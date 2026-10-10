@@ -140,7 +140,7 @@ async def resolve_reachable_ips(session: AsyncSession) -> NatResolveSummary:
     for dev in storage:
         tr = reachable_ip(dev, site_names.get(dev.site_id), rules)
         if tr and tr != str(dev.mgmt_ip):
-            dev.extra = {**(dev.extra or {}), "reachable_ip": tr}
+            dev.reachable_ip = tr
             summary.storage_resolved += 1
     physical = (
         (
@@ -156,7 +156,7 @@ async def resolve_reachable_ips(session: AsyncSession) -> NatResolveSummary:
     for pdev in physical:
         tr = reachable_ip(pdev, site_names.get(pdev.site_id), rules)
         if tr and tr != str(pdev.mgmt_ip):
-            pdev.extra = {**(pdev.extra or {}), "reachable_ip": tr}
+            pdev.reachable_ip = tr
             summary.physical_resolved += 1
     await session.commit()
     return summary

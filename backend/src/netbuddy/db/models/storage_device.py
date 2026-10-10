@@ -66,6 +66,7 @@ class StorageDevice(TimestampMixin, SoftDeleteMixin, Base):
     capacity_used_gb: Mapped[int | None] = mapped_column(Integer, nullable=True)  # belegt
 
     mgmt_ip: Mapped[str | None] = mapped_column(INET, nullable=True)
+    reachable_ip: Mapped[str | None] = mapped_column(INET, nullable=True)  # Cato-erreichbar
     ip_addresses: Mapped[list[str]] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )

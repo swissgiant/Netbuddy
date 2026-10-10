@@ -76,6 +76,7 @@ class PhysicalServer(TimestampMixin, SoftDeleteMixin, Base):
 
     mgmt_ip: Mapped[str | None] = mapped_column(INET, nullable=True)  # iDRAC/iLO/BMC
     oob_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    reachable_ip: Mapped[str | None] = mapped_column(INET, nullable=True)  # Cato-erreichbar
     ip_addresses: Mapped[list[str]] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )

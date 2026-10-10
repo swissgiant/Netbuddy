@@ -714,6 +714,7 @@ export interface PhysicalServer {
   os_name: string | null;
   os_version: string | null;
   mgmt_ip: string | null;
+  reachable_ip: string | null;
   oob_type: string | null;
   ip_addresses: string[];
   hardware_status: "ok" | "warning" | "critical" | "unknown";
@@ -775,6 +776,7 @@ export interface StorageDevice {
   capacity_usable_gb: number | null;
   capacity_used_gb: number | null;
   mgmt_ip: string | null;
+  reachable_ip: string | null;
   ip_addresses: string[];
   protocols: string[];
   connections: Record<string, unknown>[];
@@ -845,7 +847,7 @@ export interface StorageChild {
 }
 export interface StorageTreeNode {
   key: string; name: string; vendor: string | null; model: string | null;
-  site_name: string | null; storage_type: string; mgmt_ip: string | null;
+  site_name: string | null; storage_type: string; mgmt_ip: string | null; reachable_ip: string | null;
   service_tag: string | null; capacity_usable_gb: number | null; capacity_used_gb: number | null;
   is_group: boolean; children: StorageChild[];
 }

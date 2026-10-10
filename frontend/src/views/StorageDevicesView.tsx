@@ -42,7 +42,7 @@ export function StorageDevicesView() {
       if (hwFilter && r.hardware_status !== hwFilter) return false;
       if (!needle) return true;
       return [r.name, r.dns_name, r.site_name, r.vendor, r.model, r.service_tag, r.firmware,
-        r.mgmt_ip, r.source, r.notes, r.ip_addresses.join(" "), r.protocols.join(" ")]
+        r.mgmt_ip, r.reachable_ip, r.source, r.notes, r.ip_addresses.join(" "), r.protocols.join(" ")]
         .join(" ").toLowerCase().includes(needle);
     });
   }, [rows, q, siteFilter, typeFilter, hwFilter]);
@@ -96,6 +96,7 @@ export function StorageDevicesView() {
                 <Th k="used" sort={sort} onSort={toggle}>Belegt</Th>
                 <Th k="protocols" sort={sort} onSort={toggle}>Anbindung</Th>
                 <Th k="mgmt_ip" sort={sort} onSort={toggle}>Mgmt-IP</Th>
+                <Th k="reachable_ip" sort={sort} onSort={toggle}>Cato-IP</Th>
                 <Th k="hardware_status" sort={sort} onSort={toggle}>HW</Th>
                 <th></th>
               </tr>
@@ -115,6 +116,7 @@ export function StorageDevicesView() {
                     <td className={p != null && p >= 90 ? "error" : ""}>{tb(r.capacity_used_gb)}{p != null && <span className="muted"> ({p}%)</span>}</td>
                     <td className="muted" style={{ fontSize: 12 }}>{r.protocols.join(", ")}</td>
                     <td>{r.mgmt_ip}</td>
+                    <td className="muted">{r.reachable_ip ?? ""}</td>
                     <td title={r.hardware_detail ?? ""}>
                       <select value={r.hardware_status} onChange={(e) => updateStorageDevice(r.id, { hardware_status: e.target.value as StorageDevice["hardware_status"] }).then(reload)}>
                         {HW.map((h) => <option key={h} value={h}>{HW_ICON[h]} {h}</option>)}
@@ -138,7 +140,7 @@ export function StorageDevicesView() {
                   <span className="muted" style={{ display: "inline-block", width: 14 }}>{n.children.length ? (open ? "▼" : "▶") : ""}</span>
                   {n.is_group ? "🗄️" : "💾"} <b>{n.name}</b>{" "}
                   <span className="muted">
-                    {[n.vendor, n.model, n.site_name, n.mgmt_ip, n.service_tag].filter(Boolean).join(" · ")}
+                    {[n.vendor, n.model, n.site_name, n.mgmt_ip, n.reachable_ip && `→${n.reachable_ip}`, n.service_tag].filter(Boolean).join(" · ")}
                     {n.capacity_usable_gb ? ` · ${tb(n.capacity_used_gb)} / ${tb(n.capacity_usable_gb)}${p != null ? ` (${p}%)` : ""}` : ""}
                     {` · ${n.children.length} LUN/Volume`}
                   </span>
