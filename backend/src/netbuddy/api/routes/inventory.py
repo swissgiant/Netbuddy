@@ -7,6 +7,7 @@ Aktuell: vCenter (virtuelle + physische Server + Storage-Datastores). Weitere Qu
 from fastapi import APIRouter
 
 from netbuddy.api.deps import SessionDep
+from netbuddy.services.cato_nat import NatResolveSummary, resolve_reachable_ips
 from netbuddy.services.snmp_enrich import SnmpSummary, snmp_enrich
 from netbuddy.services.vcenter_inventory import VcSyncSummary, sync_vcenters
 
@@ -23,3 +24,9 @@ async def sync_vcenter(session: SessionDep) -> list[VcSyncSummary]:
 async def snmp_enrich_devices(session: SessionDep) -> SnmpSummary:
     """Reichert Storage/physische Server per SNMP an (Community aus Passwordstate „B-HQ Switch")."""
     return await snmp_enrich(session)
+
+
+@router.post("/cato-nat/resolve", response_model=NatResolveSummary)
+async def resolve_nat(session: SessionDep) -> NatResolveSummary:
+    """Schreibt je Gerät die erreichbare (Cato-übersetzte) Adresse in extra.reachable_ip."""
+    return await resolve_reachable_ips(session)

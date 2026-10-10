@@ -233,6 +233,12 @@ async def _enrich_physical(snmp: _Snmp, dev: PhysicalServer) -> bool:
     return True
 
 
+def _target_ip(dev: StorageDevice | PhysicalServer) -> str:
+    """Erreichbare Adresse: Cato-übersetzte IP (extra.reachable_ip) sonst die Mgmt-IP."""
+    reachable = (dev.extra or {}).get("reachable_ip")
+    return str(reachable) if reachable else str(dev.mgmt_ip)
+
+
 async def snmp_enrich(session: AsyncSession) -> SnmpSummary:
     communities = await _communities(session)
     summary = SnmpSummary(community_found=bool(communities))
@@ -270,7 +276,7 @@ async def snmp_enrich(session: AsyncSession) -> SnmpSummary:
         async with sem:
             for community in communities:
                 try:
-                    await _enrich_storage(_Snmp(str(dev.mgmt_ip), community), dev)
+                    await _enrich_storage(_Snmp(_target_ip(dev), community), dev)
                     summary.storage_enriched += 1
                     return
                 except Exception:
@@ -281,7 +287,7 @@ async def snmp_enrich(session: AsyncSession) -> SnmpSummary:
         async with sem:
             for community in communities:
                 try:
-                    await _enrich_physical(_Snmp(str(dev.mgmt_ip), community), dev)
+                    await _enrich_physical(_Snmp(_target_ip(dev), community), dev)
                     summary.physical_enriched += 1
                     return
                 except Exception:
