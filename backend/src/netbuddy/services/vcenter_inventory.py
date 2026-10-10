@@ -49,6 +49,21 @@ _POW = {
     "suspended": PowerState.SUSPENDED,
 }
 
+# vCenter-Datacenter-Codes -> NetBuddy-Site-Namen (Credential.extra["site_map"] ueberschreibt).
+_DC_SITE_ALIAS = {
+    "BHQ": "B-HQ",
+    "BSAG": "B-SAG",
+    "BSIG": "B-SI",
+    "BSI": "B-SI",
+    "BDEM": "B-DE",
+    "BUSL": "B-US",
+}
+
+
+def _resolve_site(sites: dict[str, Any], dc: str, site_map: dict[str, str]) -> Any:
+    name = site_map.get(dc) or _DC_SITE_ALIAS.get(dc, dc)
+    return sites.get(name) or sites.get(dc)
+
 
 class VcHost(BaseModel):
     dc: str
@@ -310,7 +325,9 @@ def _storage_vendor(name: str) -> tuple[str | None, StorageType]:
     return None, StorageType.ENTERPRISE_ARRAY
 
 
-async def _sync_snapshot(session: AsyncSession, snap: VcSnapshot) -> VcSyncSummary:
+async def _sync_snapshot(
+    session: AsyncSession, snap: VcSnapshot, site_map: dict[str, str]
+) -> VcSyncSummary:
     summary = VcSyncSummary(vcenter=snap.vcenter)
     now = datetime.now().astimezone()
     sites = {s.name: s.id for s in (await session.execute(select(Site))).scalars().all()}
@@ -348,7 +365,7 @@ async def _sync_snapshot(session: AsyncSession, snap: VcSnapshot) -> VcSyncSumma
             session.add(ps)
         ps.hostname = h.name
         ps.dns_name = h.name
-        ps.site_id = sites.get(h.dc)
+        ps.site_id = _resolve_site(sites, h.dc, site_map)
         ps.server_role = ServerRole.ESXI_HOST
         ps.vendor = h.vendor
         ps.model = h.model
@@ -391,7 +408,7 @@ async def _sync_snapshot(session: AsyncSession, snap: VcSnapshot) -> VcSyncSumma
         if found_sd is None:
             session.add(sd)
         sd.name = x.name
-        sd.site_id = sites.get(x.dc)
+        sd.site_id = _resolve_site(sites, x.dc, site_map)
         sd.storage_type = stype
         sd.vendor = vendor
         sd.capacity_raw_gb = x.cap_gb
@@ -444,7 +461,7 @@ async def _sync_snapshot(session: AsyncSession, snap: VcSnapshot) -> VcSyncSumma
         if found_vs is None:
             session.add(vs)
         vs.name = v.name
-        vs.site_id = sites.get(v.dc)
+        vs.site_id = _resolve_site(sites, v.dc, site_map)
         vs.power_state = _POW.get(v.power, PowerState.UNKNOWN)
         vs.vcpu = v.vcpu
         vs.ram_mb = v.ram_mb
@@ -578,7 +595,8 @@ async def sync_vcenters(session: AsyncSession) -> list[VcSyncSummary]:
             continue
         try:
             snap = await asyncio.to_thread(_collect, host, cred.username, cred.password)
-            summaries.append(await _sync_snapshot(session, snap))
+            site_map = (cred.extra or {}).get("site_map") or {}
+            summaries.append(await _sync_snapshot(session, snap, site_map))
             await _upsert_vcenter(session, snap, cred)
             await session.commit()
         except Exception as exc:
