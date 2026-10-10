@@ -72,7 +72,8 @@ export function VirtualServersView() {
           {POWER.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
       </div>
-      <table>
+      <div className="scrolltable">
+<table>
         <thead>
           <tr>
             <Th k="name" sort={sort} onSort={toggle}>Name</Th>
@@ -112,6 +113,7 @@ export function VirtualServersView() {
           ))}
         </tbody>
       </table>
+</div>
     </div>
   );
 }

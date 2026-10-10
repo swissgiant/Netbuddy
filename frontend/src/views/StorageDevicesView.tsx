@@ -83,7 +83,8 @@ export function StorageDevicesView() {
               {HW.map((h) => <option key={h} value={h}>{h}</option>)}
             </select>
           </div>
-          <table>
+          <div className="scrolltable">
+<table>
             <thead>
               <tr>
                 <Th k="name" sort={sort} onSort={toggle}>Name</Th>
@@ -121,6 +122,10 @@ export function StorageDevicesView() {
                       <select value={r.hardware_status} onChange={(e) => updateStorageDevice(r.id, { hardware_status: e.target.value as StorageDevice["hardware_status"] }).then(reload)}>
                         {HW.map((h) => <option key={h} value={h}>{HW_ICON[h]} {h}</option>)}
                       </select>
+                      {r.hardware_status !== "ok" && (
+                        <button className="ghost" title="Grund anzeigen" style={{ marginLeft: 4 }}
+                          onClick={() => alert(r.hardware_detail || "Kein Detail hinterlegt (noch keine HW-Diagnose/SNMP-Health)")}>ℹ️</button>
+                      )}
                     </td>
                     <td><button onClick={() => confirm(`${r.name} löschen?`) && deleteStorageDevice(r.id).then(reload)}>🗑️</button></td>
                   </tr>
@@ -128,6 +133,7 @@ export function StorageDevicesView() {
               })}
             </tbody>
           </table>
+</div>
         </>
       ) : (
         <div style={{ fontFamily: "monospace", fontSize: 13 }}>

@@ -71,7 +71,8 @@ export function PhysicalServersView() {
           {HW.map((h) => <option key={h} value={h}>{h}</option>)}
         </select>
       </div>
-      <table>
+      <div className="scrolltable">
+<table>
         <thead>
           <tr>
             <Th k="hostname" sort={sort} onSort={toggle}>Hostname</Th>
@@ -107,6 +108,10 @@ export function PhysicalServersView() {
                 <select value={r.hardware_status} onChange={(e) => patch(r.id, { hardware_status: e.target.value as PhysicalServer["hardware_status"] })}>
                   {HW.map((h) => <option key={h} value={h}>{HW_ICON[h]} {h}</option>)}
                 </select>
+                {r.hardware_status !== "ok" && (
+                  <button className="ghost" title="Grund anzeigen" style={{ marginLeft: 4 }}
+                    onClick={() => alert(r.hardware_detail || "Kein Detail hinterlegt (noch keine HW-Diagnose/SNMP-Health)")}>ℹ️</button>
+                )}
               </td>
               <td className={r.warranty_status === "expired" ? "error" : ""}>{r.warranty_end ?? <span className="muted">—</span>}</td>
               <td><span className="muted">{r.source}</span></td>
@@ -115,6 +120,7 @@ export function PhysicalServersView() {
           ))}
         </tbody>
       </table>
+</div>
     </div>
   );
 }
