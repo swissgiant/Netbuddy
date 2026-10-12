@@ -167,7 +167,8 @@ def _capacity_gb(table: dict[str, dict[str, Any]]) -> tuple[int | None, int | No
 async def _enrich_storage(snmp: _Snmp, dev: StorageDevice) -> bool:
     descr = _text(await snmp.get(_SYSDESCR))  # wirft bei Timeout -> no response
     name = _text(await snmp.get(_SYSNAME))
-    dev.hardware_status = HardwareStatus.OK
+    # Kein blindes OK mehr: ein erreichbarer sysDescr belegt keine Platten-/SP-Gesundheit.
+    # Den echten Hardware-Status setzen die Hersteller-API-Adapter (storage_api.py).
     extra = dict(dev.extra or {})
     if descr:
         extra["snmp_sysdescr"] = descr[:300]

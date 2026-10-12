@@ -1,14 +1,18 @@
 """Storage-Anreicherung über die Hersteller-APIs (read + optional SNMP aktivieren).
 
-Liest Modell, Seriennummer, Kapazität (nutzbar/belegt) und Disks direkt von den Arrays/NAS und
-kann die SNMP-v2c-Read-Community ``PRTG`` setzen (für PRTG-Monitoring). Admin-Zugänge kommen aus
-Passwordstate (Storage-Listen, nach IP indiziert), der Zugriff läuft über die erreichbare Adresse
-(``reachable_ip`` via Cato-NAT, sonst ``mgmt_ip``). Unterstützt: Synology DSM, NetApp ONTAP REST.
-Nicht erreichbare oder unbekannte Geräte bleiben unverändert.
+Liest Modell, Seriennummer, Kapazität (nutzbar/belegt), Disks **und den echten Hardware-Status**
+(defekte Platten, Status der Storage-Prozessoren/Node-Canister, PSU/Lüfter) direkt von den
+Arrays/NAS und kann die SNMP-v2c-Read-Community ``PRTG`` setzen (für PRTG-Monitoring). Admin-Zugänge
+kommen aus Passwordstate (Storage-Listen, nach IP indiziert), der Zugriff läuft über die erreichbare
+Adresse (``reachable_ip`` via Cato-NAT, sonst ``mgmt_ip``). Unterstützt: Synology DSM,
+NetApp ONTAP REST, IBM Storwize/SVC (SSH-CLI). Nicht erreichbare oder unbekannte Geräte bleiben
+unverändert (Hardware-Status wird nicht blind auf OK gesetzt).
 """
 
 import asyncio
 import re
+from collections import Counter
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -26,8 +30,11 @@ _SNMP_COMMUNITY = "PRTG"
 class StorageApiSummary(BaseModel):
     synology_enriched: int = 0
     netapp_enriched: int = 0
+    storwize_enriched: int = 0
+    qnap_enriched: int = 0
     snmp_enabled: int = 0
     community_changed: list[str] = []
+    health: list[str] = []  # "name: WARNING/CRITICAL - Detail"
     failed: list[str] = []
     skipped_no_cred: list[str] = []
 
@@ -87,6 +94,41 @@ def _gb(value: Any) -> int | None:
         return None
 
 
+def _verdict(
+    critical: list[str], warning: list[str], ok_summary: str
+) -> tuple[HardwareStatus, str]:
+    """Rollt Einzel-Befunde zu einem Gesamt-Hardware-Status + Detailtext zusammen."""
+    if critical:
+        return HardwareStatus.CRITICAL, "; ".join(critical + warning)[:1000]
+    if warning:
+        return HardwareStatus.WARNING, "; ".join(warning)[:1000]
+    return HardwareStatus.OK, ok_summary[:1000]
+
+
+def _parse_kv(output: str, sep: str = ":") -> dict[str, str]:
+    """``key:value`` je Zeile (z.B. IBM ``lssystem -delim :``)."""
+    out: dict[str, str] = {}
+    for line in output.splitlines():
+        if sep in line:
+            key, val = line.split(sep, 1)
+            out[key.strip()] = val.strip()
+    return out
+
+
+def _parse_delim(output: str, sep: str = ":") -> list[dict[str, str]]:
+    """Kopfzeile + Datenzeilen (z.B. IBM ``lsdrive -delim :``) -> Liste von Dicts."""
+    lines = [ln for ln in output.splitlines() if ln.strip()]
+    if not lines:
+        return []
+    header = lines[0].split(sep)
+    rows: list[dict[str, str]] = []
+    for line in lines[1:]:
+        parts = line.split(sep)
+        parts += [""] * (len(header) - len(parts))
+        rows.append(dict(zip(header, parts, strict=False)))
+    return rows
+
+
 async def _synology(client: httpx.AsyncClient, base: str, user: str, pw: str) -> dict[str, Any]:
     auth = await client.get(
         f"{base}/webapi/auth.cgi",
@@ -113,6 +155,7 @@ async def _synology(client: httpx.AsyncClient, base: str, user: str, pw: str) ->
         out["model"] = data.get("model")
         out["serial"] = data.get("serial")
         out["firmware"] = data.get("firmware_ver") or data.get("version_string")
+        temp_warn = bool(data.get("sys_tempwarn") or data.get("temperature_warning"))
         stor = await client.get(
             f"{base}/webapi/entry.cgi",
             params={
@@ -128,16 +171,46 @@ async def _synology(client: httpx.AsyncClient, base: str, user: str, pw: str) ->
         used = sum(int(v.get("size", {}).get("used", 0)) for v in vols)
         out["cap_usable_gb"] = _gb(total) if total else None
         out["cap_used_gb"] = _gb(used) if used else None
-        out["disk_count"] = len(sd.get("disks", []) or [])
+        raw_disks = sd.get("disks", []) or []
+        out["disk_count"] = len(raw_disks)
         out["disks"] = [
             {
                 "id": d.get("id"),
                 "model": d.get("model"),
                 "size_gb": _gb(d.get("size_total")),
                 "status": d.get("status"),
+                "smart": d.get("smart_status"),
+                "temp_c": d.get("temp"),
+                "remain_life": d.get("remain_life"),
             }
-            for d in (sd.get("disks", []) or [])
+            for d in raw_disks
         ]
+        # --- Hardware-Health ---
+        pools = sd.get("storagePools") or sd.get("pools") or []
+        critical: list[str] = []
+        warning: list[str] = []
+        for d in raw_disks:
+            st = (d.get("status") or "normal").lower()
+            smart = (d.get("smart_status") or "normal").lower()
+            if st not in ("normal", "", "none"):
+                critical.append(f"Disk {d.get('id')}: Status {d.get('status')}")
+            elif smart not in ("normal", "", "none"):
+                critical.append(f"Disk {d.get('id')}: SMART {d.get('smart_status')}")
+            elif d.get("below_remain_life_thr"):
+                warning.append(f"Disk {d.get('id')}: SSD-Restlebensdauer unter Schwelle")
+        for pl in pools:
+            if (pl.get("status") or "normal").lower() != "normal":
+                critical.append(f"Pool {pl.get('id')}: {pl.get('status')}")
+        for v in vols:
+            if (v.get("status") or "normal").lower() != "normal":
+                critical.append(f"Volume {v.get('id')}: {v.get('status')}")
+        if temp_warn:
+            warning.append("System-Temperatur-Warnung aktiv")
+        out["health_status"], out["health_detail"] = _verdict(
+            critical,
+            warning,
+            f"{len(raw_disks)} Platten normal, {len(pools)} Pool(s)/{len(vols)} Volume(s) ok",
+        )
     finally:
         await client.get(
             f"{base}/webapi/auth.cgi",
@@ -162,13 +235,20 @@ async def _netapp(client: httpx.AsyncClient, base: str, user: str, pw: str) -> d
     out["model"] = "NetApp ONTAP"
     out["firmware"] = (cj.get("version") or {}).get("full")
     out["serial"] = cj.get("serial_number")
+    critical: list[str] = []
+    warning: list[str] = []
     nodes = await client.get(
-        f"{base}/api/cluster/nodes", auth=auth, params={"fields": "model,serial_number"}
+        f"{base}/api/cluster/nodes",
+        auth=auth,
+        params={"fields": "name,model,serial_number,state"},
     )
     recs = nodes.json().get("records", [])
     if recs:
         out["model"] = recs[0].get("model") or out["model"]
         out["serial"] = out["serial"] or recs[0].get("serial_number")
+    for n in recs:
+        if (n.get("state") or "up") != "up":
+            critical.append(f"Controller {n.get('name')}: {n.get('state')}")
     aggr = await client.get(f"{base}/api/storage/aggregates", auth=auth, params={"fields": "space"})
     total = used = 0
     for a in aggr.json().get("records", []):
@@ -178,10 +258,37 @@ async def _netapp(client: httpx.AsyncClient, base: str, user: str, pw: str) -> d
     out["cap_usable_gb"] = _gb(total) if total else None
     out["cap_used_gb"] = _gb(used) if used else None
     disks = await client.get(
-        f"{base}/api/storage/disks", auth=auth, params={"fields": "model,state"}
+        f"{base}/api/storage/disks",
+        auth=auth,
+        params={"fields": "name,model,state,container_type", "max_records": "600"},
     )
     drecs = disks.json().get("records", [])
     out["disk_count"] = len(drecs)
+    out["disks"] = [
+        {"id": d.get("name"), "model": d.get("model"), "status": d.get("state")} for d in drecs
+    ]
+    for d in drecs:
+        st = (d.get("state") or "present").lower()
+        if st == "broken":
+            critical.append(f"Disk {d.get('name')}: broken")
+        elif st in ("maintenance", "reconstructing", "copy", "zeroing", "failed"):
+            warning.append(f"Disk {d.get('name')}: {st}")
+    try:
+        shelves = await client.get(
+            f"{base}/api/storage/shelves", auth=auth, params={"fields": "name,state"}
+        )
+        for sh in shelves.json().get("records", []):
+            if (sh.get("state") or "ok") not in ("ok", "unknown"):
+                warning.append(f"Shelf {sh.get('name')}: {sh.get('state')}")
+    except Exception:
+        pass
+    states = Counter((d.get("state") or "present") for d in drecs)
+    out["health_status"], out["health_detail"] = _verdict(
+        critical,
+        warning,
+        f"{len(drecs)} Platten ({', '.join(f'{v}x {k}' for k, v in states.items())}), "
+        f"{len(recs)} Controller up",
+    )
     try:
         lifs = await client.get(
             f"{base}/api/network/ip/interfaces", auth=auth, params={"fields": "ip.address"}
@@ -195,6 +302,163 @@ async def _netapp(client: httpx.AsyncClient, base: str, user: str, pw: str) -> d
             out["ips"] = ips
     except Exception:
         pass
+    return out
+
+
+async def _storwize_ssh(host: str, user: str, pw: str) -> dict[str, Any]:
+    """IBM Storwize/SVC-Health über SSH-CLI: Node-Canister (= Storage-Prozessoren),
+    Enclosures (PSU/Lüfter/Canister), Drives und Kapazität (lsmdiskgrp)."""
+    import asyncssh
+
+    out: dict[str, Any] = {}
+    async with asyncssh.connect(
+        host, username=user, password=pw, known_hosts=None, connect_timeout=10
+    ) as conn:
+
+        async def run(cmd: str) -> str:
+            res = await conn.run(cmd, timeout=25, check=False)
+            return str(res.stdout or "")
+
+        system = _parse_kv(await run("lssystem -delim :"))
+        out["firmware"] = system.get("code_level")
+        out["serial"] = system.get("id")
+
+        critical: list[str] = []
+        warning: list[str] = []
+
+        canisters = _parse_delim(await run("lsnodecanister -delim :"))
+        for c in canisters:
+            if (c.get("status") or "online").lower() != "online":
+                critical.append(f"Node-Canister {c.get('name') or c.get('id')}: {c.get('status')}")
+
+        enclosures = _parse_delim(await run("lsenclosure -delim :"))
+        for e in enclosures:
+            if (e.get("status") or "online").lower() != "online":
+                critical.append(f"Enclosure {e.get('id')}: {e.get('status')}")
+            for part, label in (
+                ("PSUs", "PSU"),
+                ("canisters", "Canister"),
+                ("fan_modules", "Lüfter"),
+            ):
+                tot = e.get(f"total_{part}", "")
+                onl = e.get(f"online_{part}", "")
+                if tot.isdigit() and onl.isdigit() and int(tot) > 0 and int(onl) < int(tot):
+                    warning.append(f"Enclosure {e.get('id')}: {onl}/{tot} {label} online")
+
+        drives = _parse_delim(await run("lsdrive -delim :"))
+        out["disk_count"] = len(drives)
+        out["disks"] = [
+            {
+                "id": d.get("id"),
+                "status": d.get("status"),
+                "use": d.get("use"),
+                "size": d.get("capacity"),
+            }
+            for d in drives
+        ]
+        for d in drives:
+            st = (d.get("status") or "online").lower()
+            use = (d.get("use") or "").lower()
+            if st == "offline":
+                # Member/Candidate offline = Array degradiert (kritisch); Spare offline =
+                # nur verlorene Redundanz (Warnung, keine Datengefahr).
+                if use in ("member", "candidate", "failed"):
+                    critical.append(f"Drive {d.get('id')} ({use}): offline")
+                else:
+                    warning.append(f"Drive {d.get('id')} ({use or 'spare'}): offline")
+            elif st and st != "online":
+                warning.append(f"Drive {d.get('id')}: {st}")
+
+        pools = _parse_delim(await run("lsmdiskgrp -bytes -delim :"))
+        total = free = 0
+        for p in pools:
+            try:
+                total += int(p.get("capacity") or 0)
+                free += int(p.get("free_capacity") or 0)
+            except ValueError:
+                pass
+        if total:
+            out["cap_usable_gb"] = _gb(total)
+            out["cap_used_gb"] = _gb(total - free)
+
+        onl_can = sum(1 for c in canisters if (c.get("status") or "").lower() == "online")
+        onl_drv = sum(1 for d in drives if (d.get("status") or "").lower() == "online")
+        out["health_status"], out["health_detail"] = _verdict(
+            critical,
+            warning,
+            f"{onl_can}/{len(canisters)} Node-Canister online, "
+            f"{len(enclosures)} Enclosure(s) online, {onl_drv}/{len(drives)} Drives online",
+        )
+    return out
+
+
+async def _qnap(client: httpx.AsyncClient, base: str, user: str, pw: str) -> dict[str, Any]:
+    """QNAP (QTS/QES) über die Web-CGI: Platten-Health (qsmart) + Kapazität (chartReq)."""
+    import base64
+    import xml.etree.ElementTree as ET
+
+    pwd = base64.b64encode(pw.encode()).decode()
+    login = await client.get(f"{base}/cgi-bin/authLogin.cgi", params={"user": user, "pwd": pwd})
+    m = re.search(r"<authSid><!\[CDATA\[(.*?)\]\]>", login.text) or re.search(
+        r"<authSid>(.*?)</authSid>", login.text
+    )
+    sid = m.group(1) if m else None
+    if not sid:
+        raise RuntimeError("QNAP-Login fehlgeschlagen")
+    out: dict[str, Any] = {}
+    try:
+        sm = await client.get(
+            f"{base}/cgi-bin/disk/qsmart.cgi", params={"func": "all_hd_data", "sid": sid}
+        )
+        root = ET.fromstring(sm.text)
+        model = root.findtext("model/modelName")
+        if model:
+            out["model"] = model.strip()
+        fw = root.findtext("firmware/version")
+        if fw and fw.strip() not in ("", "000"):
+            out["firmware"] = fw.strip()
+        disks: list[dict[str, Any]] = []
+        critical: list[str] = []
+        warning: list[str] = []
+        for e in root.iter("entry"):
+            status = (e.findtext("Disk_Status") or "").strip()
+            if status in ("-5", ""):  # -5 = leerer Slot
+                continue
+            health = (e.findtext("Health") or "").strip()
+            alias = (e.findtext("Disk_Alias") or "").strip()
+            disks.append(
+                {
+                    "id": alias,
+                    "model": (e.findtext("Model") or "").strip(),
+                    "status": health or status,
+                    "temp_c": (e.findtext("Temperature") or "").strip() or None,
+                }
+            )
+            healthy = health.upper() in ("OK", "GOOD", "NORMAL", "") and status == "0"
+            if not healthy:
+                tag = f"Disk {alias}: {health or 'Status ' + status}"
+                (warning if "WARN" in health.upper() else critical).append(tag)
+        out["disk_count"] = len(disks)
+        out["disks"] = disks
+        try:
+            cu = await client.get(
+                f"{base}/cgi-bin/management/chartReq.cgi",
+                params={"chart_func": "disk_usage", "sid": sid},
+            )
+            croot = ET.fromstring(cu.text)
+            totals = [int(t) for x in croot.iter("total_size") if (t := (x.text or "")).isdigit()]
+            frees = [int(t) for x in croot.iter("free_size") if (t := (x.text or "")).isdigit()]
+            if totals:
+                out["cap_usable_gb"] = _gb(max(totals))
+                if frees:
+                    out["cap_used_gb"] = _gb(max(totals) - min(frees))
+        except Exception:
+            pass
+        out["health_status"], out["health_detail"] = _verdict(
+            critical, warning, f"{len(disks)} Platten Health OK"
+        )
+    finally:
+        await client.get(f"{base}/cgi-bin/authLogout.cgi", params={"sid": sid})
     return out
 
 
@@ -260,23 +524,27 @@ async def _enable_snmp_synology(
 async def _enable_snmp_netapp(
     client: httpx.AsyncClient, base: str, user: str, pw: str
 ) -> tuple[bool, str | None]:
-    """ONTAP: SNMP aktivieren + RO-Community PRTG (via privatem CLI-Passthrough). Best effort."""
+    """ONTAP: SNMP aktivieren + RO-Community PRTG (via privatem CLI-Passthrough). Best effort.
+
+    Hinweis: Manche ONTAP-Versionen lehnen das Anlegen der Community per REST-POST ab (405);
+    dort muss ``system snmp community add -type ro -community-name PRTG`` per SSH gesetzt werden.
+    """
     auth = (user, pw)
     try:
         await client.patch(f"{base}/api/support/snmp", auth=auth, json={"enabled": True})
     except Exception:
         pass
     try:
-        # vorhandene Communities lesen
+        # vorhandene RO-Communities lesen (Feld heisst "access", nicht "type")
         existing = await client.get(
             f"{base}/api/private/cli/system/snmp/community",
             auth=auth,
-            params={"fields": "community_name,type"},
+            params={"fields": "community_name,access"},
         )
         names = [
             r.get("community_name")
             for r in existing.json().get("records", [])
-            if r.get("type") == "ro"
+            if r.get("access") == "ro"
         ]
         if _SNMP_COMMUNITY in names:
             return False, (names[0] if names else None)
@@ -308,19 +576,31 @@ def _apply(dev: StorageDevice, info: dict[str, Any], vendor: str, used_serials: 
         dev.capacity_used_gb = info["cap_used_gb"]
     if info.get("disk_count"):
         dev.disk_count = info["disk_count"]
-    if info.get("disks"):
+    if info.get("disks") is not None:
         dev.disks = info["disks"]
     if info.get("ips"):
         merged = sorted(set((dev.ip_addresses or []) + list(info["ips"])))
         dev.ip_addresses = merged
     if not dev.vendor:
         dev.vendor = vendor
-    dev.hardware_status = HardwareStatus.OK
+    # Echten Hardware-Status aus der API übernehmen (kein blindes OK mehr).
+    if info.get("health_status") is not None:
+        dev.hardware_status = info["health_status"]
+        dev.hardware_detail = info.get("health_detail") or None
+    dev.last_seen = datetime.now(UTC)
 
 
 async def enrich_storage_apis(
-    session: AsyncSession, *, enable_snmp: bool = False
+    session: AsyncSession, *, enable_snmp: bool = False, sites: list[str] | None = None
 ) -> StorageApiSummary:
+    """Reichert Storage-Geräte über die Hersteller-APIs an (Modell, Kapazität, Disks, Health).
+
+    ``sites`` grenzt auf bestimmte Standort-Namen ein (z.B. ``["S00 - Steelco HQ", "S01 - Icos
+    Pharma", "Cusano"]``); ``None`` = alle. ``enable_snmp`` setzt zusätzlich die SNMP-RO-Community
+    (nur Synology/NetApp) - ein Schreibzugriff, daher i.d.R. mit ``sites`` eingrenzen.
+    """
+    from netbuddy.db.models import Site
+
     summary = StorageApiSummary()
     creds = await _cred_index(session)
     used_serials: set[str] = {
@@ -334,19 +614,29 @@ async def enrich_storage_apis(
         .all()
         if st
     }
-    devices = (
-        (
-            await session.execute(
-                select(StorageDevice).where(
-                    StorageDevice.deleted_at.is_(None), StorageDevice.mgmt_ip.isnot(None)
-                )
+    site_ids: set[Any] | None = None
+    if sites:
+        site_ids = set(
+            (
+                await session.execute(select(Site.id).where(Site.name.in_(sites)))
             )
+            .scalars()
+            .all()
         )
-        .scalars()
-        .all()
+    conditions = [StorageDevice.deleted_at.is_(None), StorageDevice.mgmt_ip.isnot(None)]
+    if site_ids is not None:
+        conditions.append(StorageDevice.site_id.in_(site_ids))
+    devices = (
+        (await session.execute(select(StorageDevice).where(*conditions))).scalars().all()
     )
     async with httpx.AsyncClient(verify=False, timeout=6.0) as client:
         sem = asyncio.Semaphore(12)
+
+        def record(dev: StorageDevice) -> None:
+            if dev.hardware_status in (HardwareStatus.WARNING, HardwareStatus.CRITICAL):
+                summary.health.append(
+                    f"{dev.name}: {dev.hardware_status.value.upper()} - {dev.hardware_detail}"
+                )
 
         async def handle(dev: StorageDevice) -> None:
             ip = _target(dev)
@@ -359,12 +649,26 @@ async def enrich_storage_apis(
             user, pw = cred
             vendor = (dev.vendor or "").lower()
             name = dev.name.lower()
+            blob = f"{name} {(dev.model or '').lower()}"
             async with sem:
                 try:
-                    if vendor == "synology" or await _port_open(ip, 5001):
+                    if (vendor == "ibm" or "storwize" in blob) and await _port_open(ip, 22):
+                        info = await _storwize_ssh(ip, user, pw)
+                        _apply(dev, info, "IBM", used_serials)
+                        summary.storwize_enriched += 1
+                        record(dev)
+                        # Storwize-Monitoring läuft über SSH/REST, nicht via SNMP-v2c-Community.
+                    elif (vendor == "qnap" or "qnap" in blob) and await _port_open(ip, 443):
+                        info = await _qnap(client, f"https://{ip}", user, pw)
+                        _apply(dev, info, "QNAP", used_serials)
+                        summary.qnap_enriched += 1
+                        record(dev)
+                        # QNAP-SNMP ist am Standort bereits aktiv (antwortet auf PRTG-Community).
+                    elif vendor == "synology" or await _port_open(ip, 5001):
                         info = await _synology(client, f"https://{ip}:5001", user, pw)
                         _apply(dev, info, "Synology", used_serials)
                         summary.synology_enriched += 1
+                        record(dev)
                         if enable_snmp:
                             ok, old = await _enable_snmp_synology(
                                 client, f"https://{ip}:5001", user, pw
@@ -374,11 +678,14 @@ async def enrich_storage_apis(
                                 if old and old != _SNMP_COMMUNITY:
                                     summary.community_changed.append(f"{dev.name}: {old}->PRTG")
                     elif (
-                        vendor == "netapp" or "netapp" in name or "sto" in name
+                        vendor == "netapp"
+                        or "netapp" in name
+                        or ("sto" in name and "msa" not in name)
                     ) and await _port_open(ip, 443):
                         info = await _netapp(client, f"https://{ip}", user, pw)
                         _apply(dev, info, "NetApp", used_serials)
                         summary.netapp_enriched += 1
+                        record(dev)
                         if enable_snmp:
                             ok, old = await _enable_snmp_netapp(client, f"https://{ip}", user, pw)
                             if ok:

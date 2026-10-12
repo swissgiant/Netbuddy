@@ -4,7 +4,9 @@ Aktuell: vCenter (virtuelle + physische Server + Storage-Datastores). Weitere Qu
 (iDRAC/Redfish, Array-APIs, NAS) kommen als eigene Endpunkte dazu.
 """
 
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Query
 
 from netbuddy.api.deps import SessionDep
 from netbuddy.services.cato_nat import NatResolveSummary, resolve_reachable_ips
@@ -34,6 +36,11 @@ async def resolve_nat(session: SessionDep) -> NatResolveSummary:
 
 
 @router.post("/storage-api/enrich", response_model=StorageApiSummary)
-async def storage_api_enrich(session: SessionDep, enable_snmp: bool = False) -> StorageApiSummary:
-    """Storage via Hersteller-API (Synology/NetApp) lesen; optional SNMP (Community PRTG) setzen."""
-    return await enrich_storage_apis(session, enable_snmp=enable_snmp)
+async def storage_api_enrich(
+    session: SessionDep,
+    enable_snmp: bool = False,
+    sites: Annotated[list[str] | None, Query()] = None,
+) -> StorageApiSummary:
+    """Storage via Hersteller-API (Synology/NetApp/IBM Storwize) lesen inkl. Hardware-Status;
+    optional SNMP (Community PRTG) setzen. ``sites`` grenzt auf Standort-Namen ein."""
+    return await enrich_storage_apis(session, enable_snmp=enable_snmp, sites=sites)

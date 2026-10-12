@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type { Site, StorageDevice, StorageTreeNode } from "../api";
 import {
   deleteStorageDevice,
@@ -14,12 +14,16 @@ const HW = ["ok", "warning", "critical", "unknown"];
 const HW_ICON: Record<string, string> = { ok: "🟢", warning: "🟡", critical: "🔴", unknown: "⚪" };
 const tb = (g: number | null | undefined) =>
   g == null ? "" : g >= 1024 ? `${(g / 1024).toFixed(1)} TB` : `${g} GB`;
+// Plattengesundheit über alle Vendoren (Synology/NetApp/Storwize/QNAP) auf gut/schlecht abbilden.
+const DISK_OK = ["normal", "present", "online", "ok", "good", "spare", "partner", "shared"];
+const diskGood = (s: string) => DISK_OK.includes(s.trim().toLowerCase());
 
 export function StorageDevicesView() {
   const [mode, setMode] = useState<"list" | "tree">("list");
   const [rows, setRows] = useState<StorageDevice[]>([]);
   const [tree, setTree] = useState<StorageTreeNode[]>([]);
   const [exp, setExp] = useState<Set<string>>(new Set());
+  const [rowOpen, setRowOpen] = useState<Set<string>>(new Set());
   const [sites, setSites] = useState<Site[]>([]);
   const [q, setQ] = useState("");
   const [siteFilter, setSiteFilter] = useState("");
@@ -55,6 +59,8 @@ export function StorageDevicesView() {
     u && used ? Math.round((used / u) * 100) : null;
   const toggleExp = (k: string) =>
     setExp((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  const toggleRow = (k: string) =>
+    setRowOpen((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
   return (
     <div>
@@ -105,9 +111,18 @@ export function StorageDevicesView() {
             <tbody>
               {sorted.map((r) => {
                 const p = pct(r.capacity_usable_gb, r.capacity_used_gb);
+                const open = rowOpen.has(r.id);
+                const hasDetail = r.disks.length > 0 || !!r.hardware_detail;
                 return (
-                  <tr key={r.id}>
-                    <td>{r.name}</td>
+                  <Fragment key={r.id}>
+                  <tr>
+                    <td>
+                      {hasDetail && (
+                        <button className="ghost" style={{ marginRight: 4 }} title="Hardware-Details"
+                          onClick={() => toggleRow(r.id)}>{open ? "▼" : "▶"}</button>
+                      )}
+                      {r.name}
+                    </td>
                     <td>{r.site_name ?? <span className="muted">—</span>}</td>
                     <td><span className="badge">{r.storage_type}</span></td>
                     <td>{r.vendor}</td>
@@ -129,6 +144,39 @@ export function StorageDevicesView() {
                     </td>
                     <td><button onClick={() => confirm(`${r.name} löschen?`) && deleteStorageDevice(r.id).then(reload)}>🗑️</button></td>
                   </tr>
+                  {open && (
+                    <tr>
+                      <td colSpan={13} style={{ padding: "8px 16px 12px 34px", background: "var(--bg2, rgba(127,127,127,0.08))" }}>
+                        <div style={{ marginBottom: 6 }}>
+                          <b>Hardware-Status:</b>{" "}{HW_ICON[r.hardware_status]} {r.hardware_status}
+                          {r.hardware_detail && <> — {r.hardware_detail}</>}
+                          {r.disk_count != null && <span className="muted"> · {r.disk_count} Platten</span>}
+                          {r.last_seen && <span className="muted"> · geprüft {new Date(r.last_seen).toLocaleString()}</span>}
+                        </div>
+                        {r.disks.length > 0 ? (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {r.disks.map((d, i) => {
+                              const st = String((d as Record<string, unknown>).status ?? "");
+                              const temp = (d as Record<string, unknown>).temp_c;
+                              const life = (d as Record<string, unknown>).remain_life;
+                              const model = (d as Record<string, unknown>).model;
+                              return (
+                                <span key={i} className="badge" title={model ? String(model) : ""}
+                                  style={{ borderColor: diskGood(st) ? "var(--ok, #2a8a2a)" : "var(--error, #c0392b)" }}>
+                                  {diskGood(st) ? "🟢" : "🔴"} {String((d as Record<string, unknown>).id ?? i)} · {st || "?"}
+                                  {temp ? ` · ${temp}°C` : ""}
+                                  {life != null && life !== "" ? ` · Leben ${life}%` : ""}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span className="muted">Keine Platten-Detaildaten (per Hersteller-API noch nicht gezogen).</span>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>
