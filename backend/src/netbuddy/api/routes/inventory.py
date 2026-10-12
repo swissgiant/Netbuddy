@@ -11,7 +11,11 @@ from fastapi import APIRouter, Query
 from netbuddy.api.deps import SessionDep
 from netbuddy.services.cato_nat import NatResolveSummary, resolve_reachable_ips
 from netbuddy.services.snmp_enrich import SnmpSummary, snmp_enrich
-from netbuddy.services.storage_api import StorageApiSummary, enrich_storage_apis
+from netbuddy.services.storage_api import (
+    StorageApiSummary,
+    enrich_storage_apis,
+    import_storage_credentials,
+)
 from netbuddy.services.vcenter_inventory import VcSyncSummary, sync_vcenters
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
@@ -44,3 +48,10 @@ async def storage_api_enrich(
     """Storage via Hersteller-API (Synology/NetApp/IBM Storwize) lesen inkl. Hardware-Status;
     optional SNMP (Community PRTG) setzen. ``sites`` grenzt auf Standort-Namen ein."""
     return await enrich_storage_apis(session, enable_snmp=enable_snmp, sites=sites)
+
+
+@router.post("/storage-creds/import", response_model=list[str])
+async def storage_creds_import(session: SessionDep, dry_run: bool = False) -> list[str]:
+    """Storage-Logins einmal aus Passwordstate ziehen und als NetBuddy-Credentials ablegen
+    (``source=passwordstate-storage``). Danach liest der Enrich-Lauf daraus statt live."""
+    return await import_storage_credentials(session, dry_run=dry_run)

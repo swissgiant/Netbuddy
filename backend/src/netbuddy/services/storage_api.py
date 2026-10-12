@@ -45,8 +45,84 @@ def _target(dev: StorageDevice) -> str | None:
     return str(dev.mgmt_ip) if dev.mgmt_ip else None
 
 
+_STORAGE_SOURCE = "passwordstate-storage"
+_STORAGE_LIST_RE = re.compile(r"synolog|storage|netapp|qnap", re.IGNORECASE)
+
+
 async def _cred_index(session: AsyncSession) -> dict[str, tuple[str, str]]:
-    """Admin-Logins aus den Passwordstate-Storage-Listen, nach (realer) IP: ip -> (user, pw)."""
+    """IP -> (user, pw) für Storage-Logins.
+
+    Primär aus den **NetBuddy-Credentials** (einmalig aus Passwordstate importiert,
+    ``extra.source == "passwordstate-storage"``, nach ``extra.ip`` indiziert). Der Live-Abruf aus
+    Passwordstate läuft nur noch als Fallback, falls noch nichts importiert wurde.
+    """
+    index: dict[str, tuple[str, str]] = {}
+    rows = (
+        await session.execute(select(Credential).where(Credential.deleted_at.is_(None)))
+    ).scalars()
+    for c in rows:
+        ex = c.extra or {}
+        ip = ex.get("ip")
+        if ex.get("source") != _STORAGE_SOURCE or not ip or not c.username or not c.password:
+            continue
+        if _SKIP_CRED.search(f"{c.name} {c.username}"):
+            continue
+        index.setdefault(str(ip), (c.username, c.password))
+    if index:
+        return index
+    return await _cred_index_live(session)
+
+
+async def import_storage_credentials(
+    session: AsyncSession, *, dry_run: bool = False
+) -> "list[str]":
+    """Zieht die Passwordstate-Storage-Listen einmal und legt sie als NetBuddy-Credentials ab
+    (``source='passwordstate-storage'``), damit der Enrich-Lauf daraus statt live liest.
+    Gibt eine kurze Zusammenfassung (angelegt/aktualisiert/übersprungen) zurück."""
+    from netbuddy.services.passwordstate import PasswordstateApi, _first_ip, import_entries
+
+    pw = (
+        await session.execute(
+            select(Credential).where(
+                Credential.name == "Passwordstate", Credential.deleted_at.is_(None)
+            )
+        )
+    ).scalars().first()
+    if pw is None:
+        return ["Keine Passwordstate-Credential gefunden"]
+    entries = []
+    async with PasswordstateApi(pw) as api:
+        for lst in await api.fetch_lists():
+            if not _STORAGE_LIST_RE.search(f"{lst.name} {lst.tree_path or ''}"):
+                continue
+            try:
+                entries += await api.fetch_list(lst.list_id)
+            except Exception:
+                continue
+    # Nur die tatsächlich vom Enrich-Lauf genutzten Logins: mit IP + User + Passwort, kein
+    # Monitoring-/Backup-/Veeam-Konto (gleiche Filter wie der Live-Index).
+    usable = [
+        e
+        for e in entries
+        if _first_ip(e)
+        and e.username
+        and e.password
+        and not _SKIP_CRED.search(f"{e.title} {e.username}")
+    ]
+    summary = await import_entries(session, usable, dry_run=dry_run, source=_STORAGE_SOURCE)
+    if not dry_run:
+        await session.commit()
+    return [
+        f"angelegt={len(summary.created)}",
+        f"aktualisiert={len(summary.updated)}",
+        f"übersprungen={len(summary.skipped)}",
+        *(f"NEU: {n}" for n in summary.created),
+        *(f"SKIP: {n}" for n in summary.skipped),
+    ]
+
+
+async def _cred_index_live(session: AsyncSession) -> dict[str, tuple[str, str]]:
+    """Fallback: Admin-Logins live aus den Passwordstate-Storage-Listen, nach IP."""
     from netbuddy.services.passwordstate import PasswordstateApi
 
     pw = (

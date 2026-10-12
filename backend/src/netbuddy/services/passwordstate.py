@@ -180,6 +180,15 @@ def parse_entries(data: Any) -> list[PwEntry]:
     return out
 
 
+def _first_ip(entry: PwEntry) -> str | None:
+    """Erste gültige IP aus Hostname/URL/Beschreibung/Titel (für IP-basierte Zuordnung)."""
+    blob = " ".join(x for x in (entry.hostname, entry.url, entry.description, entry.title) if x)
+    for ip in _IP_RE.findall(blob):
+        if _valid_ip(ip):
+            return str(ip)
+    return None
+
+
 def _candidate_hosts(entry: PwEntry) -> set[str]:
     """Hostnamen/IPs, über die ein Eintrag einem NetBuddy-Gerät zugeordnet werden kann."""
     blob = " ".join(x for x in (entry.hostname, entry.url, entry.title, entry.description) if x)
@@ -295,6 +304,10 @@ async def import_entries(
         if not e.password or not e.username:
             summary.skipped.append(f"{name} (ohne User/Passwort)")
             continue
+        ip = _first_ip(e)
+        meta = {"source": source, "password_id": e.password_id, "list_id": e.list_id}
+        if ip:
+            meta["ip"] = ip
         cred = existing.get(name.lower())
         if cred is None:
             summary.created.append(name)
@@ -303,7 +316,7 @@ async def import_entries(
                 username=e.username,
                 password=e.password,
                 ssh_port=22,
-                extra={"source": source, "password_id": e.password_id, "list_id": e.list_id},
+                extra=meta,
             )
             if not dry_run:
                 session.add(cred)
@@ -314,12 +327,7 @@ async def import_entries(
             if not dry_run:
                 cred.username = e.username
                 cred.password = e.password
-                cred.extra = {
-                    **(cred.extra or {}),
-                    "source": source,
-                    "password_id": e.password_id,
-                    "list_id": e.list_id,
-                }
+                cred.extra = {**(cred.extra or {}), **meta}
         for dev in _match_devices(e, index):
             if dry_run:
                 summary.linked.append(f"{name} → {dev.hostname}")
