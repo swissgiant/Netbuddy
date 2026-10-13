@@ -82,12 +82,16 @@ async def import_storage_credentials(
     from netbuddy.services.passwordstate import PasswordstateApi, _first_ip, import_entries
 
     pw = (
-        await session.execute(
-            select(Credential).where(
-                Credential.name == "Passwordstate", Credential.deleted_at.is_(None)
+        (
+            await session.execute(
+                select(Credential).where(
+                    Credential.name == "Passwordstate", Credential.deleted_at.is_(None)
+                )
             )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     if pw is None:
         return ["Keine Passwordstate-Credential gefunden"]
     entries = []
@@ -205,6 +209,34 @@ def _parse_delim(output: str, sep: str = ":") -> list[dict[str, str]]:
     return rows
 
 
+# Synology-Disk-Status, die KEIN Defekt sind: belegt-normal, leere/unbelegte Slots (not_use),
+# NVMe-Cache-Leerslots, System-Partition normal, Standby. Alles andere wird bewertet.
+_SYNO_DISK_OK = frozenset(
+    {
+        "normal",
+        "",
+        "none",
+        "not_use",
+        "not_init",
+        "not_initialized",
+        "initialized",
+        "sys_partition_normal",
+        "hibernation",
+        "sleeping",
+        "safe",
+    }
+)
+# Disk-Status, die hart kritisch sind (defekte Platte / Storage-Prozessor-nahe Fehler).
+_SYNO_DISK_CRIT = frozenset({"crashed", "system_crashed", "failed", "failing", "broken"})
+# Pool-/Volume-Status: diese sind kritisch; "attention"/"background" etc. nur Warnung (gelb).
+_SYNO_VOL_CRIT = frozenset({"crashed", "degrade", "degraded", "unmounted", "error"})
+
+
+def _is_crit_word(s: str) -> bool:
+    """Heuristik für kritische SMART-/Statustexte, wenn der genaue Wert unbekannt ist."""
+    return any(k in s for k in ("crit", "fail", "danger", "bad"))
+
+
 async def _synology(client: httpx.AsyncClient, base: str, user: str, pw: str) -> dict[str, Any]:
     auth = await client.get(
         f"{base}/webapi/auth.cgi",
@@ -266,20 +298,31 @@ async def _synology(client: httpx.AsyncClient, base: str, user: str, pw: str) ->
         critical: list[str] = []
         warning: list[str] = []
         for d in raw_disks:
-            st = (d.get("status") or "normal").lower()
-            smart = (d.get("smart_status") or "normal").lower()
-            if st not in ("normal", "", "none"):
-                critical.append(f"Disk {d.get('id')}: Status {d.get('status')}")
-            elif smart not in ("normal", "", "none"):
-                critical.append(f"Disk {d.get('id')}: SMART {d.get('smart_status')}")
+            did = d.get("id")
+            st = (d.get("status") or "normal").strip().lower()
+            smart = (d.get("smart_status") or "normal").strip().lower()
+            if st in _SYNO_DISK_CRIT:
+                critical.append(f"Disk {did}: Status {d.get('status')}")
+            elif st not in _SYNO_DISK_OK:
+                warning.append(f"Disk {did}: Status {d.get('status')}")
+            elif smart not in _SYNO_DISK_OK:
+                (critical if _is_crit_word(smart) else warning).append(
+                    f"Disk {did}: SMART {d.get('smart_status')}"
+                )
             elif d.get("below_remain_life_thr"):
-                warning.append(f"Disk {d.get('id')}: SSD-Restlebensdauer unter Schwelle")
+                warning.append(f"Disk {did}: SSD-Restlebensdauer unter Schwelle")
         for pl in pools:
-            if (pl.get("status") or "normal").lower() != "normal":
+            st = (pl.get("status") or "normal").strip().lower()
+            if st in _SYNO_VOL_CRIT:
                 critical.append(f"Pool {pl.get('id')}: {pl.get('status')}")
+            elif st not in ("normal", "", "none"):
+                warning.append(f"Pool {pl.get('id')}: {pl.get('status')}")
         for v in vols:
-            if (v.get("status") or "normal").lower() != "normal":
+            st = (v.get("status") or "normal").strip().lower()
+            if st in _SYNO_VOL_CRIT:
                 critical.append(f"Volume {v.get('id')}: {v.get('status')}")
+            elif st not in ("normal", "", "none"):
+                warning.append(f"Volume {v.get('id')}: {v.get('status')}")
         if temp_warn:
             warning.append("System-Temperatur-Warnung aktiv")
         out["health_status"], out["health_detail"] = _verdict(
@@ -693,18 +736,12 @@ async def enrich_storage_apis(
     site_ids: set[Any] | None = None
     if sites:
         site_ids = set(
-            (
-                await session.execute(select(Site.id).where(Site.name.in_(sites)))
-            )
-            .scalars()
-            .all()
+            (await session.execute(select(Site.id).where(Site.name.in_(sites)))).scalars().all()
         )
     conditions = [StorageDevice.deleted_at.is_(None), StorageDevice.mgmt_ip.isnot(None)]
     if site_ids is not None:
         conditions.append(StorageDevice.site_id.in_(site_ids))
-    devices = (
-        (await session.execute(select(StorageDevice).where(*conditions))).scalars().all()
-    )
+    devices = (await session.execute(select(StorageDevice).where(*conditions))).scalars().all()
     async with httpx.AsyncClient(verify=False, timeout=6.0) as client:
         sem = asyncio.Semaphore(12)
 
@@ -769,7 +806,8 @@ async def enrich_storage_apis(
                                 if old and old != _SNMP_COMMUNITY:
                                     summary.community_changed.append(f"{dev.name}: {old}->PRTG")
                 except Exception as exc:
-                    summary.failed.append(f"{dev.name}: {str(exc)[:80]}")
+                    detail = str(exc).strip() or type(exc).__name__
+                    summary.failed.append(f"{dev.name}: {detail[:80]}")
 
         await asyncio.gather(*[handle(d) for d in devices])
     await session.commit()
