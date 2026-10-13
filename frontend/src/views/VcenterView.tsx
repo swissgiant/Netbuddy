@@ -9,6 +9,10 @@ interface HostEntry {
   model?: string | null;
   cpu_cores?: number | null;
   ram_mb?: number | null;
+  mgmt_ip?: string | null;
+  cpu_usage_mhz?: number | null;
+  cpu_total_mhz?: number | null;
+  mem_usage_mb?: number | null;
   status?: string | null;
   vm_count?: number | null;
 }
@@ -16,6 +20,11 @@ interface HostEntry {
 const STATUS_ICON: Record<string, string> = { green: "🟢", yellow: "🟡", red: "🔴", gray: "⚪" };
 const POWER_ICON: Record<string, string> = { on: "🟢", off: "⚫", suspended: "🟡", unknown: "⚪" };
 const gb = (mb: number | null | undefined) => (mb == null ? "" : `${Math.round(mb / 1024)} GB`);
+const pct = (used?: number | null, total?: number | null) =>
+  used != null && total ? Math.round((used / total) * 100) : null;
+// Auslastung einfärben: ab 90 % rot, ab 75 % gelb, sonst neutral.
+const usageColor = (p: number | null) =>
+  p == null ? undefined : p >= 90 ? "var(--error, #c0392b)" : p >= 75 ? "var(--warn, #e0a800)" : undefined;
 
 function Row({ depth, id, open, onToggle, leaf, children }: {
   depth: number; id: string; open: boolean; onToggle: (id: string) => void;
@@ -136,11 +145,22 @@ function HostNode({ h, depth, exp, toggle, vmsByHost, base }: {
 }) {
   const hId = `${base}:${h.name}`;
   const hostVms = vmsByHost.get(h.name) ?? [];
+  const cpuP = pct(h.cpu_usage_mhz, h.cpu_total_mhz);
+  const ramP = pct(h.mem_usage_mb, h.ram_mb);
   return (
     <div>
       <Row depth={depth} id={hId} open={exp.has(hId)} onToggle={toggle}>
         {STATUS_ICON[h.status ?? "gray"] ?? "⚪"} 🖥️ {h.name}{" "}
-        <span className="muted">{h.model} · {h.cpu_cores} Cores · {gb(h.ram_mb)} · {hostVms.length} VMs</span>
+        <span className="muted">
+          {h.model}
+          {h.mgmt_ip ? ` · ${h.mgmt_ip}` : ""}
+          {" · CPU "}
+          <span style={{ color: usageColor(cpuP) }}>{cpuP != null ? `${cpuP}%` : "—"}</span>
+          {" · RAM "}
+          <span style={{ color: usageColor(ramP) }}>{ramP != null ? `${ramP}%` : "—"}</span>
+          {h.ram_mb ? ` (${gb(h.mem_usage_mb)}/${gb(h.ram_mb)})` : ""}
+          {` · ${h.cpu_cores} Cores · ${hostVms.length} VMs`}
+        </span>
       </Row>
       {exp.has(hId) &&
         hostVms.map((v) => (

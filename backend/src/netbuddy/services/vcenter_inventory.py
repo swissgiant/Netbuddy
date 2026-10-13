@@ -78,6 +78,9 @@ class VcHost(BaseModel):
     cpu_cores: int | None = None
     cpu_threads: int | None = None
     ram_mb: int | None = None
+    cpu_usage_mhz: int | None = None  # aktuell genutzte CPU (MHz), aus quickStats
+    cpu_total_mhz: int | None = None  # Gesamt-CPU-Takt (MHz) = Kerne x MHz/Kern
+    mem_usage_mb: int | None = None  # aktuell genutzter RAM (MB), aus quickStats
     mgmt_ip: str | None = None
     status: str | None = None
     os_name: str | None = None
@@ -198,6 +201,17 @@ def _collect_hosts(content: Any, dc: Any, snap: VcSnapshot) -> None:
             )
             cpu = h.hardware.cpuInfo
             pkg = h.hardware.cpuPkg[0].description if h.hardware.cpuPkg else None
+            # Live-Auslastung aus quickStats (bei getrennten Hosts ggf. nicht vorhanden)
+            cpu_usage = mem_usage = cpu_total = None
+            try:
+                qs = h.summary.quickStats
+                cpu_usage = qs.overallCpuUsage  # MHz
+                mem_usage = qs.overallMemoryUsage  # MB
+                mhz_per_core = h.summary.hardware.cpuMhz
+                if mhz_per_core and cpu.numCpuCores:
+                    cpu_total = int(mhz_per_core) * int(cpu.numCpuCores)
+            except Exception:
+                pass
             snap.hosts.append(
                 VcHost(
                     dc=dc.name,
@@ -210,6 +224,9 @@ def _collect_hosts(content: Any, dc: Any, snap: VcSnapshot) -> None:
                     cpu_cores=cpu.numCpuCores,
                     cpu_threads=cpu.numCpuThreads,
                     ram_mb=int(h.hardware.memorySize / 1048576),
+                    cpu_usage_mhz=int(cpu_usage) if cpu_usage is not None else None,
+                    cpu_total_mhz=cpu_total,
+                    mem_usage_mb=int(mem_usage) if mem_usage is not None else None,
                     mgmt_ip=_host_mgmt_ip(h),
                     status=str(h.overallStatus),
                     os_name=h.config.product.name if h.config else None,
@@ -583,6 +600,10 @@ async def _upsert_vcenter(session: AsyncSession, snap: VcSnapshot, cred: Credent
             "model": h.model,
             "cpu_cores": h.cpu_cores,
             "ram_mb": h.ram_mb,
+            "mgmt_ip": h.mgmt_ip,
+            "cpu_usage_mhz": h.cpu_usage_mhz,
+            "cpu_total_mhz": h.cpu_total_mhz,
+            "mem_usage_mb": h.mem_usage_mb,
             "status": h.status,
             "vm_count": vm_by_host.get(h.name, 0),
         }
