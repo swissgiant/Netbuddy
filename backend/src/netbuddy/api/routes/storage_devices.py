@@ -281,9 +281,15 @@ async def storage_tree(session: SessionDep) -> list[StorageTreeNode]:
     )
     links = (await session.execute(select(StorageLink))).scalars().all()
     vm_rows = (await session.execute(select(VirtualServer.id, VirtualServer.name))).all()
-    ph_rows = (await session.execute(select(PhysicalServer.id, PhysicalServer.hostname))).all()
+    ph_rows = (
+        await session.execute(
+            select(PhysicalServer.id, PhysicalServer.hostname, PhysicalServer.mgmt_ip)
+        )
+    ).all()
     vm_names: dict[uuid.UUID, str] = {r[0]: r[1] for r in vm_rows}
     ph_names: dict[uuid.UUID, str] = {r[0]: r[1] for r in ph_rows}
+    # Bekannte Server nach Mgmt-IP (NFS-Exporte von Servern = Backup-Repos, kein Array)
+    server_by_ip: dict[str, str] = {str(r[2]): r[1] for r in ph_rows if r[2]}
     attach: dict[uuid.UUID, list[StorageAttachment]] = {}
     for link in links:
         if link.virtual_server_id and link.virtual_server_id in vm_names:
@@ -411,6 +417,13 @@ async def storage_tree(session: SessionDep) -> list[StorageTreeNode]:
             )
             if target is not None:
                 node = array_node(target)
+            elif str(nfs_host) in server_by_ip:  # NFS-Export eines bekannten Servers (Backup-Repo)
+                node = group_node(
+                    f"nfs:{nfs_host}",
+                    f"Server-NFS: {server_by_ip[str(nfs_host)]} ({nfs_host})",
+                    d.site_id,
+                    str(nfs_host),
+                )
             else:
                 node = group_node(
                     f"nfs:{nfs_host}",
