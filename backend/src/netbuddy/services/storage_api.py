@@ -410,7 +410,9 @@ async def _netapp(client: httpx.AsyncClient, base: str, user: str, pw: str) -> d
     )
     try:
         lifs = await client.get(
-            f"{base}/api/network/ip/interfaces", auth=auth, params={"fields": "ip.address"}
+            f"{base}/api/network/ip/interfaces",
+            auth=auth,
+            params={"fields": "ip.address", "max_records": "2000"},
         )
         ips = [
             (r.get("ip") or {}).get("address")

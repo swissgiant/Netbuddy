@@ -29,6 +29,7 @@ export function StorageDevicesView() {
   const [siteFilter, setSiteFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [hwFilter, setHwFilter] = useState("");
+  const [showDatastores, setShowDatastores] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const reload = () => {
@@ -41,6 +42,7 @@ export function StorageDevicesView() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return rows.filter((r) => {
+      if (!showDatastores && r.source === "vcenter-datastore") return false;
       if (siteFilter && r.site_id !== siteFilter) return false;
       if (typeFilter && r.storage_type !== typeFilter) return false;
       if (hwFilter && r.hardware_status !== hwFilter) return false;
@@ -49,7 +51,7 @@ export function StorageDevicesView() {
         r.mgmt_ip, r.reachable_ip, r.source, r.notes, r.ip_addresses.join(" "), r.protocols.join(" ")]
         .join(" ").toLowerCase().includes(needle);
     });
-  }, [rows, q, siteFilter, typeFilter, hwFilter]);
+  }, [rows, q, siteFilter, typeFilter, hwFilter, showDatastores]);
 
   const { sorted, sort, toggle } = useSort(filtered, {
     site: (r) => r.site_name, usable: (r) => r.capacity_usable_gb,
@@ -88,6 +90,12 @@ export function StorageDevicesView() {
               <option value="">HW: alle</option>
               {HW.map((h) => <option key={h} value={h}>{h}</option>)}
             </select>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
+              title="vCenter-Datastores/LUNs sind eigene Zeilen; standardmäßig ausgeblendet, im Baum hängen sie unter ihrem Array.">
+              <input type="checkbox" checked={showDatastores}
+                onChange={(e) => setShowDatastores(e.target.checked)} />
+              LUNs/Datastores
+            </label>
           </div>
           <div className="scrolltable">
 <table>

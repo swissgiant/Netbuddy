@@ -215,6 +215,33 @@ def _array_key(name: str) -> tuple[str, str]:
     return "lun-sonstige", "Sonstige LUNs/Datastores"
 
 
+# NAA-/EUI-Herstellerpräfixe (OUI) von VMFS-LUNs -> (Hersteller-Key, Anzeigename).
+_NAA_VENDORS: list[tuple[str, str, str]] = [
+    ("60050763", "ibm", "IBM"),  # IBM Storwize / SVC / FlashSystem
+    ("600507", "ibm", "IBM"),
+    ("600c0ff", "hpe", "HPE MSA"),  # HPE/HP MSA
+    ("6001405", "synology", "Synology"),  # Synology iSCSI-Target
+    ("7100", "huawei", "Huawei"),  # Huawei OceanStor / Dorado (eui.7100…)
+]
+
+
+def _vendor_from_naa(naa: str | None) -> tuple[str, str] | None:
+    """(Hersteller-Key, Anzeigename) aus einer VMFS-NAA/EUI-ID ableiten, sonst None."""
+    if not naa:
+        return None
+    s = naa.strip().lower().removeprefix("naa.").removeprefix("eui.")
+    for prefix, key, label in _NAA_VENDORS:
+        if s.startswith(prefix):
+            return key, label
+    return None
+
+
+def _vendor_norm(vendor: str | None) -> str:
+    """Array-Hersteller auf denselben Key wie ``_vendor_from_naa`` bringen."""
+    v = (vendor or "").strip().lower()
+    return {"hp": "hpe", "hpe msa": "hpe", "ibm storwize": "ibm"}.get(v, v)
+
+
 @router.get("/tree", response_model=list[StorageTreeNode])
 async def storage_tree(session: SessionDep) -> list[StorageTreeNode]:
     """Array/NAS als Wurzeln, darunter die LUNs/Volumes (vCenter-Datastores) und ihre Anbindung.
@@ -324,25 +351,51 @@ async def storage_tree(session: SessionDep) -> list[StorageTreeNode]:
         roots.append(g)
         return g
 
+    # Arrays zusätzlich nach (Hersteller, Standort) indizieren (für VMFS-Block-LUNs ohne IP)
+    array_by_vendor_site: dict[tuple[str, uuid.UUID | None], list[StorageDevice]] = {}
+    for a in arrays:
+        v = _vendor_norm(a.vendor)
+        if v:
+            array_by_vendor_site.setdefault((v, a.site_id), []).append(a)
+
     # 1) echte Arrays als Wurzeln (auch ohne Kinder sichtbar)
     for a in arrays:
         array_node(a)
 
-    # 2) Datastores/LUNs ihrem Array über die Anbindung zuordnen
+    # 2) Datastores/LUNs ihrem Array zuordnen: NFS über den Export-Host (LIF-IP), VMFS über die
+    #    NAA-Hersteller-OUI zum gleich-herstelligen Array am selben Standort.
     for d in sorted(datastores, key=lambda x: x.name.lower()):
         ex = d.extra or {}
         nfs_host = ex.get("nfs_host")
-        target = None
+        node: StorageTreeNode
         if nfs_host:
             target = array_by_addr.get(str(nfs_host)) or array_by_addr.get(str(nfs_host).lower())
-        if target is not None:
-            node = array_node(target)
-        elif nfs_host:
-            node = group_node(f"nfs:{nfs_host}", f"NFS {nfs_host}", d.site_id, str(nfs_host))
+            if target is not None:
+                node = array_node(target)
+            else:
+                node = group_node(
+                    f"nfs:{nfs_host}",
+                    f"NFS {nfs_host} (Array nicht inventarisiert)",
+                    d.site_id,
+                    str(nfs_host),
+                )
         else:
-            node = group_node(
-                f"vmfs:{d.site_id}", "Block-LUNs (VMFS, Array unbekannt)", d.site_id, None
-            )
+            naa_val = ex.get("naa")
+            vinfo = _vendor_from_naa(naa_val if isinstance(naa_val, str) else None)
+            cands = array_by_vendor_site.get((vinfo[0], d.site_id)) if vinfo else None
+            if cands and len(cands) == 1:
+                node = array_node(cands[0])
+            elif vinfo:
+                node = group_node(
+                    f"vend:{vinfo[0]}:{d.site_id}",
+                    f"{vinfo[1]}-LUNs (Array nicht inventarisiert)",
+                    d.site_id,
+                    None,
+                )
+            else:
+                node = group_node(
+                    f"vmfs:{d.site_id}", "Block-LUNs (VMFS, Array unbekannt)", d.site_id, None
+                )
         node.children.append(child_of(d))
         if node.is_group:
             node.capacity_usable_gb = (node.capacity_usable_gb or 0) + (d.capacity_usable_gb or 0)
