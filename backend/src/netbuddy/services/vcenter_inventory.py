@@ -454,7 +454,9 @@ async def _sync_snapshot(
         sd.protocols = ["NFS"] if x.nfs_host else ["VMFS"]
         sd.source = "vcenter-datastore"
         sd.last_seen = now
+        # Bekannte Felder frisch setzen, manuelle Keys (z.B. array_id, lifecycle) erhalten.
         sd.extra = {
+            **(sd.extra or {}),
             "datastore_type": x.type,
             "hosts_mounted": x.hosts,
             "datacenter": x.dc,

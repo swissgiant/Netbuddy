@@ -385,13 +385,25 @@ async def storage_tree(session: SessionDep) -> list[StorageTreeNode]:
     for a in arrays:
         array_node(a)
 
-    # 2) Datastores/LUNs ihrem Array zuordnen: NFS über den Export-Host (LIF-IP), VMFS über die
-    #    NAA-Hersteller-OUI zum gleich-herstelligen Array am selben Standort.
+    array_by_id = {a.id: a for a in arrays}
+
+    # 2) Datastores/LUNs ihrem Array zuordnen: manueller Pin (extra.array_id) vor allem, sonst NFS
+    #    über den Export-Host (LIF-IP), VMFS über die NAA-Hersteller-OUI zum gleich-herstelligen
+    #    Array am selben Standort.
     for d in sorted(datastores, key=lambda x: x.name.lower()):
         ex = d.extra or {}
         nfs_host = ex.get("nfs_host")
         node: StorageTreeNode
-        if nfs_host:
+        pin_raw = ex.get("array_id")
+        pinned = None
+        if pin_raw:
+            try:
+                pinned = array_by_id.get(uuid.UUID(str(pin_raw)))
+            except ValueError:
+                pinned = None
+        if pinned is not None:
+            node = array_node(pinned)
+        elif nfs_host:
             target = (
                 array_by_addr.get(str(nfs_host))
                 or array_by_addr.get(str(nfs_host).lower())
