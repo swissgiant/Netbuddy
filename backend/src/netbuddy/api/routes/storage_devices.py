@@ -4,6 +4,7 @@ Befüllt netzweit über :mod:`netbuddy.services.server_inventory` (Array-APIs, v
 NAS). Enthält nutzbaren und belegten Speicher, Disks, Anbindungen und Garantie.
 """
 
+import ipaddress
 import uuid
 from datetime import date, datetime
 
@@ -242,6 +243,28 @@ def _vendor_norm(vendor: str | None) -> str:
     return {"hp": "hpe", "hpe msa": "hpe", "ibm storwize": "ibm"}.get(v, v)
 
 
+def _array_in_subnet(host: str, arrays: list[StorageDevice]) -> StorageDevice | None:
+    """NetApp-Daten-LIFs liegen im selben /24 wie die bekannten Array-Adressen. Besitzt genau EIN
+    Array eine (Nicht-Link-Local-)Adresse in diesem /24, ist der NFS-Export diesem Array zuzuordnen.
+    """
+    try:
+        net = ipaddress.ip_network(f"{host}/24", strict=False)
+    except ValueError:
+        return None
+    owners: list[StorageDevice] = []
+    for a in arrays:
+        for ip in (a.mgmt_ip, a.reachable_ip, *(a.ip_addresses or [])):
+            s = str(ip) if ip else ""
+            if s and not s.startswith("169.254"):
+                try:
+                    if ipaddress.ip_address(s) in net:
+                        owners.append(a)
+                        break
+                except ValueError:
+                    continue
+    return owners[0] if len(owners) == 1 else None
+
+
 @router.get("/tree", response_model=list[StorageTreeNode])
 async def storage_tree(session: SessionDep) -> list[StorageTreeNode]:
     """Array/NAS als Wurzeln, darunter die LUNs/Volumes (vCenter-Datastores) und ihre Anbindung.
@@ -369,7 +392,11 @@ async def storage_tree(session: SessionDep) -> list[StorageTreeNode]:
         nfs_host = ex.get("nfs_host")
         node: StorageTreeNode
         if nfs_host:
-            target = array_by_addr.get(str(nfs_host)) or array_by_addr.get(str(nfs_host).lower())
+            target = (
+                array_by_addr.get(str(nfs_host))
+                or array_by_addr.get(str(nfs_host).lower())
+                or _array_in_subnet(str(nfs_host), arrays)  # Daten-LIF im /24 eines Arrays
+            )
             if target is not None:
                 node = array_node(target)
             else:
@@ -385,6 +412,13 @@ async def storage_tree(session: SessionDep) -> list[StorageTreeNode]:
             cands = array_by_vendor_site.get((vinfo[0], d.site_id)) if vinfo else None
             if cands and len(cands) == 1:
                 node = array_node(cands[0])
+            elif cands and vinfo:  # mehrere Arrays desselben Herstellers am Standort
+                node = group_node(
+                    f"vend:{vinfo[0]}:{d.site_id}",
+                    f"{vinfo[1]}-LUNs (mehrere {vinfo[1]}-Arrays am Standort - Zuordnung unklar)",
+                    d.site_id,
+                    None,
+                )
             elif vinfo:
                 node = group_node(
                     f"vend:{vinfo[0]}:{d.site_id}",
