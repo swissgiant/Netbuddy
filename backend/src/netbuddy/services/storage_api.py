@@ -185,6 +185,25 @@ def _verdict(
     return HardwareStatus.OK, ok_summary[:1000]
 
 
+def _set_health(
+    out: dict[str, Any], critical: list[str], warning: list[str], ok_summary: str
+) -> None:
+    """Verdict setzen UND die Roh-Befundlisten behalten, damit ``_apply`` per-Gerät-Ignores
+    (``extra.ignore_health``) anwenden und den Status danach neu berechnen kann."""
+    out["health_status"], out["health_detail"] = _verdict(critical, warning, ok_summary)
+    out["_health_crit"] = list(critical)
+    out["_health_warn"] = list(warning)
+    out["_health_ok"] = ok_summary
+
+
+def _ignored(items: list[str], patterns: list[str]) -> list[str]:
+    """Befunde entfernen, die einen der (case-insensitiven) Ignore-Teilstrings enthalten."""
+    if not patterns:
+        return items
+    pats = [p.lower() for p in patterns if p]
+    return [it for it in items if not any(p in it.lower() for p in pats)]
+
+
 def _parse_kv(output: str, sep: str = ":") -> dict[str, str]:
     """``key:value`` je Zeile (z.B. IBM ``lssystem -delim :``)."""
     out: dict[str, str] = {}
@@ -325,7 +344,8 @@ async def _synology(client: httpx.AsyncClient, base: str, user: str, pw: str) ->
                 warning.append(f"Volume {v.get('id')}: {v.get('status')}")
         if temp_warn:
             warning.append("System-Temperatur-Warnung aktiv")
-        out["health_status"], out["health_detail"] = _verdict(
+        _set_health(
+            out,
             critical,
             warning,
             f"{len(raw_disks)} Platten normal, {len(pools)} Pool(s)/{len(vols)} Volume(s) ok",
@@ -402,7 +422,8 @@ async def _netapp(client: httpx.AsyncClient, base: str, user: str, pw: str) -> d
     except Exception:
         pass
     states = Counter((d.get("state") or "present") for d in drecs)
-    out["health_status"], out["health_detail"] = _verdict(
+    _set_health(
+        out,
         critical,
         warning,
         f"{len(drecs)} Platten ({', '.join(f'{v}x {k}' for k, v in states.items())}), "
@@ -504,7 +525,8 @@ async def _storwize_ssh(host: str, user: str, pw: str) -> dict[str, Any]:
 
         onl_can = sum(1 for c in canisters if (c.get("status") or "").lower() == "online")
         onl_drv = sum(1 for d in drives if (d.get("status") or "").lower() == "online")
-        out["health_status"], out["health_detail"] = _verdict(
+        _set_health(
+            out,
             critical,
             warning,
             f"{onl_can}/{len(canisters)} Node-Canister online, "
@@ -575,7 +597,8 @@ async def _qnap(client: httpx.AsyncClient, base: str, user: str, pw: str) -> dic
                     out["cap_used_gb"] = _gb(max(totals) - min(frees))
         except Exception:
             pass
-        out["health_status"], out["health_detail"] = _verdict(
+        _set_health(
+            out,
             critical, warning, f"{len(disks)} Platten Health OK"
         )
     finally:
@@ -705,7 +728,17 @@ def _apply(dev: StorageDevice, info: dict[str, Any], vendor: str, used_serials: 
     if not dev.vendor:
         dev.vendor = vendor
     # Echten Hardware-Status aus der API übernehmen (kein blindes OK mehr).
-    if info.get("health_status") is not None:
+    # Per-Gerät-Ignores (extra.ignore_health = Teilstring-Liste) filtern einzelne Befunde raus
+    # (z.B. bewusst verbaute, nicht-zertifizierte Platten -> "unverified") und der Status wird
+    # ohne sie neu berechnet.
+    raw = (dev.extra or {}).get("ignore_health")
+    patterns = [str(p) for p in raw] if isinstance(raw, list) else []
+    if "_health_crit" in info or "_health_warn" in info:
+        crit = _ignored(list(info.get("_health_crit") or []), patterns)
+        warn = _ignored(list(info.get("_health_warn") or []), patterns)
+        dev.hardware_status, detail = _verdict(crit, warn, str(info.get("_health_ok") or ""))
+        dev.hardware_detail = detail or None
+    elif info.get("health_status") is not None:
         dev.hardware_status = info["health_status"]
         dev.hardware_detail = info.get("health_detail") or None
     dev.last_seen = datetime.now(UTC)
