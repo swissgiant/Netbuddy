@@ -10,6 +10,8 @@ Dieses Modul kapselt die Provider hinter einem einheitlichen Protokoll, damit di
 Datenmodell schon stehen und der Lookup nur noch „eingestöpselt" wird, sobald die Konten da sind.
 """
 
+import asyncio
+import json
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, Protocol
@@ -18,6 +20,8 @@ import httpx
 from loguru import logger
 
 from netbuddy.db.models import Credential, WarrantyStatus
+
+_UA = {"User-Agent": "Mozilla/5.0"}
 
 
 @dataclass(frozen=True)
@@ -211,29 +215,103 @@ class LenovoWarrantyProvider:
             provider=self.name, service_start=start, service_end=end, status=status
         )
 
+    def _result(self, start: date | None, end: date | None) -> WarrantyResult:
+        if end is not None and end >= date.today():
+            status = WarrantyStatus.ACTIVE
+        elif end is not None:
+            status = WarrantyStatus.EXPIRED
+        else:
+            status = WarrantyStatus.UNKNOWN
+        return WarrantyResult(
+            provider=self.name, service_start=start, service_end=end, status=status
+        )
+
+    @staticmethod
+    def _json_array_after(html: str, key: str) -> list[dict[str, Any]]:
+        """Balanced-Bracket-Extraktion des Arrays hinter ``"key":`` aus der Support-Seite."""
+        i = html.find(f'"{key}"')
+        if i < 0:
+            return []
+        j = html.find("[", i)
+        if j < 0:
+            return []
+        depth = 0
+        for k in range(j, len(html)):
+            if html[k] == "[":
+                depth += 1
+            elif html[k] == "]":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        parsed = json.loads(html[j : k + 1])
+                        return parsed if isinstance(parsed, list) else []
+                    except Exception:
+                        return []
+        return []
+
+    async def _public_one(
+        self, client: httpx.AsyncClient, serial: str
+    ) -> WarrantyResult | None:
+        """Konto-frei: öffentliche pcsupport-Seite parsen (Base-/UpgradeWarranties)."""
+        try:
+            mse = await client.get(
+                "https://pcsupport.lenovo.com/us/en/api/v4/mse/getproducts",
+                params={"productId": serial},
+                headers=_UA,
+            )
+            rows = mse.json()
+            pid = rows[0]["Id"] if rows else None
+            if not pid:
+                return None
+            page = await client.get(
+                f"https://pcsupport.lenovo.com/us/en/products/{pid.lower()}/warranty", headers=_UA
+            )
+            html = page.text
+            warr = self._json_array_after(html, "BaseWarranties") + self._json_array_after(
+                html, "UpgradeWarranties"
+            )
+            starts = [d for w in warr if (d := _parse_date(_ci(w, "Start", "StartDate")))]
+            ends = [d for w in warr if (d := _parse_date(_ci(w, "End", "EndDate")))]
+            if not starts and not ends:
+                return None
+            return self._result(min(starts) if starts else None, max(ends) if ends else None)
+        except Exception as exc:
+            logger.warning(f"Lenovo Public-Lookup {serial}: {type(exc).__name__}")
+            return None
+
     async def lookup_many(self, service_tags: list[str]) -> dict[str, WarrantyResult]:
-        if self._credential is None or not service_tags:
+        if not service_tags:
             return {}
-        extra = self._credential.extra or {}
-        url = str(extra.get("warranty_url") or self._URL)
-        headers = {"ClientID": self._credential.api_token or "", "Accept": "application/json"}
         out: dict[str, WarrantyResult] = {}
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, data={"Serial": ",".join(service_tags)}, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
-            items = data if isinstance(data, list) else [data]
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                sn = _ci(item, "Serial", "serial")
-                if sn:
-                    out[str(sn).upper()] = self._to_result(item)
+        # Mit ClientID -> offizielle API (Batch); sonst konto-frei über die öffentliche Seite.
+        if self._credential and self._credential.api_token:
+            extra = self._credential.extra or {}
+            url = str(extra.get("warranty_url") or self._URL)
+            headers = {"ClientID": self._credential.api_token, "Accept": "application/json"}
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(
+                    url, data={"Serial": ",".join(service_tags)}, headers=headers
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                for item in data if isinstance(data, list) else [data]:
+                    if isinstance(item, dict) and (sn := _ci(item, "Serial", "serial")):
+                        out[str(sn).upper()] = self._to_result(item)
+            return out
+        sem = asyncio.Semaphore(4)
+        async with httpx.AsyncClient(timeout=25.0, follow_redirects=True) as client:
+
+            async def one(tag: str) -> None:
+                async with sem:
+                    r = await self._public_one(client, tag)
+                if r:
+                    out[tag.upper()] = r
+
+            await asyncio.gather(*[one(t) for t in service_tags])
         return out
 
     async def lookup(self, service_tag: str) -> WarrantyResult | None:
-        if self._credential is None:
-            return None
+        # Lenovo geht auch ohne Credential (öffentliche Seite) -> keine None-Schranke.
         return (await self.lookup_many([service_tag])).get(service_tag.upper())
 
 

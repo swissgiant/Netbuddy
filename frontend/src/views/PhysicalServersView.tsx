@@ -86,7 +86,7 @@ export function PhysicalServersView() {
             <Th k="mgmt_ip" sort={sort} onSort={toggle}>Mgmt-IP</Th>
             <Th k="reachable_ip" sort={sort} onSort={toggle}>Cato-IP</Th>
             <Th k="hardware_status" sort={sort} onSort={toggle}>HW</Th>
-            <Th k="warranty" sort={sort} onSort={toggle}>Service bis</Th>
+            <Th k="warranty" sort={sort} onSort={toggle}>Garantie (ab–bis)</Th>
             <Th k="source" sort={sort} onSort={toggle}>Quelle</Th>
             <th></th>
           </tr>
@@ -118,7 +118,13 @@ export function PhysicalServersView() {
                     onClick={() => alert(r.hardware_detail || "Kein Detail hinterlegt (noch keine HW-Diagnose/SNMP-Health)")}>ℹ️</button>
                 )}
               </td>
-              <td className={r.warranty_status === "expired" ? "error" : ""}>{r.warranty_end ?? <span className="muted">—</span>}</td>
+              <td title={`Garantie-Status: ${r.warranty_status}`}>
+                {(r.warranty_start || r.warranty_end) ? (
+                  <span style={{ color: r.warranty_status === "active" ? "#1a7f37" : r.warranty_status === "expired" ? "#c00" : undefined, whiteSpace: "nowrap" }}>
+                    {r.warranty_start ?? "?"} – {r.warranty_end ?? "?"}
+                  </span>
+                ) : <span className="muted">—</span>}
+              </td>
               <td><span className="muted">{r.source}</span></td>
               <td><button onClick={() => confirm(`${r.hostname} löschen?`) && deletePhysicalServer(r.id).then(reload)}>🗑️</button></td>
             </tr>
