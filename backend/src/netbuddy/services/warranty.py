@@ -12,6 +12,7 @@ Datenmodell schon stehen und der Lookup nur noch „eingestöpselt" wird, sobald
 
 import asyncio
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, Protocol
@@ -49,6 +50,32 @@ def _ci(obj: dict[str, Any], *names: str) -> Any:
         if n.lower() in lower:
             return lower[n.lower()]
     return None
+
+
+def estimate_hpe_mfg_date(serial: str | None, model: str | None) -> date | None:
+    """Grobes Herstellungsdatum aus HPE-ProLiant-Serial (Community-Heuristik, NICHT offiziell).
+
+    Regel: 4. Stelle = letzte Jahresziffer, 5.-6. Stelle = Kalenderwoche; Jahrzehnt aus der
+    Generation (Gen10 ~2017-2022, Gen11 ~2021+). Gibt den Montag der KW zurueck. Nur als grober
+    Alters-/Start-Schaetzer gedacht (im UI mit "?" markiert). Neuere Schemata (Gen12: CZ2D...)
+    sind nicht dekodierbar -> None.
+    """
+    s = (serial or "").upper()
+    if len(s) < 6 or not s[3].isdigit() or not s[4:6].isdigit():
+        return None
+    digit, week = int(s[3]), int(s[4:6])
+    if not (1 <= week <= 53):
+        return None
+    g = re.search(r"GEN(\d+)", (model or "").upper())
+    gen = int(g.group(1)) if g else 10
+    if gen >= 11:
+        year = 2020 + digit if digit <= 5 else 2010 + digit
+    else:
+        year = 2010 + digit if digit >= 6 else 2020 + digit
+    try:
+        return date.fromisocalendar(year, week, 1)
+    except ValueError:
+        return None
 
 
 class WarrantyProvider(Protocol):
@@ -249,9 +276,7 @@ class LenovoWarrantyProvider:
                         return []
         return []
 
-    async def _public_one(
-        self, client: httpx.AsyncClient, serial: str
-    ) -> WarrantyResult | None:
+    async def _public_one(self, client: httpx.AsyncClient, serial: str) -> WarrantyResult | None:
         """Konto-frei: öffentliche pcsupport-Seite parsen (Base-/UpgradeWarranties)."""
         try:
             mse = await client.get(
@@ -331,6 +356,7 @@ class WarrantySummary:
     expired: int = 0
     unknown: int = 0
     no_provider: int = 0  # Vendor ohne aktives Hersteller-Konto
+    estimated: int = 0  # Start aus Serial geschätzt (HPE)
     errors: list[str] = field(default_factory=list)
     oldest: list[str] = field(default_factory=list)  # "hostname: shipdate" der ältesten
 
@@ -402,6 +428,28 @@ async def enrich_warranty(session: Any, *, sites: list[str] | None = None) -> Wa
                 summary.unknown += 1
             if res.service_start:
                 summary.oldest.append(f"{srv.hostname}: {res.service_start.isoformat()}")
+
+    # HPE ohne API: Herstellungsdatum aus der Serial schätzen -> als Garantie-Start mit
+    # "?"-Flag (im UI), solange es keine echten HPE-Daten gibt. Echte Daten (mit Ende)
+    # werden NICHT überschrieben.
+    for srv in servers:
+        if not (srv.vendor or "").lower().startswith(("hpe", "hewlett")):
+            continue
+        if srv.warranty_end is not None:
+            continue
+        est = estimate_hpe_mfg_date(srv.service_tag, srv.model or "")
+        if est is None:
+            continue
+        srv.warranty_start = est
+        srv.warranty_status = WarrantyStatus.UNKNOWN
+        srv.warranty_provider = "HPE (SN-Schätzung)"
+        srv.warranty_checked_at = now
+        extra = dict(srv.extra or {})
+        extra["warranty_start_estimated"] = True
+        srv.extra = extra
+        summary.estimated += 1
+        if summary.no_provider > 0:
+            summary.no_provider -= 1
 
     summary.oldest.sort(key=lambda x: x.split(": ")[-1])
     summary.oldest = summary.oldest[:10]

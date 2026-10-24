@@ -720,6 +720,7 @@ export interface PhysicalServer {
   ip_addresses: string[];
   hardware_status: "ok" | "warning" | "critical" | "unknown";
   hardware_detail: string | null;
+  warranty_start_estimated?: boolean;
   warranty_provider: string | null;
   warranty_start: string | null;
   warranty_end: string | null;

@@ -120,8 +120,9 @@ export function PhysicalServersView() {
               </td>
               <td title={`Garantie-Status: ${r.warranty_status}`}>
                 {(r.warranty_start || r.warranty_end) ? (
-                  <span style={{ color: r.warranty_status === "active" ? "#1a7f37" : r.warranty_status === "expired" ? "#c00" : undefined, whiteSpace: "nowrap" }}>
-                    {r.warranty_start ?? "?"} – {r.warranty_end ?? "?"}
+                  <span style={{ color: r.warranty_status === "active" ? "#1a7f37" : r.warranty_status === "expired" ? "#c00" : undefined, whiteSpace: "nowrap" }}
+                    title={r.warranty_start_estimated ? "Start geschätzt aus Seriennummer" : (r.warranty_provider ?? "")}>
+                    {r.warranty_start ? r.warranty_start + (r.warranty_start_estimated ? "?" : "") : "?"} – {r.warranty_end ?? "?"}
                   </span>
                 ) : <span className="muted">—</span>}
               </td>

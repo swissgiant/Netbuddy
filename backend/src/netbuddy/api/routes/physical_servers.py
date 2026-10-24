@@ -58,6 +58,7 @@ class PhysicalServerRead(BaseModel):
     warranty_start: date | None
     warranty_end: date | None
     warranty_status: WarrantyStatus
+    warranty_start_estimated: bool = False
     warranty_checked_at: datetime | None
     source: str | None
     last_seen: datetime | None
@@ -112,6 +113,7 @@ def _read(row: PhysicalServer, names: dict[uuid.UUID, str]) -> PhysicalServerRea
     out.site_name = names.get(row.site_id) if row.site_id else None
     ilo = (row.extra or {}).get("ilo")
     out.ilo_ip = ilo.get("ip") if isinstance(ilo, dict) else None
+    out.warranty_start_estimated = bool((row.extra or {}).get("warranty_start_estimated"))
     return out
 
 
