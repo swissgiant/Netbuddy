@@ -15,7 +15,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
-from typing import Any, Protocol
+from typing import Any, ClassVar, Protocol
 
 import httpx
 from loguru import logger
@@ -340,12 +340,93 @@ class LenovoWarrantyProvider:
         return (await self.lookup_many([service_tag])).get(service_tag.upper())
 
 
+class FujitsuWarrantyProvider:
+    """Fsas Technologies / Fujitsu PRIMERGY-Garantie — KONTO-FREI über den öffentlichen
+    Warranty-Check (Blazor-SPA).
+
+    Endpoint ``GET https://support.eu.fsastech.com/api/warranty/getWarrantyToProduct``
+    mit ``?region=Europe&serialNr=<sn>``. Erfordert zwingend den Header
+    ``x-blazor-client: true`` (sonst ``401 Unauthorized``) — kein Login, kein Cookie.
+    Antwort je Gerät: ``warrantyStartDate``/``warrantyEndDate`` (ISO mit Z),
+    ``warrantyState`` (bool), ``endOfProductSupport`` (EOSL), ``productOrderNr``.
+    """
+
+    name = "Fsas/Fujitsu"
+    _URL = "https://support.eu.fsastech.com/api/warranty/getWarrantyToProduct"
+    _HEADERS: ClassVar[dict[str, str]] = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+        ),
+        "Accept": "*/*",
+        "Referer": "https://support.eu.fsastech.com/warranty/warranty-support",
+        "x-blazor-client": "true",
+    }
+
+    def __init__(self, credential: Credential | None = None) -> None:
+        # Konto-frei; Credential nur der Einheitlichkeit halber (ungenutzt).
+        self._credential = credential
+
+    def vendor_match(self, vendor: str | None) -> bool:
+        v = (vendor or "").lower()
+        return "fujitsu" in v or "fsas" in v or "primergy" in v
+
+    def _result(self, start: date | None, end: date | None) -> WarrantyResult:
+        if end is None:
+            status = WarrantyStatus.UNKNOWN
+        elif end >= date.today():
+            status = WarrantyStatus.ACTIVE
+        else:
+            status = WarrantyStatus.EXPIRED
+        return WarrantyResult(self.name, start, end, status)
+
+    async def _one(self, client: httpx.AsyncClient, serial: str) -> WarrantyResult | None:
+        try:
+            resp = await client.get(
+                self._URL,
+                params={"region": "Europe", "serialNr": serial},
+                headers=self._HEADERS,
+            )
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            start = _parse_date(_ci(data, "warrantyStartDate"))
+            end = _parse_date(_ci(data, "warrantyEndDate"))
+            if start is None and end is None:
+                return None
+            return self._result(start, end)
+        except Exception as exc:
+            logger.warning(f"Fujitsu-Lookup {serial}: {type(exc).__name__}")
+            return None
+
+    async def lookup_many(self, service_tags: list[str]) -> dict[str, WarrantyResult]:
+        if not service_tags:
+            return {}
+        out: dict[str, WarrantyResult] = {}
+        sem = asyncio.Semaphore(4)
+        async with httpx.AsyncClient(timeout=25.0, follow_redirects=True) as client:
+
+            async def one(tag: str) -> None:
+                async with sem:
+                    res = await self._one(client, tag)
+                if res:
+                    out[tag.upper()] = res
+
+            await asyncio.gather(*[one(t) for t in service_tags])
+        return out
+
+    async def lookup(self, service_tag: str) -> WarrantyResult | None:
+        # Konto-frei -> keine None-Schranke.
+        return (await self.lookup_many([service_tag])).get(service_tag.upper())
+
+
 def build_providers(creds_by_name: dict[str, Credential]) -> list[WarrantyProvider]:
     """Baut die verfügbaren Provider; fehlt das Konto, bleibt der Provider inaktiv (lookup→None)."""
     return [
         DellWarrantyProvider(creds_by_name.get("Dell TechDirect")),
         HpeWarrantyProvider(creds_by_name.get("HPE Warranty")),
         LenovoWarrantyProvider(creds_by_name.get("Lenovo Warranty")),
+        FujitsuWarrantyProvider(),
     ]
 
 
