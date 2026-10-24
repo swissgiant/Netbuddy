@@ -50,6 +50,7 @@ class PhysicalServerRead(BaseModel):
     mgmt_ip: str | None
     reachable_ip: str | None = None
     oob_type: str | None
+    ilo_ip: str | None = None
     ip_addresses: list[str]
     hardware_status: HardwareStatus
     hardware_detail: str | None
@@ -109,6 +110,8 @@ def _read(row: PhysicalServer, names: dict[uuid.UUID, str]) -> PhysicalServerRea
     out.mgmt_ip = str(row.mgmt_ip) if row.mgmt_ip else None
     out.reachable_ip = str(row.reachable_ip) if row.reachable_ip else None
     out.site_name = names.get(row.site_id) if row.site_id else None
+    ilo = (row.extra or {}).get("ilo")
+    out.ilo_ip = ilo.get("ip") if isinstance(ilo, dict) else None
     return out
 
 

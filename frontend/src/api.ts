@@ -716,6 +716,7 @@ export interface PhysicalServer {
   mgmt_ip: string | null;
   reachable_ip: string | null;
   oob_type: string | null;
+  ilo_ip: string | null;
   ip_addresses: string[];
   hardware_status: "ok" | "warning" | "critical" | "unknown";
   hardware_detail: string | null;

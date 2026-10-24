@@ -102,7 +102,12 @@ export function PhysicalServersView() {
               <td>{r.service_tag}</td>
               <td>{r.cpu_cores}{r.cpu_sockets ? <span className="muted"> /{r.cpu_sockets}S</span> : ""}</td>
               <td>{gb(r.ram_mb)}</td>
-              <td>{r.mgmt_ip}</td>
+              <td>{r.mgmt_ip}{r.ilo_ip && (
+                <div className="muted" style={{ fontSize: "0.85em" }}>
+                  🔧 <a href={`https://${r.ilo_ip}`} target="_blank" rel="noreferrer">{r.ilo_ip}</a>
+                  {r.oob_type ? ` (${r.oob_type})` : ""}
+                </div>
+              )}</td>
               <td className="muted">{r.reachable_ip ?? ""}</td>
               <td title={r.hardware_detail ?? ""}>
                 <select value={r.hardware_status} onChange={(e) => patch(r.id, { hardware_status: e.target.value as PhysicalServer["hardware_status"] })}>

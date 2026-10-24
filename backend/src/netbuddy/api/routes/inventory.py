@@ -10,6 +10,7 @@ from fastapi import APIRouter, Query
 
 from netbuddy.api.deps import SessionDep
 from netbuddy.services.cato_nat import NatResolveSummary, resolve_reachable_ips
+from netbuddy.services.ilo_health import IloHealthSummary, enrich_ilo_health
 from netbuddy.services.snmp_enrich import SnmpSummary, snmp_enrich
 from netbuddy.services.storage_api import (
     StorageApiSummary,
@@ -17,6 +18,7 @@ from netbuddy.services.storage_api import (
     import_storage_credentials,
 )
 from netbuddy.services.vcenter_inventory import VcSyncSummary, sync_vcenters
+from netbuddy.services.warranty import WarrantySummary, enrich_warranty
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
@@ -48,6 +50,27 @@ async def storage_api_enrich(
     """Storage via Hersteller-API (Synology/NetApp/IBM Storwize) lesen inkl. Hardware-Status;
     optional SNMP (Community PRTG) setzen. ``sites`` grenzt auf Standort-Namen ein."""
     return await enrich_storage_apis(session, enable_snmp=enable_snmp, sites=sites)
+
+
+@router.post("/ilo-health/enrich", response_model=IloHealthSummary)
+async def ilo_health_enrich(
+    session: SessionDep,
+    sites: Annotated[list[str] | None, Query()] = None,
+    bind_only: bool = False,
+) -> IloHealthSummary:
+    """Bindet iLO/iDRAC an physische Server und liest den Hardware-Status via Redfish.
+    ``bind_only`` schreibt nur die OOB-Adresse (keine Abfrage); ``sites`` grenzt ein."""
+    return await enrich_ilo_health(session, sites=sites, bind_only=bind_only)
+
+
+@router.post("/warranty/enrich", response_model=WarrantySummary)
+async def warranty_enrich(
+    session: SessionDep,
+    sites: Annotated[list[str] | None, Query()] = None,
+) -> WarrantySummary:
+    """Garantie/Service-Zeitraum je Service-Tag von der Hersteller-API (Dell TechDirect; HPE folgt).
+    Inaktiv, solange die Credential „Dell TechDirect"/„HPE Warranty" fehlt."""
+    return await enrich_warranty(session, sites=sites)
 
 
 @router.post("/storage-creds/import", response_model=list[str])
