@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type {
   Credential,
   Device,
@@ -23,6 +23,10 @@ import { Th, useSort } from "../sort";
 import { DeviceDetail } from "./DeviceDetail";
 
 const DEVICE_TYPES = ["switch", "firewall", "router", "ap", "other"];
+// Default-Filter beim Öffnen: nur Sulgen-Standort + nur Switches (kürzeste, häufigste Liste).
+const DEFAULT_SITE_NAME = "sulgen";
+const DEFAULT_TYPE = "switch";
+const NO_LINKS: DeviceCredentialRow[] = [];
 const EMPTY: DeviceCreate = {
   hostname: "",
   mgmt_ip: "",
@@ -42,25 +46,55 @@ export function DevicesView() {
   const [form, setForm] = useState<DeviceCreate>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  // Nur die Zeile, bei der gerade zugewiesen wird, rendert die große Credential-Liste.
+  const [assignRow, setAssignRow] = useState<string | null>(null);
   const [edit, setEdit] = useState<{ id: string; hostname: string; mgmt_ip: string } | null>(null);
   const [siteFilter, setSiteFilter] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(DEFAULT_TYPE);
+  // Erst rendern, wenn der Default-Standort feststeht — sonst blitzt kurz die volle Liste auf.
+  const [ready, setReady] = useState(false);
+  const inited = useRef(false);
 
   const reload = () => {
     fetchDevices().then(setDevices).catch((e) => setError(String(e)));
-    fetchSites().then(setSites).catch(() => {});
+    fetchSites()
+      .then((s) => {
+        setSites(s);
+        // Nur beim Erststart: Standort auf Sulgen vorbelegen (spätere Klicks bleiben unberührt).
+        if (!inited.current) {
+          inited.current = true;
+          const dflt = s.find((x) => x.name.toLowerCase() === DEFAULT_SITE_NAME);
+          setSiteFilter(dflt ? dflt.id : null);
+        }
+        setReady(true);
+      })
+      .catch(() => setReady(true));
     fetchCredentials().then(setCredentials).catch(() => {});
     fetchAdapters().then((a) => setAdapterIds(a.map((x) => x.adapter_id).sort())).catch(() => {});
     fetchDeviceCredentials().then(setLinks).catch(() => {});
   };
   useEffect(reload, []);
 
-  const linksFor = (deviceId: string) => links.filter((l) => l.device_id === deviceId);
+  // Credential-Links einmal pro Gerät gruppieren (statt bei jeder Zeile neu zu filtern).
+  const linksByDevice = useMemo(() => {
+    const m = new Map<string, DeviceCredentialRow[]>();
+    for (const l of links) {
+      const arr = m.get(l.device_id);
+      if (arr) arr.push(l);
+      else m.set(l.device_id, [l]);
+    }
+    return m;
+  }, [links]);
+  const linksFor = (deviceId: string) => linksByDevice.get(deviceId) ?? NO_LINKS;
 
-  const filtered = devices.filter(
-    (d) =>
-      (siteFilter === null || d.site_id === siteFilter) &&
-      (typeFilter === null || d.device_type === typeFilter),
+  const filtered = useMemo(
+    () =>
+      devices.filter(
+        (d) =>
+          (siteFilter === null || d.site_id === siteFilter) &&
+          (typeFilter === null || d.device_type === typeFilter),
+      ),
+    [devices, siteFilter, typeFilter],
   );
   const { sorted: sortedDevices, sort, toggle } = useSort(filtered, {
     site: (d) => sites.find((s) => s.id === d.site_id)?.name ?? null,
@@ -102,6 +136,7 @@ export function DevicesView() {
   };
 
   const attach = async (deviceId: string, credentialId: string) => {
+    setAssignRow(null);
     if (!credentialId) return;
     await linkCredential(deviceId, credentialId);
     reload();
@@ -175,6 +210,9 @@ export function DevicesView() {
             </button>
           ))}
         </div>
+        {!ready ? (
+          <p className="muted">lädt…</p>
+        ) : (
         <table>
           <thead>
             <tr>
@@ -245,12 +283,29 @@ export function DevicesView() {
                           </a>
                         </span>
                       ))}
-                      <select value="" onChange={(e) => attach(d.id, e.target.value)} style={{ marginTop: 2 }}>
-                        <option value="">+ zuweisen…</option>
-                        {credentials.filter((c) => !linkedIds.has(c.id)).map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
+                      {assignRow === d.id ? (
+                        <select
+                          autoFocus
+                          value=""
+                          onChange={(e) => attach(d.id, e.target.value)}
+                          onBlur={() => setAssignRow(null)}
+                          style={{ marginTop: 2 }}
+                        >
+                          <option value="">+ zuweisen…</option>
+                          {credentials.filter((c) => !linkedIds.has(c.id)).map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <button
+                          className="ghost"
+                          style={{ marginTop: 2 }}
+                          onClick={() => setAssignRow(d.id)}
+                          title="Credential zuweisen"
+                        >
+                          + zuweisen…
+                        </button>
+                      )}
                     </td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       {edit?.id === d.id ? (
@@ -278,6 +333,7 @@ export function DevicesView() {
             })}
           </tbody>
         </table>
+        )}
       </div>
     </div>
   );
