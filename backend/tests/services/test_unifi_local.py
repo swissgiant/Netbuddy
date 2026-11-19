@@ -296,6 +296,10 @@ async def test_assign_unifi_port_vlan_sets_native_override() -> None:
     overrides = json.loads(put.content)["port_overrides"]
     target = next(o for o in overrides if o["port_idx"] == 5)
     assert target["native_networkconf_id"] == "net101" and target["forward"] == "native"
+    # "Block All / Access Port" ist zwingend, sonst normalisiert der Controller forward->customize
+    # und ein vlan-only-Netz wird auf OEM-Switches nicht als PVID programmiert.
+    assert target["tagged_vlan_mgmt"] == "block_all"
+    assert target["op_mode"] == "switch" and target["setting_preference"] == "manual"
     # bestehender Override (Port 1, PoE) bleibt erhalten
     assert any(o["port_idx"] == 1 and o.get("poe_mode") == "auto" for o in overrides)
 

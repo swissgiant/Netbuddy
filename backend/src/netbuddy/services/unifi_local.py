@@ -273,11 +273,19 @@ class UnifiConsole:
     async def set_port_access_vlan(
         self, switch_mac: str, port_idx: int, networkconf_id: str, site: str = "default"
     ) -> None:
-        """⚠️ Schreibpfad: einen Switch-Port als Access-Port auf ein VLAN-Network legen.
+        """⚠️ Schreibpfad: einen Switch-Port als **echten Access-Port** auf ein VLAN-Network legen.
 
-        Setzt in ``port_overrides`` des Switches ``native_networkconf_id`` (= das VLAN) +
-        ``forward: native`` für genau diesen Port; bestehende Overrides anderer Ports bleiben,
+        Setzt in ``port_overrides`` des Switches ``native_networkconf_id`` (= das VLAN) **und
+        ``tagged_vlan_mgmt: "block_all"``** (= „Block All / Access Port" in der GUI) plus
+        ``forward: "native"`` für genau diesen Port; bestehende Overrides anderer Ports bleiben,
         und sonstige Einstellungen des Ports (z.B. PoE) werden gemerged statt überschrieben.
+
+        **Warum ``tagged_vlan_mgmt: "block_all"`` zwingend ist:** Ohne dieses Feld normalisiert
+        der Controller ``forward: "native"`` still zurück auf ``"customize"``. Auf OEM-/EdgeCore-
+        Switches, die über den UniFi-Controller adoptiert sind (z.B. Cusano USWF069), wird ein
+        **vlan-only**-Netz im „customize"-Modus dann **nicht** als untagged-PVID programmiert —
+        der Access-Verkehr fällt stillschweigend ins Default-/Management-Netz. Erst ``block_all``
+        erzeugt einen stabilen, tatsächlich taggenden Access-Port (live verifiziert in Cusano).
         """
         devices = await self.devices(site)
         dev = next(
@@ -295,6 +303,9 @@ class UnifiConsole:
             "port_idx": port_idx,
             "native_networkconf_id": networkconf_id,
             "forward": "native",
+            "tagged_vlan_mgmt": "block_all",  # = Access Port; hält forward=native stabil
+            "op_mode": "switch",
+            "setting_preference": "manual",  # Override autoritativ, nicht von Profil überstimmt
         }
         await self._write(
             "PUT",
